@@ -125,6 +125,8 @@
   .post .phead { display: flex; align-items: baseline; gap: 10px; font-size: 11px; color: #8d8371; margin-bottom: 6px; }
   .post .phead b { color: var(--glow); font-size: 12px; letter-spacing: 1px; }
   .post .ptext { font-size: 14px; line-height: 1.6; white-space: pre-wrap; word-break: break-word; }
+  .plink { color: var(--acc); text-decoration: underline; text-underline-offset: 3px; word-break: break-all; }
+  .plink:hover { color: var(--glow); }
   .post img.pmedia { max-width: 100%; border-radius: 8px; margin-top: 8px; display: block; }
   .post.tomb { border-style: dashed; color: #6f6555; font-style: italic; font-size: 12.5px; }
   .replies { margin-top: 10px; border-left: 2px solid #33281a; padding-left: 12px; }
@@ -638,6 +640,21 @@ function fortTime(ts) {
   return months[d.getMonth()] + ' ' + d.getDate() + (d.getFullYear() !== new Date().getFullYear() ? ' ' + d.getFullYear() : '');
 }
 function esc(s) { const d = document.createElement('div'); d.textContent = s == null ? '' : s; return d.innerHTML; }
+/* esc, then make pasted links clickable. escape FIRST, always — then the regex
+   walks only escaped text. quotes are excluded so nothing can climb out of the
+   href. links open in a new tab and carry no referrer: the fort does not
+   introduce itself to strangers. */
+function rich(s) {
+  return esc(s).replace(/\bhttps?:\/\/[^\s<>"']+/g, u => {
+    u = u.replace(/[.,!?:]+$/, '');                           // sentences end. urls get caught in it.
+    // strip a trailing ) or ] only if the url never opened one — wikipedia links
+    // end in (parentheses) and those parentheses are load-bearing.
+    if (u.endsWith(')') && !u.includes('(')) u = u.replace(/\)+$/, '');
+    if (u.endsWith(']') && !u.includes('[')) u = u.replace(/\]+$/, '');
+    let shown = u.length > 46 ? u.slice(0, 43).replace(/&[a-zA-Z]*$/, '') + '…' : u;
+    return '<a class="plink" href="' + u + '" target="_blank" rel="noopener noreferrer">' + shown + '</a>';
+  });
+}
 
 /* ---------- audio ---------- */
 let AC = null, master = null, noiseBuf = null;
@@ -1040,10 +1057,10 @@ function renderPost(p) {
   let inner = '<div class="phead"><b>' + esc(p.author) + '</b><span>' + fortTime(p.created) + '</span>';
   if (STATE.role === 'founder') inner += '<span style="flex:1"></span><button class="minibtn tombbtn" data-id="' + p.id + '">remove</button>';
   inner += '</div>';
-  if (p.text) inner += '<div class="ptext">' + esc(p.text) + '</div>';
+  if (p.text) inner += '<div class="ptext">' + rich(p.text) + '</div>';
   if (p.media_key) inner += '<img class="pmedia" loading="lazy" src="/api/media/' + esc(p.media_key) + '" alt="posted by ' + esc(p.author) + '">';
   inner += '<div class="replies">';
-  for (const r of (p.replies || [])) inner += '<div class="reply"><b>' + esc(r.author) + '</b> ' + esc(r.text) + '</div>';
+  for (const r of (p.replies || [])) inner += '<div class="reply"><b>' + esc(r.author) + '</b> ' + rich(r.text) + '</div>';
   inner += '</div><div class="riffrow"><input maxlength="500" placeholder="riff..."><button class="minibtn riffgo" data-id="' + p.id + '">reply</button></div>';
   el.innerHTML = inner;
   return el;
@@ -1079,7 +1096,7 @@ $('wallposts').addEventListener('click', async e => {
     if (r.data && r.data.ok) {
       const rep = document.createElement('div');
       rep.className = 'reply';
-      rep.innerHTML = '<b>' + esc(STATE.name) + '</b> ' + esc(text);
+      rep.innerHTML = '<b>' + esc(STATE.name) + '</b> ' + rich(text);
       riff.closest('.post').querySelector('.replies').appendChild(rep);
       input.value = '';
     } else toast(r.data && r.data.error || 'the riff was lost');
