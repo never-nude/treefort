@@ -2,6 +2,13 @@ name = "treefort"
 main = "src/worker.js"
 compatibility_date = "2026-06-01"
 
+# custom domain — live as of the great nameserver migration of july 2026
+# (must sit above the [[...]] tables or TOML adopts it into one of them)
+routes = [
+  { pattern = "treefort.lol", custom_domain = true },
+  { pattern = "www.treefort.lol", custom_domain = true }
+]
+
 # static fort files — served directly when the path matches a file,
 # everything else (i.e. /api/*) falls through to the worker
 [assets]
@@ -17,11 +24,6 @@ database_id = "adfda621-91d1-413f-bb21-a3623cfb71fe"   # from: wrangler d1 creat
 binding = "MEDIA"
 bucket_name = "fort-media"
 
-# custom domain — live as of the great nameserver migration of july 2026
-routes = [
-  { pattern = "treefort.lol", custom_domain = true },
-  { pattern = "www.treefort.lol", custom_domain = true }
-]
 
 # secrets (set via `wrangler secret put`, never committed):
 #   SESSION_SECRET — long random string, signs session cookies
