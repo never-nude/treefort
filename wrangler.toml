@@ -17,11 +17,11 @@ database_id = "adfda621-91d1-413f-bb21-a3623cfb71fe"   # from: wrangler d1 creat
 binding = "MEDIA"
 bucket_name = "fort-media"
 
-# custom domain — uncomment AFTER the zone is on cloudflare (DEPLOY.md step 6)
-# routes = [
-#   { pattern = "treefort.lol", custom_domain = true },
-#   { pattern = "www.treefort.lol", custom_domain = true }
-# ]
+# custom domain — live as of the great nameserver migration of july 2026
+routes = [
+  { pattern = "treefort.lol", custom_domain = true },
+  { pattern = "www.treefort.lol", custom_domain = true }
+]
 
 # secrets (set via `wrangler secret put`, never committed):
 #   SESSION_SECRET — long random string, signs session cookies
