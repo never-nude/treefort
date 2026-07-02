@@ -11,7 +11,7 @@ binding = "ASSETS"
 [[d1_databases]]
 binding = "DB"
 database_name = "fort"
-database_id = "PASTE_YOUR_D1_ID_HERE"   # from: wrangler d1 create fort
+database_id = "adfda621-91d1-413f-bb21-a3623cfb71fe"   # from: wrangler d1 create fort
 
 [[r2_buckets]]
 binding = "MEDIA"
