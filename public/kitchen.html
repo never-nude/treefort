@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MEME KITCHEN</title>
+<style>
+  * { box-sizing: border-box; }
+  :root { --acc: #ffb64d; --glow: #ffe9a8; }
+  html, body { margin: 0; min-height: 100%; background: #14100b; color: #efe6d5;
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
+  body { background: repeating-linear-gradient(90deg, #171209 0px, #1a140c 70px, #14100b 71px, #171209 140px); }
+  #app { max-width: 980px; margin: 0 auto; padding: 14px 14px 50px; }
+  .topbar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+  .topbar a { color: #8d8371; text-decoration: none; font-size: 12px; letter-spacing: 1px; }
+  .topbar a:hover { color: var(--glow); }
+  h1 { font-size: 18px; letter-spacing: 3px; color: var(--glow); margin: 0; }
+  h1 small { font-size: 10px; color: #8d8371; letter-spacing: 2px; }
+  #stage { display: flex; gap: 14px; align-items: flex-start; flex-wrap: wrap; }
+  #cwrap { position: relative; border: 3px solid #4a3a20; border-radius: 4px; background: #0c0a07;
+    box-shadow: 0 8px 20px #000a; touch-action: none; line-height: 0; }
+  #cv { max-width: 100%; height: auto; display: block; cursor: grab; }
+  #side { display: flex; flex-direction: column; gap: 10px; min-width: 220px; flex: 1; max-width: 300px; }
+  input[type=text], input[type=search] { font: inherit; font-size: 13px; background: #14100b; color: #efe6d5;
+    border: 1px solid #4a3a20; border-radius: 8px; padding: 10px 12px; outline: none; width: 100%; }
+  input[type=text]:focus { border-color: var(--acc); }
+  .fortbtn { font: inherit; font-size: 11px; font-weight: 700; letter-spacing: 1px;
+    background: #241c10; color: #ffcf87; cursor: pointer; border: 1px solid #4a3a20;
+    border-radius: 8px; padding: 9px 12px; }
+  .fortbtn:hover { border-color: var(--acc); }
+  .lbl { font-size: 10px; letter-spacing: 2px; color: #8d8371; margin-top: 4px; }
+  .ctrl { font-size: 11px; color: #8d8371; display: flex; align-items: center; gap: 8px; }
+  .ctrl input[type=range] { flex: 1; accent-color: var(--acc); }
+  .ctrl input[type=color] { width: 32px; height: 24px; border: none; background: none; padding: 0; cursor: pointer; }
+  .toolrow { display: flex; gap: 6px; flex-wrap: wrap; }
+  .tool { width: 38px; height: 38px; font-size: 15px; cursor: pointer; border-radius: 8px;
+    background: #241c10; color: #ffcf87; border: 2px solid #4a3a20; }
+  .tool.on { border-color: var(--acc); background: #33270f; }
+  #floaters .frow { display: flex; gap: 6px; margin-top: 6px; align-items: center; }
+  #floaters input { flex: 1; }
+  #wallpick { display: none; margin-top: 12px; background: #1d1710; border: 2px solid #4a3a20;
+    border-radius: 12px; padding: 12px; }
+  #wallpick.show { display: block; }
+  #wallgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 8px; }
+  #wallgrid img { width: 100%; aspect-ratio: 4/3; object-fit: cover; border-radius: 6px;
+    border: 2px solid #4a3a20; cursor: pointer; }
+  #wallgrid img:hover { border-color: var(--acc); }
+  #toast { position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%) translateY(90px);
+    background: #241c10; border: 1px solid var(--acc); color: var(--glow); border-radius: 10px;
+    padding: 11px 18px; font-size: 13px; font-weight: 700;
+    transition: transform .35s cubic-bezier(.2,1.4,.4,1); z-index: 95; }
+  #toast.show { transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="topbar">
+    <a href="index.html">&larr; back to the fort</a>
+    <h1>MEME KITCHEN <small>impact font is a food group.</small></h1>
+  </div>
+
+  <div id="stage">
+    <div id="cwrap"><canvas id="cv" width="800" height="600"></canvas></div>
+
+    <div id="side">
+      <div class="toolrow">
+        <button class="fortbtn" id="loadbtn">LOAD PHOTO</button>
+        <input type="file" id="loadfile" accept="image/*" hidden>
+        <button class="fortbtn" id="fromwall">GRAB FROM WALL</button>
+      </div>
+
+      <div class="lbl">TOP TEXT</div>
+      <input type="text" id="toptext" maxlength="80" placeholder="WHEN THE">
+      <div class="lbl">BOTTOM TEXT</div>
+      <input type="text" id="bottomtext" maxlength="80" placeholder="HITS DIFFERENT">
+
+      <div class="lbl">FLOATING TEXT (drag them on the canvas)</div>
+      <div id="floaters"></div>
+      <button class="fortbtn" id="addfloat">+ ADD FLOATING TEXT</button>
+
+      <div class="lbl">DRAW LAYER</div>
+      <div class="toolrow">
+        <button class="tool" data-t="none" title="drag text">&#10021;</button>
+        <button class="tool on" data-t="brush" title="brush">&#128396;</button>
+        <button class="tool" data-t="spray" title="spray">&#10057;</button>
+        <button class="tool" data-t="eraser" title="erase drawings">&#9633;</button>
+      </div>
+      <div class="ctrl">COLOR <input type="color" id="drawcolor" value="#ff2d2d"> SIZE
+        <input type="range" id="drawsize" min="2" max="30" value="6"></div>
+
+      <button class="fortbtn" id="postbtn">POST TO THE WALL</button>
+      <button class="fortbtn" id="dlbtn">DOWNLOAD PNG</button>
+      <button class="fortbtn" id="framebtn">ADD AS GIF FRAME &rarr;</button>
+      <div class="lbl" id="framecount"></div>
+    </div>
+  </div>
+
+  <div id="wallpick">
+    <div class="lbl" style="margin-bottom:8px">RECENT WALL ART — click to remix. remixing is a form of respect.</div>
+    <div id="wallgrid"></div>
+  </div>
+</div>
+<div id="toast"></div>
+
+<script>
+'use strict';
+/* the kitchen. where images become memes and nothing is sacred. — the management */
+
+const $ = id => document.getElementById(id);
+const store = {
+  get(k, d) { try { const v = localStorage.getItem('tf_' + k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem('tf_' + k, JSON.stringify(v)); } catch (e) {} }
+};
+let toastTimer;
+function toast(m, ms = 3000) { const t = $('toast'); t.textContent = m; t.classList.add('show');
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), ms); }
+function foundSecret(id, msg) {
+  const s = store.get('secrets', []);
+  if (s.includes(id)) return;
+  s.push(id); store.set('secrets', s);
+  toast('SECRET FOUND: ' + msg, 5200);
+}
+async function api(path, opts = {}) {
+  const init = { method: opts.method || 'GET' };
+  if (opts.raw) init.body = opts.body;
+  else if (opts.body !== undefined) { init.body = JSON.stringify(opts.body); init.headers = { 'Content-Type': 'application/json' }; }
+  const res = await fetch('/api/' + path, init);
+  let data = null; try { data = await res.json(); } catch (e) {}
+  if (res.status === 401) location.href = 'index.html';
+  return { status: res.status, data };
+}
+api('state');
+
+function idb() { return new Promise((res, rej) => {
+  const q = indexedDB.open('fortkit', 1);
+  q.onupgradeneeded = () => q.result.createObjectStore('kv');
+  q.onsuccess = () => res(q.result); q.onerror = () => rej(q.error); }); }
+async function idbGet(k) { const d = await idb(); return new Promise((res, rej) => {
+  const r = d.transaction('kv', 'readonly').objectStore('kv').get(k);
+  r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); }); }
+async function idbSet(k, v) { const d = await idb(); return new Promise((res, rej) => {
+  const t = d.transaction('kv', 'readwrite'); t.objectStore('kv').put(v, k);
+  t.oncomplete = res; t.onerror = () => rej(t.error); }); }
+
+/* ---------- state ---------- */
+const cv = $('cv'), ctx = cv.getContext('2d');
+let baseImg = null;                    // Image
+const drawLayer = document.createElement('canvas');
+const dctx = drawLayer.getContext('2d');
+let floaters = [];                     // {text, x, y, size}
+let tool = 'brush', drawColor = '#ff2d2d', drawSize = 6;
+const IMPACT = 'Impact, Haettenschweiler, "Arial Narrow Bold", "Arial Black", sans-serif';
+
+function setBase(img) {
+  baseImg = img;
+  const MAX = 1000;
+  let w = img.naturalWidth || img.width, h = img.naturalHeight || img.height;
+  const k = Math.min(1, MAX / Math.max(w, h));
+  cv.width = Math.round(w * k); cv.height = Math.round(h * k);
+  drawLayer.width = cv.width; drawLayer.height = cv.height;
+  dctx.clearRect(0, 0, cv.width, cv.height);
+  render();
+}
+function drawMemeText(c, text, y, sizePx, baseline) {
+  if (!text) return;
+  c.save();
+  c.font = '900 ' + sizePx + 'px ' + IMPACT;
+  c.textAlign = 'center'; c.textBaseline = baseline;
+  c.fillStyle = '#ffffff';
+  c.strokeStyle = '#000000';
+  c.lineWidth = Math.max(2, sizePx / 9);
+  c.lineJoin = 'round';
+  const x = cv.width / 2;
+  c.strokeText(text.toUpperCase(), x, y);
+  c.fillText(text.toUpperCase(), x, y);
+  c.restore();
+}
+function render() {
+  ctx.clearRect(0, 0, cv.width, cv.height);
+  if (baseImg) ctx.drawImage(baseImg, 0, 0, cv.width, cv.height);
+  else {
+    ctx.fillStyle = '#e8e2d4'; ctx.fillRect(0, 0, cv.width, cv.height);
+    ctx.fillStyle = '#8d8371'; ctx.font = '20px ui-monospace, monospace'; ctx.textAlign = 'center';
+    ctx.fillText('load a photo. or grab one from the wall.', cv.width / 2, cv.height / 2);
+  }
+  ctx.drawImage(drawLayer, 0, 0);
+  const big = Math.round(cv.width / 9);
+  drawMemeText(ctx, $('toptext').value, Math.round(big * 0.25), big, 'top');
+  drawMemeText(ctx, $('bottomtext').value, cv.height - Math.round(big * 0.25), big, 'bottom');
+  for (const f of floaters) {
+    ctx.save();
+    ctx.font = '900 ' + f.size + 'px ' + IMPACT;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#ffffff'; ctx.strokeStyle = '#000'; ctx.lineWidth = Math.max(2, f.size / 9); ctx.lineJoin = 'round';
+    ctx.strokeText(f.text.toUpperCase(), f.x, f.y);
+    ctx.fillText(f.text.toUpperCase(), f.x, f.y);
+    ctx.restore();
+  }
+}
+$('toptext').addEventListener('input', render);
+$('bottomtext').addEventListener('input', render);
+
+/* ---------- floating text ---------- */
+function renderFloaters() {
+  const box = $('floaters');
+  box.innerHTML = '';
+  floaters.forEach((f, i) => {
+    const row = document.createElement('div');
+    row.className = 'frow';
+    row.innerHTML = '<input type="text" maxlength="60" value="' + f.text.replace(/"/g, '&quot;') + '">'
+      + '<input type="range" min="14" max="90" value="' + f.size + '" style="width:70px;accent-color:var(--acc)">'
+      + '<button class="tool" title="delete">&times;</button>';
+    const [txt, rng, del] = row.children;
+    txt.addEventListener('input', () => { f.text = txt.value; render(); });
+    rng.addEventListener('input', () => { f.size = +rng.value; render(); });
+    del.addEventListener('click', () => { floaters.splice(i, 1); renderFloaters(); render(); });
+    box.appendChild(row);
+  });
+}
+$('addfloat').addEventListener('click', () => {
+  floaters.push({ text: 'EDIT ME', x: cv.width / 2, y: cv.height / 2, size: Math.round(cv.width / 14) });
+  renderFloaters(); render();
+});
+
+/* ---------- pointer: drag text or draw ---------- */
+function pos(e) {
+  const r = cv.getBoundingClientRect();
+  return { x: (e.clientX - r.left) * cv.width / r.width, y: (e.clientY - r.top) * cv.height / r.height };
+}
+let dragging = null, drawing = false, last = null, sprayTimer = null;
+function hitFloater(p) {
+  for (let i = floaters.length - 1; i >= 0; i--) {
+    const f = floaters[i];
+    ctx.font = '900 ' + f.size + 'px ' + IMPACT;
+    const w = ctx.measureText(f.text.toUpperCase()).width;
+    if (Math.abs(p.x - f.x) < w / 2 + 10 && Math.abs(p.y - f.y) < f.size * 0.7) return f;
+  }
+  return null;
+}
+function strokeDraw(a, b) {
+  dctx.save();
+  if (tool === 'eraser') dctx.globalCompositeOperation = 'destination-out';
+  dctx.strokeStyle = drawColor; dctx.fillStyle = drawColor;
+  dctx.lineWidth = drawSize; dctx.lineCap = 'round';
+  dctx.beginPath(); dctx.moveTo(a.x, a.y); dctx.lineTo(b.x, b.y); dctx.stroke();
+  dctx.restore();
+}
+function sprayDraw(p) {
+  dctx.save(); dctx.fillStyle = drawColor;
+  for (let i = 0; i < drawSize * 3; i++) {
+    const a = Math.random() * Math.PI * 2, r = Math.random() * drawSize * 2;
+    dctx.fillRect(p.x + Math.cos(a) * r, p.y + Math.sin(a) * r, 1.4, 1.4);
+  }
+  dctx.restore();
+}
+cv.addEventListener('pointerdown', e => {
+  e.preventDefault();
+  const p = pos(e);
+  const f = hitFloater(p);
+  if (f && (tool === 'none' || !e.shiftKey && tool === 'none')) { dragging = f; return; }
+  if (tool === 'none') { dragging = f; return; }
+  if (f && tool !== 'eraser') { dragging = f; return; }   // text drag wins over paint when you grab a word
+  drawing = true; last = p;
+  if (tool === 'spray') { sprayDraw(p); sprayTimer = setInterval(() => last && sprayDraw(last), 40); }
+  else strokeDraw(p, p);
+  render();
+});
+addEventListener('pointermove', e => {
+  if (dragging) { const p = pos(e); dragging.x = p.x; dragging.y = p.y; render(); return; }
+  if (!drawing) return;
+  const p = pos(e);
+  if (tool === 'spray') last = p;
+  else { strokeDraw(last, p); last = p; }
+  render();
+});
+addEventListener('pointerup', () => {
+  dragging = null; drawing = false;
+  clearInterval(sprayTimer); sprayTimer = null;
+});
+document.querySelectorAll('.tool[data-t]').forEach(b => b.addEventListener('click', () => {
+  tool = b.dataset.t;
+  document.querySelectorAll('.tool[data-t]').forEach(t => t.classList.remove('on'));
+  b.classList.add('on');
+}));
+$('drawcolor').addEventListener('input', e => drawColor = e.target.value);
+$('drawsize').addEventListener('input', e => drawSize = +e.target.value);
+
+/* ---------- sources ---------- */
+$('loadbtn').addEventListener('click', () => $('loadfile').click());
+$('loadfile').addEventListener('change', e => {
+  const f = e.target.files[0];
+  if (!f) return;
+  const img = new Image();
+  const url = URL.createObjectURL(f);
+  img.onload = () => { URL.revokeObjectURL(url); setBase(img); };   // canvas re-encode on export strips metadata
+  img.onerror = () => toast('that is not an image.');
+  img.src = url;
+  e.target.value = '';
+});
+$('fromwall').addEventListener('click', async () => {
+  const box = $('wallpick');
+  box.classList.toggle('show');
+  if (!box.classList.contains('show')) return;
+  const grid = $('wallgrid');
+  grid.innerHTML = '<span class="lbl">rummaging through the wall...</span>';
+  const r = await api('wall');
+  if (!(r.data && r.data.ok)) { grid.innerHTML = '<span class="lbl">the wall is unreachable. suspicious.</span>'; return; }
+  const media = r.data.posts.filter(p => !p.deleted && p.media_key && p.type !== 'gif');
+  grid.innerHTML = media.length ? '' : '<span class="lbl">no art on the wall yet. be the first. no pressure. (pressure.)</span>';
+  media.forEach(p => {
+    const img = document.createElement('img');
+    img.src = '/api/media/' + p.media_key;
+    img.title = 'by ' + p.author;
+    img.addEventListener('click', () => {
+      const big = new Image();
+      big.onload = () => { setBase(big); box.classList.remove('show'); toast('remixing ' + p.author + '\'s post. an honor, really.'); };
+      big.src = img.src;
+    });
+    grid.appendChild(img);
+  });
+});
+
+/* ---------- export ---------- */
+function anyText() {
+  return !!($('toptext').value.trim() || $('bottomtext').value.trim() || floaters.some(f => f.text.trim()));
+}
+$('dlbtn').addEventListener('click', () => {
+  const a = document.createElement('a');
+  a.download = 'fort-meme.png';
+  a.href = cv.toDataURL('image/png');
+  a.click();
+});
+$('postbtn').addEventListener('click', async function () {
+  if (!baseImg) { toast('a meme needs a base image. them\'s physics.'); return; }
+  this.disabled = true; this.textContent = 'POSTING...';
+  try {
+    const blob = await new Promise(r => cv.toBlob(r, 'image/png'));
+    const buf = await blob.arrayBuffer();
+    const up = await api('upload', { method: 'POST', body: buf, raw: true });
+    if (!(up.data && up.data.ok)) throw new Error(up.data && up.data.error || 'upload failed');
+    const r = await api('post', { method: 'POST', body: { type: 'meme', media_key: up.data.media_key, text: '' } });
+    if (!(r.data && r.data.ok)) throw new Error(r.data && r.data.error || 'post failed');
+    if (!anyText()) foundSecret('silence', 'a meme with no words. the rarest form. the kitchen bows.');
+    toast('posted. the wall accepts your meme.');
+  } catch (err) { toast(err.message); }
+  this.disabled = false; this.textContent = 'POST TO THE WALL';
+});
+$('framebtn').addEventListener('click', async () => {
+  if (!baseImg) { toast('nothing to add yet.'); return; }
+  const h = (await idbGet('handoff_frames')) || { frames: [], w: cv.width, h: cv.height, from: 'kitchen' };
+  if (h.frames.length && (h.w !== cv.width || h.h !== cv.height)) {
+    h.frames = []; h.w = cv.width; h.h = cv.height;   // size changed = new reel
+  }
+  h.frames.push(cv.toDataURL('image/png'));
+  h.w = cv.width; h.h = cv.height;
+  await idbSet('handoff_frames', h);
+  $('framecount').textContent = h.frames.length + ' frame(s) queued for the gif machine. change the text, add another.';
+  toast('frame ' + h.frames.length + ' queued. tweak the text and add the next one.');
+});
+
+render();
+</script>
+</body>
+</html>

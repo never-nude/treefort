@@ -1,0 +1,1328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="members only. you know if you're a member.">
+<title>treefort.lol</title>
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  :root { --acc: #ffb64d; --glow: #ffe9a8; --tint: #2a2138; }
+  body[data-theme="arcade"]   { --acc: #ff2d78; --glow: #67e8f9; --tint: #241030; }
+  body[data-theme="swamp"]    { --acc: #9ee493; --glow: #e4f5c9; --tint: #14301c; }
+  body[data-theme="midnight"] { --acc: #7cc7ff; --glow: #c9b8f0; --tint: #101a38; }
+  html, body {
+    margin: 0; min-height: 100%;
+    background: #14100b; color: #efe6d5;
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  }
+  body {
+    background:
+      radial-gradient(ellipse at 50% -20%, var(--tint) 0%, transparent 55%),
+      repeating-linear-gradient(90deg, #171209 0px, #1a140c 70px, #14100b 71px, #171209 140px);
+  }
+  ::selection { background: color-mix(in srgb, var(--acc) 35%, transparent); }
+  body.weird { animation: weird 8s linear infinite; }
+  @keyframes weird { to { filter: hue-rotate(360deg); } }
+
+  /* ================= DOOR ================= */
+  #door { position: fixed; inset: 0; z-index: 100; background: #0a0908;
+    display: flex; align-items: center; justify-content: center; padding: 24px; }
+  #doorbox { width: 100%; max-width: 560px; }
+  #doorlog { font-size: 15px; line-height: 1.9; min-height: 220px; white-space: pre-wrap; word-break: break-word; }
+  #doorlog .ok { color: #9ee493; }
+  #doorlog .warn { color: #ffb64d; }
+  #doorlog .bad { color: #e08383; }
+  #doorlog .sys { color: #8d8371; }
+  #doorlog .big { color: #ffe9a8; font-weight: 700; }
+  .doorrow { display: none; gap: 10px; margin-top: 14px; }
+  .doorrow.show { display: flex; }
+  .doorrow input { flex: 1; font: inherit; font-size: 16px; background: #14110c; color: #ffe9a8;
+    border: 1px solid #4a3f2a; border-radius: 8px; padding: 12px 14px; outline: none; }
+  .doorrow input:focus { border-color: var(--acc); }
+  .doorrow button { font: inherit; font-weight: 700; cursor: pointer;
+    background: var(--acc); color: #241a08; border: none; border-radius: 8px; padding: 12px 20px; }
+
+  /* ================= FORT SHELL ================= */
+  #fort { max-width: 920px; margin: 0 auto; padding: 18px 18px 60px; display: none; }
+  #lights { display: flex; justify-content: space-between; padding: 0 8px; margin-bottom: 4px; }
+  #lights i { width: 10px; height: 10px; border-radius: 50%; display: block; animation: twinkle 2.4s infinite; }
+  #lights i:nth-child(4n+1) { background: #ffb64d; box-shadow: 0 0 12px #ffb64d; }
+  #lights i:nth-child(4n+2) { background: #ff6b9d; box-shadow: 0 0 12px #ff6b9d; animation-delay: .6s; }
+  #lights i:nth-child(4n+3) { background: #9ee493; box-shadow: 0 0 12px #9ee493; animation-delay: 1.2s; }
+  #lights i:nth-child(4n+4) { background: #7cc7ff; box-shadow: 0 0 12px #7cc7ff; animation-delay: 1.8s; }
+  @keyframes twinkle { 50% { opacity: .35; } }
+
+  header { text-align: center; margin: 18px 0 6px; position: relative; }
+  #sign { display: inline-block; background: #2b2013; border: 3px solid #4a3a20; border-radius: 10px;
+    padding: 12px 26px 14px; box-shadow: 0 6px 0 #0c0905, inset 0 0 24px #0006; transform: rotate(-1.2deg); }
+  #sign h1 { margin: 0; font-size: clamp(26px, 6vw, 40px); letter-spacing: 4px;
+    color: var(--glow); text-shadow: 0 0 18px color-mix(in srgb, var(--acc) 40%, transparent); }
+  #sign small { color: #8d8371; letter-spacing: 2px; font-size: 10px; }
+  #moon { position: absolute; right: 4px; top: -6px; width: 34px; height: 34px; border-radius: 50%;
+    cursor: pointer; border: none;
+    background: radial-gradient(circle at 38% 38%, #fdf6d8, #d9cfa4 60%, #b3a97f);
+    box-shadow: 0 0 22px #fdf6d888; }
+
+  #greeting { text-align: center; color: #c9bda3; margin: 14px 0 4px; font-size: 14px; }
+  #greeting b { color: var(--glow); }
+  #rankline { text-align: center; font-size: 12px; color: #8d8371; margin-bottom: 4px; }
+  #rankline b { color: #9ee493; letter-spacing: 1px; }
+
+  #perch { display: flex; flex-direction: column; align-items: center; margin: 8px 0 2px; }
+  #dog { width: 150px; height: 108px; cursor: pointer; }
+  #dogsay { min-height: 20px; font-size: 12px; color: #d6c8a8; font-style: italic; opacity: 0; transition: opacity .3s; }
+  #dogsay.show { opacity: 1; }
+  .fortbtn { font: inherit; font-size: 12px; font-weight: 700; letter-spacing: 1px;
+    background: #241c10; color: #ffcf87; cursor: pointer;
+    border: 1px solid #4a3a20; border-radius: 8px; padding: 8px 14px; }
+  .fortbtn:hover { border-color: var(--acc); }
+  .fortbtn:active { transform: translateY(1px); }
+  .fortbtn.danger { border-color: #6b2727; color: #e08383; }
+
+  /* wall clutter row */
+  #clutter { display: flex; align-items: flex-end; justify-content: center; gap: 26px; margin: 16px 0 4px; flex-wrap: wrap; }
+  .taped { position: relative; transform: rotate(-2deg); }
+  .taped::before, .taped::after { content: ""; position: absolute; width: 34px; height: 12px;
+    background: #e9dc9db8; top: -6px; }
+  .taped::before { left: -10px; transform: rotate(-18deg); }
+  .taped::after { right: -10px; transform: rotate(14deg); }
+  #narcs { background: #f3e9cf; color: #7a1f1f; font-weight: 800; letter-spacing: 2px;
+    padding: 10px 16px; font-size: 13px; border-radius: 3px; box-shadow: 0 4px 10px #0007; }
+  #poster { cursor: pointer; transform: rotate(1.6deg); }
+  #poster svg { display: block; box-shadow: 0 5px 14px #0009; border-radius: 3px; }
+  #dartwrap { position: relative; }
+
+  /* ================= BULLETIN ================= */
+  #board { margin-top: 18px; background: #3a2c18; border: 6px solid #241a0d; border-radius: 12px;
+    padding: 18px 16px 20px; box-shadow: inset 0 0 40px #0008, 0 8px 0 #0c0905; }
+  #board h2, .roomhead { margin: 0 0 4px; text-align: center; font-size: 13px; letter-spacing: 3px; color: #d6c8a8; }
+  #boarddate { text-align: center; font-size: 11px; color: #8d8371; margin-bottom: 14px; }
+  #cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 14px; }
+  .note { background: #f3e9cf; color: #33291a; border-radius: 4px; padding: 14px 14px 16px;
+    position: relative; box-shadow: 0 4px 10px #0007; font-size: 13.5px; line-height: 1.55; }
+  .note:nth-child(1) { transform: rotate(-1.4deg); }
+  .note:nth-child(2) { transform: rotate(0.9deg); background: #f9f3d8; }
+  .note:nth-child(3) { transform: rotate(-0.6deg); background: #ede4d3; }
+  .note::before { content: ""; position: absolute; top: -7px; left: 50%; margin-left: -7px;
+    width: 14px; height: 14px; border-radius: 50%;
+    background: radial-gradient(circle at 35% 35%, #ff8383, #b32424); box-shadow: 0 2px 3px #0006; }
+  .note h3 { margin: 0 0 8px; font-size: 11px; letter-spacing: 2px; color: #7a6a4a; }
+  .note .subsay { margin-top: 10px; font-style: italic; color: #6d5c3c; font-size: 12px; }
+  .note .subsay b { color: #4a3a20; }
+
+  /* ================= THE WALL ================= */
+  section.roombox { margin-top: 22px; background: #1d1710; border: 2px solid #4a3a20; border-radius: 14px; padding: 18px 16px 20px; }
+  .roomsub { text-align: center; font-size: 11px; color: #6f6555; margin: 0 0 14px; }
+  #composer { max-width: 640px; margin: 0 auto 18px; }
+  #composer textarea { width: 100%; font: inherit; font-size: 14px; background: #14100b; color: #efe6d5;
+    border: 1px solid #4a3a20; border-radius: 8px; padding: 11px 13px; outline: none; min-height: 64px; resize: vertical; }
+  #composer textarea:focus { border-color: var(--acc); }
+  #composerrow { display: flex; gap: 8px; margin-top: 8px; align-items: center; flex-wrap: wrap; }
+  #attachpreview { max-height: 70px; border-radius: 6px; display: none; border: 1px solid #4a3a20; }
+  #wallposts { max-width: 640px; margin: 0 auto; }
+  .post { border: 1px solid #33281a; border-radius: 10px; background: #16110b; padding: 12px 14px; margin-bottom: 12px; }
+  .post .phead { display: flex; align-items: baseline; gap: 10px; font-size: 11px; color: #8d8371; margin-bottom: 6px; }
+  .post .phead b { color: var(--glow); font-size: 12px; letter-spacing: 1px; }
+  .post .ptext { font-size: 14px; line-height: 1.6; white-space: pre-wrap; word-break: break-word; }
+  .post img.pmedia { max-width: 100%; border-radius: 8px; margin-top: 8px; display: block; }
+  .post.tomb { border-style: dashed; color: #6f6555; font-style: italic; font-size: 12.5px; }
+  .replies { margin-top: 10px; border-left: 2px solid #33281a; padding-left: 12px; }
+  .reply { font-size: 13px; margin-bottom: 6px; line-height: 1.5; word-break: break-word; }
+  .reply b { color: #c9bda3; font-size: 11px; letter-spacing: 1px; }
+  .riffrow { display: flex; gap: 6px; margin-top: 8px; }
+  .riffrow input { flex: 1; font: inherit; font-size: 13px; background: #14100b; color: #efe6d5;
+    border: 1px solid #33281a; border-radius: 6px; padding: 7px 10px; outline: none; }
+  .riffrow input:focus { border-color: var(--acc); }
+  .minibtn { font: inherit; font-size: 11px; font-weight: 700; cursor: pointer;
+    background: none; border: 1px solid #4a3a20; color: #8d8371; border-radius: 6px; padding: 6px 10px; }
+  .minibtn:hover { color: #ffcf87; border-color: var(--acc); }
+  #marker { text-align: center; color: var(--acc); font-size: 11px; letter-spacing: 2px; margin: 14px 0; opacity: .8; }
+  #wallmore { display: block; margin: 6px auto 0; }
+  #wallempty { text-align: center; color: #6f6555; font-size: 13px; font-style: italic; padding: 20px 0; }
+
+  /* ================= DICTIONARY ================= */
+  .term { border-bottom: 1px dashed #33281a; padding: 12px 4px; max-width: 640px; margin: 0 auto; }
+  .term h4 { margin: 0 0 4px; font-size: 16px; color: var(--glow); letter-spacing: 1px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .chip { font-size: 9px; letter-spacing: 1px; padding: 3px 8px; border-radius: 20px; font-weight: 700; }
+  .chip.CERTIFIED { background: #1d3323; color: #9ee493; border: 1px solid #9ee49366; }
+  .chip.LIFESUPPORT { background: #33290f; color: #ffb64d; border: 1px solid #ffb64d66; }
+  .chip.DECEASED { background: #2a1515; color: #e08383; border: 1px solid #e0838366; }
+  .term .tdef { font-size: 13.5px; line-height: 1.55; }
+  .term .tex { font-size: 12.5px; font-style: italic; color: #a89a7e; margin-top: 4px; }
+  .term .tmeta { font-size: 10px; color: #6f6555; margin-top: 6px; letter-spacing: 1px; }
+  #dictform { max-width: 640px; margin: 0 auto 16px; display: grid; gap: 8px; }
+  #dictform input, #dictform textarea { font: inherit; font-size: 13px; background: #14100b; color: #efe6d5;
+    border: 1px solid #4a3a20; border-radius: 8px; padding: 9px 12px; outline: none; }
+  #dictform input:focus, #dictform textarea:focus { border-color: var(--acc); }
+  #graveyard { margin-top: 18px; }
+  #graveyard .roomhead { color: #a08a8a; }
+  #graveyard .term h4 { color: #b89a9a; text-decoration: line-through; text-decoration-thickness: 1px; }
+
+  /* ================= ROOMS GRID ================= */
+  #rooms { margin-top: 22px; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; }
+  .room { display: block; text-decoration: none; background: #1d1710; border: 2px solid #4a3a20;
+    border-radius: 12px; padding: 16px; color: inherit; cursor: pointer; font: inherit; text-align: left; }
+  .room:hover { border-color: var(--acc); box-shadow: 0 0 18px color-mix(in srgb, var(--acc) 15%, transparent); }
+  .room h3 { margin: 0 0 4px; font-size: 15px; letter-spacing: 2px; color: var(--glow); }
+  .room p { margin: 0; font-size: 12px; color: #8d8371; line-height: 1.5; }
+
+  /* ================= WORKSHOP ================= */
+  #workshop { display: none; margin-top: 14px; background: #1d1710; border: 2px dashed #4a3a20; border-radius: 12px; padding: 16px; }
+  #workshop.show { display: block; }
+  .wrow { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
+  .wrow label { font-size: 11px; letter-spacing: 1px; color: #8d8371; min-width: 140px; }
+  .wrow input { font: inherit; font-size: 14px; background: #14100b; color: var(--glow);
+    border: 1px solid #4a3a20; border-radius: 8px; padding: 8px 12px; outline: none; width: 180px; }
+  .wrow input:focus { border-color: var(--acc); }
+  .themechip { font: inherit; font-size: 11px; font-weight: 700; cursor: pointer;
+    background: #241c10; color: #c9bda3; border: 2px solid #4a3a20; border-radius: 8px; padding: 7px 12px; }
+  .themechip.on { border-color: var(--acc); color: var(--glow); }
+  #wsnote, .founderhead { font-size: 11px; color: #57503f; margin-top: 8px; line-height: 1.7; }
+  #founderpanel { display: none; border-top: 1px dashed #4a3a20; margin-top: 14px; padding-top: 14px; }
+  #founderpanel.show { display: block; }
+  .founderhead { color: #9ee493; letter-spacing: 2px; margin-bottom: 10px; }
+  #rosterbox { font-size: 12px; color: #c9bda3; line-height: 1.9; margin-top: 8px; }
+
+  footer { margin-top: 30px; text-align: center; font-size: 11px; color: #57503f; letter-spacing: 1px; line-height: 2; }
+  #secretcount { color: #9ee493; }
+
+  #fx { position: fixed; inset: 0; pointer-events: none; z-index: 90; }
+  #toast { position: fixed; left: 50%; bottom: 26px; transform: translateX(-50%) translateY(90px);
+    background: #241c10; border: 1px solid var(--acc); color: var(--glow); border-radius: 10px;
+    padding: 12px 20px; font-size: 13px; font-weight: 700;
+    transition: transform .35s cubic-bezier(.2,1.4,.4,1); z-index: 95; max-width: 90vw; text-align: center; }
+  #toast.show { transform: translateX(-50%) translateY(0); }
+
+  @media (max-width: 640px) { #clutter { gap: 14px; } }
+</style>
+</head>
+<body>
+
+<div id="door">
+  <div id="doorbox">
+    <div id="doorlog"></div>
+    <div class="doorrow" id="coderow">
+      <input id="codefield" maxlength="64" autocomplete="off" spellcheck="false" placeholder="the code" type="password">
+      <button id="codego">KNOCK</button>
+    </div>
+    <div class="doorrow" id="namerow">
+      <input id="namefield" maxlength="20" autocomplete="off" spellcheck="false" placeholder="your name">
+      <button id="namego">ENTER</button>
+    </div>
+  </div>
+</div>
+
+<div id="fort">
+  <div id="lights"></div>
+  <header>
+    <div id="sign"><h1>TREEFORT</h1><small>EST. WHENEVER &middot; MEMBERS ONLY &middot; .LOL</small></div>
+    <button id="moon" title="the moon" aria-label="the moon"></button>
+  </header>
+
+  <div id="greeting"></div>
+  <div id="rankline"></div>
+
+  <div id="perch">
+    <canvas id="dog"></canvas>
+    <div id="dogsay"></div>
+    <div><button class="fortbtn" id="feedbtn">GIVE DALE A SNACK</button></div>
+  </div>
+
+  <div id="clutter">
+    <div class="taped" id="narcs">NO NARCS</div>
+    <div class="taped" id="poster" title="staff morale poster"></div>
+    <div id="dartwrap"></div>
+  </div>
+
+  <section id="board">
+    <h2>TODAY'S FORT BULLETIN</h2>
+    <div id="boarddate"></div>
+    <div id="cards">
+      <div class="note"><h3>GAMER HOROSCOPE</h3><div id="horo"></div></div>
+      <div class="note"><h3>TODAY'S MISSION</h3><div id="mission"></div></div>
+      <div class="note"><h3>TRUE ANIMAL FACT</h3><div id="fact"></div><div class="subsay"><span id="doglabel">DALE</span>'s take: <b id="subtake"></b></div></div>
+    </div>
+  </section>
+
+  <section class="roombox" id="wallroom">
+    <h2 class="roomhead">THE WALL</h2>
+    <p class="roomsub">everything posts with your name on it. own it. riff below the line.</p>
+    <div id="composer">
+      <textarea id="posttext" maxlength="2000" placeholder="say it. the wall keeps everything."></textarea>
+      <div id="composerrow">
+        <button class="fortbtn" id="attachbtn">ATTACH IMAGE</button>
+        <input type="file" id="attachfile" accept="image/*" hidden>
+        <img id="attachpreview" alt="">
+        <button class="minibtn" id="attachclear" style="display:none">remove</button>
+        <span style="flex:1"></span>
+        <button class="fortbtn" id="postbtn">POST TO THE WALL</button>
+      </div>
+    </div>
+    <div id="wallposts"></div>
+    <div id="wallempty" style="display:none">nothing on the wall yet. history begins with whoever posts first.</div>
+    <button class="minibtn" id="wallmore" style="display:none">load older</button>
+  </section>
+
+  <section class="roombox" id="dictroom">
+    <h2 class="roomhead">THE DICTIONARY</h2>
+    <p class="roomsub">the official record of how we talk. the founder certifies. time kills. we document.</p>
+    <div id="dictform">
+      <input id="dterm" maxlength="40" placeholder="the term">
+      <textarea id="ddef" maxlength="500" rows="2" placeholder="what it means"></textarea>
+      <input id="dex" maxlength="300" placeholder='usage example (optional but respected)'>
+      <button class="fortbtn" id="dictadd">SUBMIT TO THE RECORD</button>
+    </div>
+    <div id="dictlist"></div>
+    <div id="graveyard">
+      <h2 class="roomhead">THE GRAVEYARD</h2>
+      <p class="roomsub">terms that died. they served. mostly.</p>
+      <div id="gravelist"></div>
+    </div>
+  </section>
+
+  <section id="rooms">
+    <a class="room" href="paint.html"><h3>&#9998; PAINT</h3>
+      <p>the art room. spray can included, as required by ancient law. makes stills and gif frames.</p></a>
+    <a class="room" href="kitchen.html"><h3>&#9640; MEME KITCHEN</h3>
+      <p>impact font, top and bottom. draw on anything. export files, deploy anywhere.</p></a>
+    <a class="room" href="gifmachine.html"><h3>&#9654; GIF MACHINE</h3>
+      <p>frames go in. a gif comes out. built on-site, no outside contractors.</p></a>
+    <button class="room" id="lookout"><h3>&#9650; THE LOOKOUT</h3>
+      <p>climb up and check the perimeter. reports are filed daily. threat level: probably fine.</p></button>
+    <button class="room" id="lockedroom"><h3>&#9632; ???</h3>
+      <p>this door is locked. it hums quietly. do not knock three times. seriously, don't.</p></button>
+    <button class="room" id="workshopbtn"><h3>&#9881; THE WORKSHOP</h3>
+      <p>paint jobs and paperwork. founders will find additional paperwork.</p></button>
+  </section>
+
+  <section id="workshop">
+    <h2 class="roomhead">THE WORKSHOP</h2>
+    <div class="wrow"><label>PAINT JOB (this device)</label>
+      <button class="themechip" data-t="ember">EMBER</button>
+      <button class="themechip" data-t="arcade">ARCADE</button>
+      <button class="themechip" data-t="swamp">SWAMP</button>
+      <button class="themechip" data-t="midnight">MIDNIGHT</button>
+    </div>
+    <div id="wsnote">renaming the fort is founder business. the founder outranks you. the dog outranks the founder.</div>
+    <div id="founderpanel">
+      <div class="founderhead">FOUNDER PAPERWORK — visible to you and the dog only</div>
+      <div class="wrow"><label>FORT NAME</label><input id="cfg_fort" maxlength="14"><button class="minibtn" id="cfgsave1">save</button></div>
+      <div class="wrow"><label>DOG'S STREET NAME</label><input id="cfg_dog" maxlength="10"><button class="minibtn" id="cfgsave2">save</button></div>
+      <div class="wrow"><label>CHANGE THE LOCKS</label><input id="newcode" maxlength="64" placeholder="new fort code"><button class="fortbtn danger" id="lockbtn">CHANGE</button></div>
+      <div class="wrow"><label>THE ROSTER</label><button class="minibtn" id="rosterbtn">who has knocked</button></div>
+      <div id="rosterbox"></div>
+      <div id="wsnote">changing the locks logs everyone out except you. delete buttons live on the wall. use them like a dog would: rarely, and with great dignity.</div>
+    </div>
+  </section>
+
+  <section class="roombox" id="oracle" style="background:#191324;border-color:#3a2d55">
+    <h2 class="roomhead" style="color:#c9b8f0">THE ORACLE</h2>
+    <p class="roomsub" style="color:#6f6390">ask it anything. it is never wrong. it is frequently useless.</p>
+    <div style="display:flex;gap:10px;max-width:560px;margin:0 auto">
+      <input id="oracleq" maxlength="120" autocomplete="off" placeholder="o great oracle..."
+        style="flex:1;font:inherit;font-size:14px;background:#120d1c;color:#e8ddff;border:1px solid #3a2d55;border-radius:8px;padding:11px 13px;outline:none">
+      <button id="oraclego" style="font:inherit;font-weight:700;cursor:pointer;background:#6a4bb5;color:#f1eaff;border:none;border-radius:8px;padding:11px 18px">CONSULT</button>
+    </div>
+    <div id="oraclea" style="max-width:560px;margin:14px auto 0;min-height:24px;text-align:center;font-size:16px;color:#e8ddff;text-shadow:0 0 14px #9d7bff55"></div>
+  </section>
+
+  <footer>
+    FORT ATTENDANCE: <span id="streakline"></span><br>
+    SECRETS FOUND: <span id="secretcount">0/3</span> &middot; there are secrets in this fort. more than advertised.<br>
+    founded by CONNOR &middot; staff: <span id="staffname">DALE</span> (dog) &middot; management is a dog<br>
+    a treefort.lol production &middot; no ads, no accounts, no algorithms, no narcs
+  </footer>
+</div>
+
+<canvas id="fx"></canvas>
+<div id="toast"></div>
+
+<script>
+'use strict';
+/* ==========================================================
+   HEY CONNOR. yes, you. you opened the source. correct move.
+
+   this is v2. the fort got real. there's a wall now, and a
+   dictionary, and three maker rooms (paint.html, kitchen.html,
+   gifmachine.html — each one is its own readable file, go look).
+
+   still editable: HOROSCOPES, MISSIONS, FACTS, ORACLE_ANSWERS,
+   RANKS, LOOKOUT_REPORTS below. they're just lists. add lines.
+   keep the commas. that is the only rule.
+
+   the wall and the dictionary live on a server now. open your
+   browser's devtools, watch the network tab, and you'll see the
+   fort speaking json to /api/. that's the whole protocol. it is
+   not complicated. nothing real is.
+
+   secret count: the footer advertises 3. the true number is
+   larger and grows when new rooms open. two of the new ones
+   cannot be found by clicking. one requires reading. one
+   requires painting like you mean it.
+
+   the founder code changes the locks. guard it like a dragon.
+   — the management (a dog)
+   ========================================================== */
+/* ================= CONTENT ================= */
+const HOROSCOPES = [
+  "Your aim will be suspiciously good between 4 and 5 PM. Do not question the window. Use the window.",
+  "A loading screen will test your patience today. You will win, but it will remember.",
+  "Beware of side quests disguised as chores. Actually, do the chore. XP is XP.",
+  "Today you will find a snack you forgot you had. This is the universe apologizing for Monday.",
+  "Someone will say 'good game' and mean it. Treasure this. It happens like four times a year.",
+  "Your respawn energy is strong today. Whatever goes wrong, you get back up faster than usual.",
+  "Do not trust any door that opens too easily today. In games or otherwise.",
+  "The stars suggest saving your game AND your homework. The stars have seen things.",
+  "An NPC in your life (a teacher, probably) will drop actual useful information today. Rare event.",
+  "Your inventory is too full. Donate, delete, or eat something. The stars aren't picky.",
+  "Today's lag is not your fault. Today's lag is cosmic. Say it out loud: 'cosmic lag.'",
+  "A dog will look at you like you matter today. Correct. You do. Dogs don't lie.",
+  "You will think of the perfect comeback 45 minutes too late. Write it down. Post it on the wall. Recycle it Thursday.",
+  "The boss fight today is called 'getting out of bed.' You've beaten it every single time so far. Undefeated.",
+  "Small win incoming: something you dread will get cancelled. Act disappointed. Feel joy.",
+  "Your luck stat is buffed until sundown. Nothing crazy. Like, vending machine luck.",
+  "Someone will explain something to you that you already know. Nod. Collect the free wisdom points anyway.",
+  "Today is a stealth mission. Keep your head down, do your thing, extract at 3 PM sharp.",
+  "The universe has autosaved your progress. You cannot lose what you learned this week. It's banked.",
+  "Warning: a group project approaches. You will carry it. You know you will carry it. Stretch first.",
+  "Your headphones will deliver exactly the right song at exactly the right moment today. Trust the shuffle.",
+  "Mercury is in retrograde, which affects nothing, but it's a great excuse. Use it once. Only once.",
+  "Tonight's sleep will drop rare loot: an extremely weird dream. Report it to the wall in the morning.",
+  "You will be 4% braver today. Doesn't sound like much. It's enough. It's always been enough."
+];
+const MISSIONS = [
+  "Refer to your backpack as 'the payload' for the entire day. Explain nothing.",
+  "Nod slowly at the next pigeon you see. It knows why.",
+  "Drink a glass of water like it's a potion. Because it is. +5 HP. Real ones know hydration is a buff.",
+  "When someone says 'what's up,' respond 'the ceiling, unfortunately' and keep walking.",
+  "Hold the door for someone today and whisper 'safe travels, adventurer' just quietly enough.",
+  "Say 'as foretold' the next time literally anything happens.",
+  "Pet a dog today. If no dog is available, think respectfully about a dog you have known.",
+  "At some point today, stand up, stretch, and announce 'checkpoint reached' to no one.",
+  "Learn one (1) new fact today and deploy it at dinner like it's classified intel.",
+  "Walk slightly more dramatically than necessary between two classes. Cape optional. Cape encouraged.",
+  "Give an inanimate object in your house a rank. The microwave is now Lieutenant Microwave. Salute accordingly.",
+  "Next time you win at anything, say 'GG' out loud, even if it's a quiz. ESPECIALLY if it's a quiz.",
+  "Find the oldest tree you pass today and give it a small, respectful nod. Seniority matters.",
+  "Reply 'noted.' to at least one piece of unsolicited advice today. Nothing else. Just 'noted.'",
+  "Eat lunch today like a king who has seen war. Slowly. Gratefully. With one thousand-yard stare.",
+  "Count how many people you see wearing red today. Report the number to the Oracle tonight. It cares.",
+  "Do one kind thing today with zero witnesses. Stealth kindness. The rarest loot in the game.",
+  "Rename a homework assignment 'THE CONTRACT' in your head. Complete the contract. Collect the bounty (grades).",
+  "The next time you sneeze, say 'critical hit' before anyone can say bless you.",
+  "Tell an adult a true animal fact today and watch their entire day improve. You have the power.",
+  "Sit somewhere slightly different at lunch. Observe. Take mental field notes. You are the documentary narrator now.",
+  "When your shoes squeak today, pretend it was intentional. Style points are self-assigned.",
+  "Before bed, say 'log off' out loud to your own brain. Sometimes it actually listens.",
+  "Draw a tiny flag in PAINT and post it on the wall to mark something you conquered today. A quiz. A chair. Anything."
+];
+const FACTS = [
+  { f: "Mantis shrimp punch so fast the water around their fists briefly boils. Aquariums have to keep them away from glass.", s: "i have never once boiled water. respect." },
+  { f: "Crows can remember human faces for years, and they tell other crows about you. You can be famous among crows.", s: "be nice to crows. they run a whole network." },
+  { f: "Octopuses have three hearts and blue blood, and two of the hearts stop when they swim. Swimming literally tires their heart out.", s: "three hearts and they still hide in a jar. relatable." },
+  { f: "Wombats poop cubes. Actual cubes. Scientists studied it. It's so the poop doesn't roll away, because they use it to mark territory.", s: "engineering. pure engineering." },
+  { f: "Sea otters hold hands while they sleep so they don't drift apart. Groups of floating otters are called rafts.", s: "this is the best fact in the entire fort. don't argue." },
+  { f: "Axolotls can regrow entire limbs, parts of their heart, and even parts of their brain. They basically have respawn enabled.", s: "respawn IRL. absolutely broken ability. no nerf incoming." },
+  { f: "A group of flamingos is called a flamboyance. That is the actual scientific-adjacent term. A flamboyance.", s: "a group of dogs is just called 'the staff.' write that down." },
+  { f: "Tardigrades (water bears) can survive the vacuum of space, being frozen, and being boiled. They just tough it out.", s: "smallest guy. hardest to eliminate. classic." },
+  { f: "Elephants can recognize themselves in mirrors, mourn their dead, and comfort each other with trunk hugs.", s: "big gray friends with feelings. protect at all costs." },
+  { f: "A hummingbird's heart can beat over 1,200 times per minute. Yours does about 80. They live at 15x speed.", s: "they see us in slow motion. we are the lag." },
+  { f: "Goats have rectangular pupils so they can see almost all the way around themselves without moving their heads.", s: "360 no-scope vision. built in. from birth." },
+  { f: "Rats laugh when you tickle them. It's ultrasonic, so you can't hear it, but scientists recorded it. Rats. Giggling.", s: "somewhere right now a rat is cracking up and we just can't hear it." },
+  { f: "Cows have best friends and get visibly stressed when separated from them.", s: "check on your cow-workers. i'll see myself out." },
+  { f: "A snail can sleep for up to three years if conditions are bad enough. Three years. Just... opts out.", s: "the snail said 'wake me when it's good' and meant it." },
+  { f: "Male gentoo penguins search whole beaches for the smoothest pebble and present it to their chosen penguin.", s: "a rock. from the heart. smoother than anything i've ever done." },
+  { f: "Dolphins have names. Each one has a signature whistle, and other dolphins call them by it.", s: "imagine hearing your name in whistle. i'd come running. i already do." },
+  { f: "Ravens play. They've been filmed sledding down snowy roofs on pieces of bark, climbing back up, and going again.", s: "no reward. no reason. just sledding. elite behavior." },
+  { f: "The immortal jellyfish (Turritopsis dohrnii) can age backward into a baby jellyfish and start over. Potentially forever.", s: "new game plus. in real life. unbelievable." },
+  { f: "Honeybees vote. When a swarm needs a new home, scout bees dance for their favorite spot and the swarm decides by dance-off.", s: "democracy but it's a dance battle. superior system honestly." },
+  { f: "Sloths can hold their breath longer than dolphins — up to 40 minutes — by slowing their heart rate way down.", s: "the slow guy wins a breath-holding contest against the fast guy. cinema." },
+  { f: "Cats can't taste sweetness. At all. The gene is broken. Every cat you've ever met has no idea what sugar is.", s: "explains a lot about their whole attitude, doesn't it." },
+  { f: "Butterflies can taste with their feet. They land on a leaf and immediately know if it's food.", s: "imagine knowing the flavor of everywhere you've ever stood. the sidewalk. tragic." },
+  { f: "Prairie dogs have one of the most complex animal languages known — their alarm calls can describe a predator's size, shape, color, and speed.", s: "they are out there describing YOU. 'tall. hoodie. moving medium.'" },
+  { f: "An octopus named Inky escaped a New Zealand aquarium by squeezing through a drainpipe to the ocean. At night. Alone. He planned it.", s: "inky did nothing wrong. free my guy. oh wait. he freed himself." },
+  { f: "Vampire bats share food with hungry roost-mates, and they remember who shared with them before.", s: "snack economy. reputation based. the fort operates the same way." },
+  { f: "Pigeons can be trained to tell a Monet painting from a Picasso. They're better at it than some humans.", s: "the bird on the sidewalk might have opinions about your memes. nod at it." },
+  { f: "Squirrels plant thousands of trees every year by burying nuts and forgetting where some of them are.", s: "reforesting the planet via bad memory. accidental hero. my favorite kind." },
+  { f: "Seahorses hold tails when traveling together so they don't lose each other in currents.", s: "tiny. slow. holding hands the whole way. absolute legends." },
+  { f: "A shrimp's heart is in its head.", s: "no joke here. i just think everyone should know this." },
+  { f: "Dogs can smell time. As scent fades through the day, a dog can tell roughly when things happened and even predict when you're coming home.", s: "yes. we know when you're coming. we're not waiting by the door for no reason." },
+  { f: "Orcas have culture. Different pods have their own dialects, hunting styles, and food preferences that they teach their kids.", s: "whale traditions. passed down. grandma orca teaching recipes." },
+  { f: "Bees can recognize human faces. Researchers trained them with sugar water, and the bees kept recognizing the faces days later.", s: "you are known to the bees. carry yourself accordingly." }
+];
+const ORACLE_ANSWERS = [
+  "Yes, but at what cost. (About eleven dollars.)",
+  "The council of raccoons has voted. It's a no. They were very polite about it.",
+  "Absolutely. I checked twice.",
+  "Ask again after a snack. This is not a delay tactic. Snacks improve accuracy.",
+  "Signs point to yes, but the signs are handwritten and one is upside down.",
+  "No. And you knew that when you asked.",
+  "Outlook hazy. The fort's wifi is down. Spiritually.",
+  "That information is classified at the highest levels of the fort. So: probably.",
+  "Yes, if you're brave. No, if you're honest. So... maybe.",
+  "The moon says yes. The moon says yes to everything though. Don't tell the moon I said that.",
+  "100% yes. This is the most certain I have ever been. And I once predicted a Tuesday.",
+  "Unclear. A moth flew into the prophecy. The moth says hi.",
+  "It is known. (It is not known. But it FEELS known, doesn't it?)",
+  "Reply hazy. Try turning yourself off and on again. (Sleep. I'm describing sleep.)",
+  "The answer lies within you. Somewhere near the ribs. Left side.",
+  "Yes, and honestly? It's about time.",
+  "No, but something better is loading. Progress bar is at like 60%.",
+  "Consult a dog. Dogs know. Dogs always know.",
+  "The prophecy is buffering. In the meantime: assume yes and act cool.",
+  "Danger. Not from the thing you asked about. From homework. Always from homework.",
+  "The stars say yes but the stars are 4 light-years old and haven't seen your situation lately.",
+  "Certainly not. Unless...? No. No. ...Unless?",
+  "You already know the answer. I'm just here for the ambience.",
+  "Yes, on one condition: you have to be normal about it. So, no.",
+  "The fort has reviewed your request. The fort approves. The fort is proud of you, actually.",
+  "Mmm. Ask me something easier, like 'what's the best kind of stick.' (Medium. Slightly bendy.)",
+  "All signs point to 'eventually.'",
+  "It's a yes from me. It's a no from the moth. Split decision. Rock paper scissors?",
+  "The answer arrived but it was written in crayon and mostly it's a drawing of a horse. Interpret freely.",
+  "Whatever happens, act like it was your plan. That's not a prophecy, that's just good advice.",
+  "Nope. The universe said 'lol' and hung up.",
+  "Yes. And when it happens, post it on the wall. I love hearing how these turn out.",
+  "The odds are 50/50 but leaning 60/40. Don't check my math.",
+  "This question has been asked once before. By a squirrel. It did not end well. But YOU? You'll be fine.",
+  "Prophecy machine broke. Vibes machine still works though, and the vibes are good.",
+  "As foretold.",
+  "D'oh. (that's a no.)"
+];
+const RANKS = [
+  [1, "FRESH RECRUIT"], [2, "CERTIFIED KNOCKER"], [3, "ASSISTANT TO THE RACCOON COUNCIL"],
+  [5, "SNACK QUARTERMASTER"], [7, "KEEPER OF THE GOOD STICK"], [10, "MOON LIAISON"],
+  [14, "VICE PRESIDENT OF LADDERS"], [21, "ELDER OF THE FORT"], [30, "LEGEND (ACTUAL)"],
+  [50, "THE FORT ITSELF"]
+];
+const DOG_LINES = [
+  "hey. you made it.",
+  "i held the fort down. it was heavy.",
+  "i barked at a leaf earlier. handled it.",
+  "you smell like someone who has snacks. no pressure.",
+  "the raccoon council sends their regards.",
+  "i know when you're coming, you know. i can smell time.",
+  "good day for a fort. most days are.",
+  "i would simply never log off.",
+  "saw the moon last night. still up there. i checked.",
+  "check the wall. somebody might have said something. or not. mystery.",
+  "i read everything on the wall. i have opinions. i keep them professional.",
+  "you're my favorite visitor. don't tell the mailman. actually, tell the mailman."
+];
+const SNACK_LINES = [
+  "YES. incredible. put it on my tab.",
+  "a feast. an absolute feast.",
+  "mmmf. thank you. i owe you one (1) favor of dog.",
+  "crunchy. loud. perfect.",
+  "this is going straight to the tail.",
+  "the prophecy said you'd feed me. the prophecy delivers."
+];
+const LOOKOUT_REPORTS = [
+  "PERIMETER REPORT: one (1) squirrel acting suspicious. Followed up. He was just like that.",
+  "PERIMETER REPORT: all clear. A cloud looked like a hand for a while. Logged it.",
+  "PERIMETER REPORT: mailman passed at standard velocity. The dog filed a formal objection.",
+  "PERIMETER REPORT: three birds held a meeting on the north branch. Minutes were not shared.",
+  "PERIMETER REPORT: the wind moved some leaves around. Redecorating, probably. Approved.",
+  "PERIMETER REPORT: a cat crossed the yard with zero permits. Let it slide. This time.",
+  "PERIMETER REPORT: nothing to report, which is exactly what someone hiding something would report. Investigating myself.",
+  "PERIMETER REPORT: dew levels: high. Vibe levels: higher.",
+  "PERIMETER REPORT: one worm relocated from the sidewalk to the grass. Hero work. No applause necessary.",
+  "PERIMETER REPORT: the moon was seen leaving the area around dawn. It'll be back. It always comes back.",
+  "PERIMETER REPORT: a beetle walked the entire length of the fence. Respect the grind.",
+  "PERIMETER REPORT: fog rolled in at 0600, looked extremely dramatic, rolled back out. Show-off.",
+  "PERIMETER REPORT: acorn count is up 12% from yesterday. The squirrels know something.",
+  "PERIMETER REPORT: someone's sprinkler ran for exactly one minute. We may never know why.",
+  "PERIMETER REPORT: a very good dog was observed from the lookout. it was the staff. it's always the staff. 10/10.",
+  "PERIMETER REPORT: crow on the wire made eye contact and nodded first. Alliance confirmed.",
+  "PERIMETER REPORT: grass grew an unmeasurable amount. But it grew. We believe in it.",
+  "PERIMETER REPORT: threat level remains 'probably fine.' It has never not been 'probably fine.'",
+  "PERIMETER REPORT: one sock found on the fence line. No matching sock. The mystery deepens.",
+  "PERIMETER REPORT: sunrise occurred on schedule. Reliable. Professional. We should all take notes."
+];
+const POSTER_LINES = [
+  "i have no comment at this time.",
+  "PATRICIA is a professional and we respect her body of work.",
+  "we worked together once. the calendar shoot. we don't discuss the calendar shoot.",
+  "(dignified silence)",
+  "she's seeing a borzoi now. i'm fine. it's fine. everything is fine.",
+  "staff morale is at an all-time high. unrelated."
+];
+const WRONG_CODE_LINES = [
+  "that is not the code. the raccoon council has been notified.",
+  "still not the code. the raccoons are drafting a strongly worded memo.",
+  "incorrect. the door is starting to think you don't know the code.",
+  "no. the moth that lives in the lock is laughing at you.",
+  "wrong again. ask whoever runs this place. they hand the code out, allegedly."
+];
+const POSTER_SVG = `<svg width="120" height="164" viewBox="0 0 120 164" xmlns="http://www.w3.org/2000/svg">
+<rect width="120" height="164" fill="#efe3c2"/>
+<rect x="4" y="4" width="112" height="156" fill="none" stroke="#b3452e" stroke-width="3"/>
+<g opacity="0.5" stroke="#d9b98a" stroke-width="3">
+<line x1="60" y1="82" x2="60" y2="10"/><line x1="60" y1="82" x2="108" y2="26"/><line x1="60" y1="82" x2="12" y2="26"/>
+<line x1="60" y1="82" x2="112" y2="66"/><line x1="60" y1="82" x2="8" y2="66"/><line x1="60" y1="82" x2="104" y2="120"/><line x1="60" y1="82" x2="16" y2="120"/>
+</g>
+<text x="60" y="20" text-anchor="middle" font-family="Georgia,serif" font-size="10" fill="#b3452e" font-style="italic">Miss Fort 1944</text>
+<ellipse cx="60" cy="120" rx="26" ry="16" fill="#f7f2e6" stroke="#33291a" stroke-width="2"/>
+<circle cx="60" cy="78" r="20" fill="#f7f2e6" stroke="#33291a" stroke-width="2"/>
+<circle cx="42" cy="64" r="11" fill="#f7f2e6" stroke="#33291a" stroke-width="2"/>
+<circle cx="78" cy="64" r="11" fill="#f7f2e6" stroke="#33291a" stroke-width="2"/>
+<circle cx="60" cy="58" r="12" fill="#f7f2e6" stroke="#33291a" stroke-width="2"/>
+<path d="M52 78 q2 3 5 0" stroke="#33291a" stroke-width="2" fill="none"/>
+<line x1="68" y1="76" x2="74" y2="74" stroke="#33291a" stroke-width="2"/>
+<circle cx="53" cy="76" r="2.2" fill="#33291a"/>
+<ellipse cx="60" cy="86" rx="4" ry="3" fill="#33291a"/>
+<path d="M40 96 Q60 106 80 96 L78 104 Q60 112 42 104 Z" fill="#c23b4e" stroke="#33291a" stroke-width="1.5"/>
+<ellipse cx="34" cy="130" rx="9" ry="7" fill="#f7f2e6" stroke="#33291a" stroke-width="2"/>
+<ellipse cx="86" cy="130" rx="9" ry="7" fill="#f7f2e6" stroke="#33291a" stroke-width="2"/>
+<path d="M14 146 h92 l-6 10 h-80 Z" fill="#b3452e"/>
+<text x="60" y="154" text-anchor="middle" font-family="Georgia,serif" font-size="9" fill="#efe3c2" letter-spacing="2">PATRICIA</text>
+</svg>`;
+const DART_SVG = `<svg width="90" height="110" viewBox="0 0 90 110" xmlns="http://www.w3.org/2000/svg">
+<circle cx="45" cy="45" r="34" fill="#2b2013" stroke="#4a3a20" stroke-width="3"/>
+<circle cx="45" cy="45" r="24" fill="none" stroke="#8a5a33" stroke-width="2"/>
+<circle cx="45" cy="45" r="14" fill="none" stroke="#8a5a33" stroke-width="2"/>
+<circle cx="45" cy="45" r="4" fill="#b3452e"/>
+<line x1="45" y1="11" x2="45" y2="79" stroke="#4a3a20" stroke-width="1.5"/>
+<line x1="11" y1="45" x2="79" y2="45" stroke="#4a3a20" stroke-width="1.5"/>
+<g transform="translate(64,96) rotate(-38)">
+<line x1="0" y1="0" x2="22" y2="0" stroke="#8d8371" stroke-width="2.5"/>
+<path d="M22 0 l7 -3 v6 Z" fill="#c23b4e"/>
+<circle cx="0" cy="0" r="1.6" fill="#e8e0cd"/>
+</g>
+<text x="45" y="107" text-anchor="middle" font-size="7" fill="#57503f" font-family="inherit" letter-spacing="1">missed. on purpose. probably.</text>
+</svg>`;
+/* ================= CORE ================= */
+const $ = id => document.getElementById(id);
+const store = {
+  get(k, d) { try { const v = localStorage.getItem('tf_' + k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem('tf_' + k, JSON.stringify(v)); } catch (e) {} }
+};
+let STATE = { name: null, role: null, fort_name: 'TREEFORT', dog_name: 'DALE' };
+
+async function api(path, opts = {}) {
+  const init = { method: opts.method || 'GET', headers: {} };
+  if (opts.body !== undefined) {
+    if (opts.raw) { init.body = opts.body; }
+    else { init.body = JSON.stringify(opts.body); init.headers['Content-Type'] = 'application/json'; }
+  }
+  const res = await fetch('/api/' + path, init);
+  let data = null;
+  try { data = await res.json(); } catch (e) {}
+  if (res.status === 401 && fortOpen) { toast('your session expired. knock again.'); setTimeout(() => location.reload(), 1600); }
+  return { status: res.status, data };
+}
+
+function mulberry32(a) {
+  return function () {
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    let t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+function dayKey(offset = 0) {
+  const d = new Date(); d.setDate(d.getDate() + offset);
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+const dailyRng = mulberry32(parseInt(dayKey().replace(/-/g, ''), 10));
+const pickDaily = arr => arr[Math.floor(dailyRng() * arr.length)];
+function fortTime(ts) {
+  const s = Math.floor(Date.now() / 1000) - ts;
+  if (s < 60) return 'just now';
+  if (s < 3600) return Math.floor(s / 60) + 'm ago';
+  if (s < 86400) return Math.floor(s / 3600) + 'h ago';
+  if (s < 172800) return 'yesterday';
+  const d = new Date(ts * 1000);
+  const months = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
+  return months[d.getMonth()] + ' ' + d.getDate() + (d.getFullYear() !== new Date().getFullYear() ? ' ' + d.getFullYear() : '');
+}
+function esc(s) { const d = document.createElement('div'); d.textContent = s == null ? '' : s; return d.innerHTML; }
+
+/* ---------- audio ---------- */
+let AC = null, master = null, noiseBuf = null;
+function ensureAudio() {
+  if (!AC) {
+    try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return; }
+    master = AC.createGain(); master.gain.value = 0.5; master.connect(AC.destination);
+    noiseBuf = AC.createBuffer(1, AC.sampleRate, AC.sampleRate);
+    const d = noiseBuf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+  }
+  if (AC.state === 'suspended') AC.resume();
+}
+function env(t, peak, decay) {
+  const g = AC.createGain();
+  g.gain.setValueAtTime(peak, t);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + decay);
+  return g;
+}
+function sBark() {
+  if (!AC) return; const t = AC.currentTime;
+  [0, 0.16].forEach(off => {
+    const st = t + off;
+    const o = AC.createOscillator(); o.type = 'square';
+    o.frequency.setValueAtTime(430, st); o.frequency.exponentialRampToValueAtTime(240, st + 0.07);
+    const g = env(st, 0.5, 0.09); o.connect(g); g.connect(master); o.start(st); o.stop(st + 0.1);
+  });
+}
+function sChomp() {
+  if (!AC) return; const t = AC.currentTime;
+  [0, 0.12, 0.24].forEach(off => {
+    const st = t + off;
+    const n = AC.createBufferSource(); n.buffer = noiseBuf;
+    const f = AC.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 900;
+    const g = env(st, 0.7, 0.06); n.connect(f); f.connect(g); g.connect(master); n.start(st); n.stop(st + 0.08);
+  });
+}
+function sKnockSfx() {
+  if (!AC) return; const t = AC.currentTime;
+  const o = AC.createOscillator(); o.type = 'sine';
+  o.frequency.setValueAtTime(110, t); o.frequency.exponentialRampToValueAtTime(60, t + 0.08);
+  const g = env(t, 0.9, 0.14); o.connect(g); g.connect(master); o.start(t); o.stop(t + 0.16);
+}
+function sWhoosh() {
+  if (!AC) return; const t = AC.currentTime;
+  const o = AC.createOscillator(); o.type = 'sine';
+  o.frequency.setValueAtTime(300, t); o.frequency.exponentialRampToValueAtTime(900, t + 0.25);
+  const g = env(t, 0.25, 0.3); o.connect(g); g.connect(master); o.start(t); o.stop(t + 0.32);
+}
+
+/* ---------- particles + toast ---------- */
+const fx = $('fx'), fctx = fx.getContext('2d');
+let parts = [];
+function resizeFx() { fx.width = innerWidth * devicePixelRatio; fx.height = innerHeight * devicePixelRatio; }
+addEventListener('resize', resizeFx);
+const CONFETTI = ['#ffb64d', '#ff6b9d', '#9ee493', '#7cc7ff', '#ffe9a8'];
+function burst(el, n = 18, colors = CONFETTI) {
+  const r = el.getBoundingClientRect(), dpr = devicePixelRatio;
+  const cx = (r.left + r.width / 2) * dpr, cy = (r.top + r.height / 2) * dpr;
+  for (let i = 0; i < n; i++) {
+    const a = Math.random() * Math.PI * 2, v = (2 + Math.random() * 5) * dpr;
+    parts.push({ x: cx, y: cy, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 3 * dpr,
+      life: 1, color: colors[Math.floor(Math.random() * colors.length)], sz: (2 + Math.random() * 4) * dpr });
+  }
+  if (parts.length > 500) parts.splice(0, parts.length - 500);
+}
+function rain(n = 120) {
+  const dpr = devicePixelRatio;
+  for (let i = 0; i < n; i++) {
+    parts.push({ x: Math.random() * fx.width, y: -10 * dpr - Math.random() * fx.height * 0.3,
+      vx: (Math.random() - 0.5) * 2 * dpr, vy: (2 + Math.random() * 4) * dpr,
+      life: 1.6, color: CONFETTI[Math.floor(Math.random() * CONFETTI.length)], sz: (2 + Math.random() * 4) * dpr });
+  }
+}
+function stepFx(dt) {
+  fctx.clearRect(0, 0, fx.width, fx.height);
+  parts = parts.filter(p => p.life > 0);
+  for (const p of parts) {
+    p.x += p.vx; p.y += p.vy; p.vy += 0.12 * devicePixelRatio; p.life -= dt * 0.9;
+    fctx.globalAlpha = Math.max(0, Math.min(1, p.life));
+    fctx.fillStyle = p.color; fctx.fillRect(p.x, p.y, p.sz, p.sz);
+  }
+  fctx.globalAlpha = 1;
+}
+let toastTimer = null;
+function toast(msg, ms = 3400) {
+  const t = $('toast'); t.textContent = msg; t.classList.add('show');
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), ms);
+}
+
+/* ---------- attendance + rank (total days, never streaks) ---------- */
+function updateAttendance() {
+  const today = dayKey(), last = store.get('last', null);
+  let total = store.get('total', 0);
+  if (last !== today) { total += 1; store.set('total', total); store.set('last', today); }
+  return total;
+}
+function rankFor(total) {
+  let r = RANKS[0][1];
+  for (const [n, title] of RANKS) if (total >= n) r = title;
+  return r;
+}
+
+/* ---------- secrets ---------- */
+let secrets = store.get('secrets', []);
+const SECRET_ADVERTISED = 3;
+function foundSecret(id, msg) {
+  if (secrets.includes(id)) return false;
+  secrets.push(id); store.set('secrets', secrets);
+  $('secretcount').textContent = secrets.length + '/' + SECRET_ADVERTISED;
+  rain(140); sWhoosh();
+  toast('SECRET FOUND: ' + msg, 5200);
+  return true;
+}
+
+/* ---------- DALE (government name) ---------- */
+const dog = $('dog'), dctx = dog.getContext('2d');
+let happiness = 30, dogBounce = 0, party = false;
+function sizeDog() {
+  const r = dog.getBoundingClientRect();
+  dog.width = Math.max(1, Math.round(r.width * devicePixelRatio));
+  dog.height = Math.max(1, Math.round(r.height * devicePixelRatio));
+}
+addEventListener('resize', sizeDog);
+function dogSay(line, ms = 3200) {
+  const el = $('dogsay');
+  el.textContent = '"' + line + '"'; el.classList.add('show');
+  clearTimeout(dogSay.t); dogSay.t = setTimeout(() => el.classList.remove('show'), ms);
+}
+dog.addEventListener('pointerdown', () => {
+  ensureAudio(); sBark();
+  happiness = Math.min(100, happiness + 18); dogBounce = 1;
+  burst(dog, 10, ['#ff6b9d', '#ffe9a8']);
+  dogSay(DOG_LINES[Math.floor(Math.random() * DOG_LINES.length)]);
+});
+$('feedbtn').addEventListener('click', () => {
+  ensureAudio(); sChomp();
+  happiness = Math.min(100, happiness + 30); dogBounce = 1;
+  burst(dog, 16, ['#ffb64d', '#e9bc86', '#d69a5e']);
+  dogSay(SNACK_LINES[Math.floor(Math.random() * SNACK_LINES.length)]);
+  const snacks = store.get('snacks', 0) + 1; store.set('snacks', snacks);
+  if (snacks === 10) toast('the dog has filed a formal thank-you note. 10 snacks served.');
+  if (snacks === 50) toast('50 snacks. the dog has named a constellation after you.');
+});
+function drawDog(t) {
+  const W = dog.width, H = dog.height;
+  if (!W || !H) return;
+  dctx.clearRect(0, 0, W, H);
+  const u = W / 22;
+  const hyped = party || happiness > 60, vibe = happiness > 25;
+  const bounce = hyped ? Math.abs(Math.sin(t * 8)) * u * 1.1 : 0;
+  const bob = dogBounce * u * 0.9 + (vibe ? Math.sin(t * 5) * u * 0.22 : 0);
+  const y0 = H - 16 * u - bounce;
+  if (hyped) {
+    const gr = dctx.createRadialGradient(W / 2, H * 0.6, u, W / 2, H * 0.6, W * 0.55);
+    gr.addColorStop(0, 'rgba(255,182,77,0.25)'); gr.addColorStop(1, 'rgba(255,182,77,0)');
+    dctx.fillStyle = gr; dctx.fillRect(0, 0, W, H);
+  }
+  const px = (c, r, w, h, col, dy = 0) => { dctx.fillStyle = col; dctx.fillRect(c * u, y0 + r * u + dy, w * u, h * u); };
+  const TAN = '#d69a5e', DARK = '#8a5a33', SNT = '#e9bc86', INK = '#12100c';
+  const wagHz = hyped ? 14 : vibe ? 8 : 3;
+  if (Math.sin(t * wagHz) > 0) px(1, 5, 2, 3, TAN); else px(1, 8, 2, 3, TAN);
+  px(4, 12, 1.6, 3, TAN); px(6.6, 12, 1.6, 3, DARK);
+  px(9.4, 12, 1.6, 3, TAN); px(11.8, 12, 1.6, 3, DARK);
+  px(3, 8, 10, 5, TAN); px(3.6, 10.4, 3.2, 2.6, DARK);
+  px(11, 3, 7, 6, TAN, bob);
+  px(17, 5.4, 2.6, 2.6, SNT, bob); px(19, 5.4, 0.9, 0.9, INK, bob);
+  px(11, 1.6, 2, 4.2, DARK, bob); px(15.8, 1.8, 1.8, 2, DARK, bob);
+  if (hyped) { px(12, 4.4, 6.4, 1.5, INK, bob); px(12.6, 4.2, 1.9, 1.9, INK, bob); px(15.6, 4.2, 1.9, 1.9, INK, bob); }
+  else { const blink = Math.sin(t * 1.3) > 0.975;
+    if (blink) px(14.8, 5, 1.3, 0.35, INK, bob); else px(14.9, 4.6, 1, 1, INK, bob); }
+  if (hyped) px(17.8, 8, 1, 1.8, '#ff6b9d', bob);
+}
+
+/* ---------- bulletin / oracle / lookout / moon / secrets ---------- */
+function fillBulletin() {
+  const d = new Date();
+  const days = ['SUNDAY','MONDAY','TUESDAY','WEDNESDAY','THURSDAY','FRIDAY','SATURDAY'];
+  const months = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
+  $('boarddate').textContent = days[d.getDay()] + ', ' + months[d.getMonth()] + ' ' + d.getDate() + ' — refreshes at midnight, fort time';
+  $('horo').textContent = pickDaily(HOROSCOPES);
+  $('mission').textContent = pickDaily(MISSIONS);
+  const fact = pickDaily(FACTS);
+  $('fact').textContent = fact.f;
+  $('subtake').textContent = fact.s;
+}
+let oracleBusy = false;
+function consult() {
+  if (oracleBusy) return;
+  const q = $('oracleq').value.trim(), out = $('oraclea');
+  if (!q) { out.textContent = 'you have to actually ask something. the oracle is not a mind reader. (it is. but it\'s polite.)'; return; }
+  ensureAudio(); oracleBusy = true;
+  let ans;
+  const ql = q.toLowerCase();
+  if (ql.includes('what is the fort') || ql.includes('what is this place') || ql.includes('what is treefort')) {
+    ans = 'The fort is a load-bearing joke. The fort is wherever the dog is. The fort is you, technically, legally, spiritually. Next question.';
+    foundSecret('source', 'you asked the one true question. the counter is not broken. the fort just likes you.');
+  }
+  else if (ql.includes('connor')) ans = 'Connor-related questions are handled on the priority channel. The answer is yes. It is basically always yes for Connor.';
+  else if (ql.includes('jamie')) ans = 'Jamie questions get answered at little-brother speed: immediately. The answer is yes and also be nice to him.';
+  else if (ql.includes(STATE.dog_name.toLowerCase())) ans = 'The dog already knows the answer. Look at his face. LOOK at it. Exactly.';
+  else if (ql.includes('moon')) ans = 'The moon has been notified of your question and is flattered.';
+  else ans = ORACLE_ANSWERS[Math.floor(Math.random() * ORACLE_ANSWERS.length)];
+  out.textContent = '';
+  let dots = 0;
+  const think = setInterval(() => { dots = (dots + 1) % 4; out.textContent = 'consulting' + '.'.repeat(dots); }, 260);
+  setTimeout(() => {
+    clearInterval(think); out.textContent = '';
+    let i = 0;
+    const type = setInterval(() => {
+      out.textContent = ans.slice(0, ++i);
+      if (i >= ans.length) { clearInterval(type); oracleBusy = false; }
+    }, 22);
+    sWhoosh(); burst($('oracle'), 12, ['#9d7bff', '#c9b8f0', '#e8ddff']);
+  }, 1300 + Math.random() * 900);
+}
+$('oraclego').addEventListener('click', consult);
+$('oracleq').addEventListener('keydown', e => { if (e.key === 'Enter') consult(); });
+
+$('lookout').addEventListener('click', function () {
+  ensureAudio(); sWhoosh();
+  const p = this.querySelector('p');
+  if (!this.dataset.used) { p.textContent = pickDaily(LOOKOUT_REPORTS); this.dataset.used = '1'; }
+  else p.textContent = LOOKOUT_REPORTS[Math.floor(Math.random() * LOOKOUT_REPORTS.length)];
+});
+let knocks3 = 0, knockTimer = null;
+$('lockedroom').addEventListener('click', function () {
+  ensureAudio(); sKnockSfx();
+  knocks3++;
+  clearTimeout(knockTimer); knockTimer = setTimeout(() => knocks3 = 0, 2500);
+  const p = this.querySelector('p');
+  if (knocks3 === 1) p.textContent = 'knock.';
+  else if (knocks3 === 2) p.textContent = 'knock. knock. (we said don\'t.)';
+  else if (knocks3 >= 3) {
+    knocks3 = 0;
+    if (!foundSecret('door', 'the hum stops. a voice says "finally." the door stays locked — but now it trusts you.')) {
+      p.textContent = 'the door remembers you. it hums a little warmer now.';
+    } else {
+      p.textContent = 'the hum has stopped. the door trusts you now. still locked though. some things take time.';
+    }
+  }
+});
+let moonClicks = 0, moonTimer = null;
+$('moon').addEventListener('click', () => {
+  ensureAudio(); sWhoosh();
+  moonClicks++;
+  clearTimeout(moonTimer); moonTimer = setTimeout(() => moonClicks = 0, 2000);
+  if (moonClicks >= 3) {
+    moonClicks = 0;
+    document.body.classList.toggle('weird');
+    if (document.body.classList.contains('weird')) foundSecret('moon', 'you broke the moon. (it\'s fine.) (three more clicks fixes it.)');
+    else toast('the moon has been repaired. it says thanks.');
+  }
+});
+let keyBuf = '';
+addEventListener('keydown', e => {
+  if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return;
+  if (!e.key || e.key.length !== 1) return;
+  keyBuf = (keyBuf + e.key.toLowerCase()).slice(-12);
+  if (keyBuf.endsWith(STATE.dog_name.toLowerCase())) {
+    keyBuf = '';
+    ensureAudio(); sBark(); setTimeout(sBark, 300);
+    party = true; setTimeout(() => party = false, 6000);
+    rain(160);
+    dogSay('YOU SPOKE THE NAME. THE NAME HAS POWER.', 4000);
+    foundSecret('name', 'you typed the dog\'s name into the void, and the void wagged.');
+  }
+});
+
+/* ---------- workshop ---------- */
+function applyTheme() {
+  const t = store.get('theme', 'ember');
+  if (t !== 'ember') document.body.dataset.theme = t; else delete document.body.dataset.theme;
+  document.querySelectorAll('.themechip[data-t]').forEach(c => c.classList.toggle('on', c.dataset.t === t));
+}
+document.querySelectorAll('.themechip[data-t]').forEach(c =>
+  c.addEventListener('click', () => { ensureAudio(); sWhoosh(); store.set('theme', c.dataset.t); applyTheme(); }));
+$('workshopbtn').addEventListener('click', () => {
+  ensureAudio(); sWhoosh();
+  const w = $('workshop'); w.classList.toggle('show');
+  if (w.classList.contains('show')) w.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+});
+$('cfgsave1').addEventListener('click', async () => {
+  const r = await api('config', { method: 'POST', body: { fort_name: $('cfg_fort').value } });
+  if (r.data && r.data.ok) { toast('the fort has been renamed. paperwork filed.'); refreshState(); }
+  else toast(r.data && r.data.error || 'the paperwork failed.');
+});
+$('cfgsave2').addEventListener('click', async () => {
+  const r = await api('config', { method: 'POST', body: { dog_name: $('cfg_dog').value } });
+  if (r.data && r.data.ok) { toast('the dog has a new street name. he took it well.'); refreshState(); }
+  else toast(r.data && r.data.error || 'the dog rejected the paperwork.');
+});
+let lockArmed = false;
+$('lockbtn').addEventListener('click', async function () {
+  const code = $('newcode').value.trim();
+  if (code.length < 4) { toast('4+ characters. the raccoons insist.'); return; }
+  if (!lockArmed) {
+    lockArmed = true; this.textContent = 'SURE? EVERYONE RE-KNOCKS';
+    setTimeout(() => { lockArmed = false; this.textContent = 'CHANGE'; }, 3000);
+    return;
+  }
+  const r = await api('lock', { method: 'POST', body: { new_code: code } });
+  if (r.data && r.data.ok) { $('newcode').value = ''; this.textContent = 'CHANGE'; lockArmed = false;
+    toast('locks changed. spread the new code however you like.', 5000); }
+  else toast(r.data && r.data.error || 'the locks jammed.');
+});
+$('rosterbtn').addEventListener('click', async () => {
+  const r = await api('roster');
+  if (!(r.data && r.data.ok)) return;
+  $('rosterbox').innerHTML = r.data.roster.map(v =>
+    esc(v.name) + ' &middot; first knocked ' + fortTime(v.first_seen) + ' &middot; last seen ' + fortTime(v.last_seen) + ' &middot; ' + v.knocks + ' knocks'
+  ).join('<br>') || 'nobody yet. eerie.';
+});
+async function refreshState() {
+  const r = await api('state');
+  if (r.data && r.data.ok) {
+    STATE = r.data;
+    document.querySelector('#sign h1').textContent = STATE.fort_name;
+    document.title = STATE.fort_name.toLowerCase() + '.lol';
+    $('feedbtn').textContent = 'GIVE ' + STATE.dog_name + ' A SNACK';
+    $('doglabel').textContent = STATE.dog_name;
+    $('staffname').textContent = STATE.dog_name;
+    $('cfg_fort').value = STATE.fort_name;
+    $('cfg_dog').value = STATE.dog_name;
+    if (STATE.role === 'founder') $('founderpanel').classList.add('show');
+  }
+}
+/* ================= THE WALL ================= */
+let oldestId = 0, pendingBlob = null, pendingIsGif = false;
+
+function reencodeImage(file) {
+  return new Promise((resolve, reject) => {
+    if (file.type === 'image/gif') { resolve({ blob: file, isGif: true }); return; }  // gifs carry no exif; re-encoding kills animation
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const MAXSIDE = 1600;
+      let w = img.naturalWidth, h = img.naturalHeight;
+      if (!w || !h) { reject(new Error('unreadable')); return; }
+      if (Math.max(w, h) > MAXSIDE) { const k = MAXSIDE / Math.max(w, h); w = Math.round(w * k); h = Math.round(h * k); }
+      const c = document.createElement('canvas'); c.width = w; c.height = h;
+      c.getContext('2d').drawImage(img, 0, 0, w, h);   // exif/gps dies here. quietly. forever.
+      const wantPng = file.type === 'image/png';
+      c.toBlob(b => b ? resolve({ blob: b, isGif: false }) : reject(new Error('encode failed')),
+        wantPng ? 'image/png' : 'image/jpeg', 0.85);
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('that is not an image')); };
+    img.src = url;
+  });
+}
+async function uploadBlob(blob) {
+  const buf = await blob.arrayBuffer();
+  const r = await api('upload', { method: 'POST', body: buf, raw: true });
+  if (!(r.data && r.data.ok)) throw new Error(r.data && r.data.error || 'upload failed');
+  return r.data.media_key;
+}
+$('attachbtn').addEventListener('click', () => $('attachfile').click());
+$('attachfile').addEventListener('change', async e => {
+  const f = e.target.files[0];
+  if (!f) return;
+  try {
+    const { blob, isGif } = await reencodeImage(f);
+    pendingBlob = blob; pendingIsGif = isGif;
+    $('attachpreview').src = URL.createObjectURL(blob);
+    $('attachpreview').style.display = 'block';
+    $('attachclear').style.display = '';
+  } catch (err) { toast(err.message); }
+  e.target.value = '';
+});
+$('attachclear').addEventListener('click', () => {
+  pendingBlob = null;
+  $('attachpreview').style.display = 'none';
+  $('attachclear').style.display = 'none';
+});
+$('postbtn').addEventListener('click', async function () {
+  const text = $('posttext').value.trim();
+  if (!text && !pendingBlob) { toast('the wall accepts words and art. you brought neither.'); return; }
+  this.disabled = true; this.textContent = 'POSTING...';
+  try {
+    let media_key = null, type = 'text';
+    if (pendingBlob) { media_key = await uploadBlob(pendingBlob); type = pendingIsGif ? 'gif' : 'image'; }
+    const r = await api('post', { method: 'POST', body: { type, text, media_key } });
+    if (!(r.data && r.data.ok)) throw new Error(r.data && r.data.error || 'post failed');
+    $('posttext').value = ''; $('attachclear').click();
+    sWhoosh(); burst(this, 14);
+    await loadWall(true);
+  } catch (err) { toast(err.message); }
+  this.disabled = false; this.textContent = 'POST TO THE WALL';
+});
+
+function renderPost(p) {
+  const el = document.createElement('div');
+  if (p.deleted) {
+    el.className = 'post tomb';
+    el.innerHTML = 'removed by the management. the management is a dog.';
+    return el;
+  }
+  el.className = 'post';
+  let inner = '<div class="phead"><b>' + esc(p.author) + '</b><span>' + fortTime(p.created) + '</span>';
+  if (STATE.role === 'founder') inner += '<span style="flex:1"></span><button class="minibtn tombbtn" data-id="' + p.id + '">remove</button>';
+  inner += '</div>';
+  if (p.text) inner += '<div class="ptext">' + esc(p.text) + '</div>';
+  if (p.media_key) inner += '<img class="pmedia" loading="lazy" src="/api/media/' + esc(p.media_key) + '" alt="posted by ' + esc(p.author) + '">';
+  inner += '<div class="replies">';
+  for (const r of (p.replies || [])) inner += '<div class="reply"><b>' + esc(r.author) + '</b> ' + esc(r.text) + '</div>';
+  inner += '</div><div class="riffrow"><input maxlength="500" placeholder="riff..."><button class="minibtn riffgo" data-id="' + p.id + '">reply</button></div>';
+  el.innerHTML = inner;
+  return el;
+}
+async function loadWall(reset) {
+  const box = $('wallposts');
+  const r = await api('wall' + (!reset && oldestId ? '?before=' + oldestId : ''));
+  if (!(r.data && r.data.ok)) return;
+  if (reset) box.innerHTML = '';
+  const seen = store.get('wallseen', 0);
+  let markerPlaced = box.querySelector('#marker') != null;
+  for (const p of r.data.posts) {
+    if (!markerPlaced && seen && p.created <= seen && box.children.length > 0) {
+      const m = document.createElement('div');
+      m.id = 'marker'; m.textContent = '—— since your last visit ——';
+      box.appendChild(m); markerPlaced = true;
+    }
+    box.appendChild(renderPost(p));
+    oldestId = p.id;
+  }
+  $('wallempty').style.display = box.children.length ? 'none' : '';
+  $('wallmore').style.display = r.data.more ? '' : 'none';
+  if (reset) store.set('wallseen', Math.floor(Date.now() / 1000));
+}
+$('wallmore').addEventListener('click', () => loadWall(false));
+$('wallposts').addEventListener('click', async e => {
+  const riff = e.target.closest('.riffgo');
+  if (riff) {
+    const input = riff.parentElement.querySelector('input');
+    const text = input.value.trim();
+    if (!text) return;
+    const r = await api('reply', { method: 'POST', body: { post_id: parseInt(riff.dataset.id, 10), text } });
+    if (r.data && r.data.ok) {
+      const rep = document.createElement('div');
+      rep.className = 'reply';
+      rep.innerHTML = '<b>' + esc(STATE.name) + '</b> ' + esc(text);
+      riff.closest('.post').querySelector('.replies').appendChild(rep);
+      input.value = '';
+    } else toast(r.data && r.data.error || 'the riff was lost');
+    return;
+  }
+  const tomb = e.target.closest('.tombbtn');
+  if (tomb) {
+    if (tomb.dataset.armed !== '1') { tomb.dataset.armed = '1'; tomb.textContent = 'sure?'; setTimeout(() => { tomb.dataset.armed = ''; tomb.textContent = 'remove'; }, 2500); return; }
+    const r = await api('delete', { method: 'POST', body: { post_id: parseInt(tomb.dataset.id, 10) } });
+    if (r.data && r.data.ok) {
+      const post = tomb.closest('.post');
+      const t = document.createElement('div');
+      t.className = 'post tomb';
+      t.textContent = 'removed by the management. the management is a dog.';
+      post.replaceWith(t);
+    }
+  }
+});
+$('wallposts').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && e.target.matches('.riffrow input')) e.target.parentElement.querySelector('.riffgo').click();
+});
+
+/* ================= THE DICTIONARY ================= */
+const CHIP_CYCLE = ['', 'CERTIFIED', 'ON LIFE SUPPORT', 'DECEASED'];
+function chipClass(s) { return s === 'ON LIFE SUPPORT' ? 'LIFESUPPORT' : s; }
+function renderTerm(t) {
+  const el = document.createElement('div');
+  el.className = 'term';
+  let chips = t.status ? '<span class="chip ' + chipClass(t.status) + '">' + t.status + '</span>' : '';
+  if (STATE.role === 'founder') chips += ' <button class="minibtn chipcycle" data-id="' + t.id + '" data-s="' + esc(t.status) + '">set status</button>';
+  let meta = 'submitted by ' + esc(t.author) + ' &middot; ' + fortTime(t.created);
+  if (t.status === 'DECEASED' && t.died) meta += ' &middot; died ' + fortTime(t.died) + '. it served.';
+  el.innerHTML = '<h4>' + esc(t.term) + ' ' + chips + '</h4>'
+    + '<div class="tdef">' + esc(t.def) + '</div>'
+    + (t.example ? '<div class="tex">&ldquo;' + esc(t.example) + '&rdquo;</div>' : '')
+    + '<div class="tmeta">' + meta + '</div>';
+  return el;
+}
+async function loadDict() {
+  const r = await api('dict');
+  if (!(r.data && r.data.ok)) return;
+  const live = $('dictlist'), grave = $('gravelist');
+  live.innerHTML = ''; grave.innerHTML = '';
+  for (const t of r.data.terms) (t.status === 'DECEASED' ? grave : live).appendChild(renderTerm(t));
+  if (!live.children.length) live.innerHTML = '<p class="roomsub">no words yet. the language is pre-historic. fix that.</p>';
+  if (!grave.children.length) grave.innerHTML = '<p class="roomsub">empty. no word has died. yet. time is patient.</p>';
+}
+$('dictadd').addEventListener('click', async function () {
+  const term = $('dterm').value.trim(), def = $('ddef').value.trim(), example = $('dex').value.trim();
+  if (!term || !def) { toast('a term and a definition. that is the entrance fee.'); return; }
+  const r = await api('dict', { method: 'POST', body: { term, def, example } });
+  if (r.data && r.data.ok) {
+    if (term.toLowerCase() === 'fort') foundSecret('lexicon', 'you defined the undefinable. the dictionary is honored.');
+    $('dterm').value = ''; $('ddef').value = ''; $('dex').value = '';
+    sWhoosh(); burst(this, 12); loadDict();
+  } else toast(r.data && r.data.error || 'the record rejected it');
+});
+$('dictroom').addEventListener('click', async e => {
+  const b = e.target.closest('.chipcycle');
+  if (!b) return;
+  const cur = CHIP_CYCLE.indexOf(b.dataset.s);
+  const next = CHIP_CYCLE[(cur + 1) % CHIP_CYCLE.length];
+  const r = await api('dict/status', { method: 'POST', body: { id: parseInt(b.dataset.id, 10), status: next } });
+  if (r.data && r.data.ok) loadDict();
+});
+/* ================= DOOR + BOOT ================= */
+const doorLog = $('doorlog');
+function addLine(cls, txt, nl = 'nl') {
+  const s = document.createElement('span');
+  s.className = cls; s.textContent = txt;
+  doorLog.appendChild(s);
+  if (nl === 'nl') doorLog.appendChild(document.createTextNode('\n'));
+  return s;
+}
+async function typeLine(cls, msg) {
+  const b = addLine(cls, '');
+  for (let i = 0; i < msg.length; i++) { b.textContent = msg.slice(0, i + 1); await sleep(19); }
+}
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+let fortOpen = false;
+
+function openFort() {
+  if (fortOpen) return;
+  fortOpen = true;
+  $('door').style.display = 'none';
+  $('fort').style.display = 'block';
+  const dayN = updateAttendance();
+  const g = $('greeting');
+  if (STATE.role === 'founder' && STATE.name === 'CONNOR') g.innerHTML = 'welcome home, <b>CONNOR</b>. it\'s all still here. we counted.';
+  else if (STATE.name === 'JAMIE') g.innerHTML = 'welcome, <b>JAMIE</b>. sibling clearance. the dog vouched for you.';
+  else if (STATE.role === 'founder') g.innerHTML = 'welcome back, <b>' + esc(STATE.name) + '</b>. founder key accepted. the fort pretends not to notice.';
+  else g.innerHTML = 'welcome back, <b>' + esc(STATE.name) + '</b>. the fort missed you. the dog especially.';
+  $('rankline').innerHTML = 'DAY ' + dayN + ' &middot; CURRENT RANK: <b>' + rankFor(dayN) + '</b>';
+  $('streakline').textContent = dayN + (dayN === 1 ? ' day' : ' days') + ' total (no streaks. the fort is not your boss.)';
+  $('secretcount').textContent = secrets.length + '/' + SECRET_ADVERTISED;
+  $('poster').innerHTML = POSTER_SVG;
+  $('dartwrap').innerHTML = DART_SVG;
+  $('poster').addEventListener('click', () => {
+    ensureAudio(); sBark();
+    dogSay(POSTER_LINES[Math.floor(Math.random() * POSTER_LINES.length)], 3600);
+  });
+  applyTheme(); sizeDog(); resizeFx(); rain(90);
+  fillBulletin(); loadWall(true); loadDict();
+  setTimeout(() => dogSay(DOG_LINES[Math.floor(Math.random() * DOG_LINES.length)]), 900);
+}
+
+async function doorFail(msg, cooldown) {
+  ensureAudio(); sKnockSfx();
+  if (cooldown) {
+    addLine('bad', msg);
+    addLine('sys', 'come back in ' + Math.ceil(cooldown / 60) + ' minute(s). the door needs space.');
+    return;
+  }
+  const n = (doorFail.n = (doorFail.n || 0) + 1);
+  addLine('bad', n <= 1 ? msg : WRONG_CODE_LINES[Math.min(n - 1, WRONG_CODE_LINES.length - 1)]);
+  $('coderow').classList.add('show');
+  $('codefield').value = ''; $('codefield').focus();
+}
+
+async function runDoor() {
+  // returning member with a living session?
+  const st = await api('state');
+  if (st.status === 200 && st.data && st.data.ok) {
+    STATE = st.data;
+    addLine('sys', 'TREEFORT SECURITY SYSTEM v7.3');
+    await sleep(450);
+    addLine('sys', 'scanning... ', '');
+    await sleep(650);
+    addLine('ok', 'oh. it\'s you.');
+    await sleep(500);
+    await typeLine('big', 'WELCOME BACK, ' + STATE.name + '.');
+    await sleep(700);
+    openFort();
+    return;
+  }
+  // full theater
+  const boot = [
+    ['sys', 'TREEFORT SECURITY SYSTEM v7.3'],
+    ['sys', 'booting................. ok'],
+    ['sys', 'checking if you are a narc... '],
+    ['ok', 'NOT A NARC (probably)'],
+    ['sys', 'scanning vibes... '],
+    ['ok', 'VIBES: ACCEPTABLE'],
+    ['sys', 'retina scan... '],
+    ['warn', 'eh. close enough.']
+  ];
+  for (const [cls, txt] of boot) {
+    addLine(cls, txt, txt.endsWith(' ') ? '' : 'nl');
+    await sleep(txt.endsWith(' ') ? 800 : 400);
+  }
+  await sleep(350);
+  addLine('big', 'STATE THE CODE:');
+  $('coderow').classList.add('show');
+  $('codefield').focus();
+}
+
+async function submitCode() {
+  const code = $('codefield').value.trim();
+  if (!code) return;
+  ensureAudio();
+  $('coderow').classList.remove('show');
+  addLine('sys', 'checking the code against the sacred ledger... ', '');
+  await sleep(900);
+  // stash; knock happens after we have a name
+  submitCode.pending = code;
+  addLine('ok', 'the ledger says: maybe.');
+  await sleep(400);
+  addLine('big', 'STATE YOUR NAME:');
+  $('namerow').classList.add('show');
+  $('namefield').focus();
+}
+
+async function submitName() {
+  let name = $('namefield').value.trim().toUpperCase().slice(0, 20);
+  if (!name) name = 'MYSTERY GUEST';
+  ensureAudio();
+  $('namerow').classList.remove('show');
+  addLine('sys', 'verifying "' + name + '"... ', '');
+  const r = await api('knock', { method: 'POST', body: { code: submitCode.pending, name } });
+  await sleep(700);
+  if (!(r.data && r.data.ok)) {
+    addLine('warn', 'hm.');
+    await doorFail(r.data && r.data.error || 'the door said no and offered no reasons.', r.data && r.data.cooldown);
+    return;
+  }
+  STATE = { name: r.data.name, role: r.data.role, fort_name: r.data.fort_name, dog_name: r.data.dog_name };
+  if (STATE.role === 'founder' && STATE.name === 'CONNOR') {
+    addLine('ok', 'FOUNDER KEY DETECTED.');
+    await sleep(550);
+    addLine('sys', 'we\'ve been expecting you. this fort was built for you. look around.');
+    await sleep(850);
+    await typeLine('big', 'ACCESS GRANTED. WELCOME HOME, CONNOR.');
+  } else if (STATE.role === 'founder') {
+    addLine('ok', 'FOUNDER KEY DETECTED.');
+    await sleep(550);
+    addLine('sys', 'the fort pretends not to notice. carry on.');
+    await sleep(650);
+    await typeLine('big', 'ACCESS GRANTED, ' + STATE.name + '.');
+  } else if (STATE.name === 'JAMIE') {
+    addLine('ok', 'code verified.');
+    await sleep(450);
+    addLine('sys', 'sibling of the founder detected.');
+    await sleep(650);
+    addLine('sys', 'you are legally impossible to ban. congratulations.');
+    await sleep(650);
+    addLine('warn', 'watched at all times. welcomed at all times. both are true.');
+    await sleep(750);
+    await typeLine('big', 'ACCESS GRANTED. WELCOME, JAMIE.');
+  } else if (STATE.name === 'CONNOR') {
+    addLine('ok', 'code verified. and a familiar name.');
+    await sleep(550);
+    await typeLine('big', 'ACCESS GRANTED. WELCOME, CONNOR.');
+  } else {
+    addLine('ok', 'code verified. name sounds made up. approved.');
+    await sleep(650);
+    await typeLine('big', 'ACCESS GRANTED. WELCOME TO THE FORT, ' + STATE.name + '.');
+  }
+  refreshState();
+  await sleep(900);
+  openFort();
+}
+$('codego').addEventListener('click', submitCode);
+$('codefield').addEventListener('keydown', e => { if (e.key === 'Enter') submitCode(); });
+$('namego').addEventListener('click', submitName);
+$('namefield').addEventListener('keydown', e => { if (e.key === 'Enter') submitName(); });
+
+/* ---------- main loop + boot ---------- */
+let lastFrame = performance.now();
+function loop(now) {
+  const dt = Math.min(0.05, (now - lastFrame) / 1000);
+  lastFrame = now;
+  happiness = Math.max(0, happiness - dt * 3.5);
+  dogBounce *= Math.pow(0.002, dt);
+  stepFx(dt);
+  if (fortOpen) drawDog(now / 1000);
+  requestAnimationFrame(loop);
+}
+const lightsEl = $('lights');
+for (let i = 0; i < 24; i++) lightsEl.appendChild(document.createElement('i'));
+addEventListener('pointerdown', ensureAudio, { once: true });
+resizeFx();
+runDoor();
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

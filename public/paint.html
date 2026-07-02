@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PAINT — the art room</title>
+<style>
+  * { box-sizing: border-box; }
+  :root { --acc: #ffb64d; --glow: #ffe9a8; }
+  html, body { margin: 0; min-height: 100%; background: #14100b; color: #efe6d5;
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
+  body { background: repeating-linear-gradient(90deg, #171209 0px, #1a140c 70px, #14100b 71px, #171209 140px); }
+  #app { max-width: 980px; margin: 0 auto; padding: 14px 14px 50px; }
+  .topbar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+  .topbar a { color: #8d8371; text-decoration: none; font-size: 12px; letter-spacing: 1px; }
+  .topbar a:hover { color: var(--glow); }
+  h1 { font-size: 18px; letter-spacing: 3px; color: var(--glow); margin: 0; }
+  h1 small { font-size: 10px; color: #8d8371; letter-spacing: 2px; }
+
+  #stage { display: flex; gap: 12px; align-items: flex-start; flex-wrap: wrap; }
+  #tools { display: grid; grid-template-columns: repeat(2, 44px); gap: 6px; }
+  .tool { width: 44px; height: 44px; font-size: 17px; cursor: pointer; border-radius: 8px;
+    background: #241c10; color: #ffcf87; border: 2px solid #4a3a20; }
+  .tool.on { border-color: var(--acc); background: #33270f; box-shadow: 0 0 10px #ffb64d33; }
+  .tool:hover { border-color: var(--acc); }
+
+  #cwrap { position: relative; background: #f8f6ef; border: 3px solid #4a3a20; border-radius: 4px;
+    box-shadow: 0 8px 20px #000a; touch-action: none; }
+  #onion { position: absolute; inset: 0; opacity: .25; pointer-events: none; display: none; }
+  #cv, #overlay, #onion { display: block; image-rendering: pixelated; }
+  #overlay { position: absolute; inset: 0; pointer-events: none; }
+  #cwrap.onionon #onion { display: block; }
+  #cwrap canvas { max-width: 100%; height: auto; }
+
+  #side { display: flex; flex-direction: column; gap: 10px; min-width: 170px; flex: 1; max-width: 240px; }
+  #palette { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
+  .swatch { aspect-ratio: 1; border-radius: 4px; cursor: pointer; border: 2px solid #0006; }
+  .swatch.on { outline: 2px solid var(--glow); outline-offset: 1px; }
+  .ctrl { font-size: 11px; color: #8d8371; letter-spacing: 1px; display: flex; align-items: center; gap: 8px; }
+  .ctrl input[type=range] { flex: 1; accent-color: var(--acc); }
+  .ctrl input[type=color] { width: 34px; height: 26px; border: none; background: none; padding: 0; cursor: pointer; }
+  .fortbtn { font: inherit; font-size: 11px; font-weight: 700; letter-spacing: 1px;
+    background: #241c10; color: #ffcf87; cursor: pointer; border: 1px solid #4a3a20;
+    border-radius: 8px; padding: 9px 12px; }
+  .fortbtn:hover { border-color: var(--acc); }
+  select { font: inherit; font-size: 12px; background: #241c10; color: #ffcf87;
+    border: 1px solid #4a3a20; border-radius: 8px; padding: 8px; }
+  #caption { font: inherit; font-size: 12px; background: #14100b; color: #efe6d5;
+    border: 1px solid #4a3a20; border-radius: 8px; padding: 9px 11px; outline: none; width: 100%; }
+  #caption:focus { border-color: var(--acc); }
+
+  #framesbar { margin-top: 14px; background: #1d1710; border: 2px solid #4a3a20; border-radius: 12px; padding: 12px; }
+  #framesbar h2 { margin: 0 0 8px; font-size: 11px; letter-spacing: 2px; color: #d6c8a8; }
+  #framestrip { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 6px; }
+  .fthumb { width: 84px; height: 63px; border: 2px solid #4a3a20; border-radius: 6px; cursor: pointer;
+    background: #f8f6ef center/cover; flex: none; position: relative; }
+  .fthumb.on { border-color: var(--acc); box-shadow: 0 0 10px #ffb64d44; }
+  .fthumb i { position: absolute; left: 3px; bottom: 2px; font-style: normal; font-size: 9px; color: #33291a;
+    background: #f3e9cfcc; border-radius: 3px; padding: 0 4px; }
+  #framectrl { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; align-items: center; }
+
+  #textentry { position: absolute; display: none; font-family: inherit; border: 1px dashed #333;
+    background: #ffffffdd; color: #000; outline: none; padding: 2px 4px; z-index: 5; }
+  #toast { position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%) translateY(90px);
+    background: #241c10; border: 1px solid var(--acc); color: var(--glow); border-radius: 10px;
+    padding: 11px 18px; font-size: 13px; font-weight: 700;
+    transition: transform .35s cubic-bezier(.2,1.4,.4,1); z-index: 95; }
+  #toast.show { transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="topbar">
+    <a href="index.html">&larr; back to the fort</a>
+    <h1>PAINT <small>the art room. the spray can is load-bearing.</small></h1>
+  </div>
+
+  <div id="stage">
+    <div id="tools">
+      <button class="tool on" data-t="pencil" title="pencil">&#9999;</button>
+      <button class="tool" data-t="brush" title="brush">&#128396;</button>
+      <button class="tool" data-t="spray" title="spray can (the law)">&#10057;</button>
+      <button class="tool" data-t="eraser" title="eraser">&#9633;</button>
+      <button class="tool" data-t="fill" title="fill bucket">&#9635;</button>
+      <button class="tool" data-t="line" title="line">&#9586;</button>
+      <button class="tool" data-t="rect" title="rectangle">&#9645;</button>
+      <button class="tool" data-t="ellipse" title="ellipse">&#9675;</button>
+      <button class="tool" data-t="text" title="text">A</button>
+      <button class="tool" id="undo" title="undo">&#8630;</button>
+      <button class="tool" id="redo" title="redo">&#8631;</button>
+      <button class="tool" id="clearbtn" title="clear (click twice)">&#128465;</button>
+    </div>
+
+    <div id="cwrap">
+      <canvas id="onion" width="480" height="360"></canvas>
+      <canvas id="cv" width="480" height="360"></canvas>
+      <canvas id="overlay" width="480" height="360"></canvas>
+      <input id="textentry" maxlength="80">
+    </div>
+
+    <div id="side">
+      <div id="palette"></div>
+      <div class="ctrl">CUSTOM <input type="color" id="custom" value="#ff6b9d"></div>
+      <div class="ctrl">SIZE <input type="range" id="size" min="1" max="24" value="4"><span id="sizeval">4</span></div>
+      <div class="ctrl">CANVAS
+        <select id="preset">
+          <option value="480x360" selected>480 &times; 360</option>
+          <option value="640x480">640 &times; 480</option>
+          <option value="512x512">512 &times; 512 (square)</option>
+          <option value="320x240">320 &times; 240 (chunky)</option>
+        </select>
+      </div>
+      <input id="caption" maxlength="200" placeholder="title (optional)">
+      <button class="fortbtn" id="postbtn">POST TO THE WALL</button>
+      <button class="fortbtn" id="dlbtn">DOWNLOAD PNG</button>
+    </div>
+  </div>
+
+  <div id="framesbar">
+    <h2>FRAMES — for the gif machine. one frame = a still. more = a motion picture.</h2>
+    <div id="framestrip"></div>
+    <div id="framectrl">
+      <button class="fortbtn" id="addframe">+ DUPLICATE FRAME</button>
+      <button class="fortbtn" id="delframe">DELETE FRAME</button>
+      <label class="ctrl"><input type="checkbox" id="onionchk"> ONION SKIN</label>
+      <span style="flex:1"></span>
+      <button class="fortbtn" id="togif">SEND FRAMES &rarr; GIF MACHINE</button>
+    </div>
+  </div>
+</div>
+<div id="toast"></div>
+
+<script>
+'use strict';
+/* the art room. everything is a canvas op. nothing is magic. — the management */
+
+const $ = id => document.getElementById(id);
+const store = {
+  get(k, d) { try { const v = localStorage.getItem('tf_' + k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem('tf_' + k, JSON.stringify(v)); } catch (e) {} }
+};
+let toastTimer;
+function toast(m, ms = 3000) { const t = $('toast'); t.textContent = m; t.classList.add('show');
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), ms); }
+function foundSecret(id, msg) {
+  const s = store.get('secrets', []);
+  if (s.includes(id)) return;
+  s.push(id); store.set('secrets', s);
+  toast('SECRET FOUND: ' + msg, 5200);
+}
+async function api(path, opts = {}) {
+  const init = { method: opts.method || 'GET' };
+  if (opts.raw) init.body = opts.body;
+  else if (opts.body !== undefined) { init.body = JSON.stringify(opts.body); init.headers = { 'Content-Type': 'application/json' }; }
+  const res = await fetch('/api/' + path, init);
+  let data = null; try { data = await res.json(); } catch (e) {}
+  if (res.status === 401) location.href = 'index.html';
+  return { status: res.status, data };
+}
+api('state'); // bounce narcs to the door
+
+/* ---------- idb handoff (paint -> gif machine) ---------- */
+function idb() { return new Promise((res, rej) => {
+  const q = indexedDB.open('fortkit', 1);
+  q.onupgradeneeded = () => q.result.createObjectStore('kv');
+  q.onsuccess = () => res(q.result); q.onerror = () => rej(q.error); }); }
+async function idbSet(k, v) { const d = await idb(); return new Promise((res, rej) => {
+  const t = d.transaction('kv', 'readwrite'); t.objectStore('kv').put(v, k);
+  t.oncomplete = res; t.onerror = () => rej(t.error); }); }
+
+/* ---------- canvas setup ---------- */
+const cv = $('cv'), ctx = cv.getContext('2d', { willReadFrequently: true });
+const ov = $('overlay'), octx = ov.getContext('2d');
+const onion = $('onion'), onctx = onion.getContext('2d');
+ctx.imageSmoothingEnabled = false;
+
+const PALETTE = ['#000000','#808080','#800000','#808000','#008000','#008080','#000080','#800080',
+                 '#ffffff','#c0c0c0','#ff0000','#ffff00','#00ff00','#00ffff','#0000ff','#ff00ff'];
+let color = '#000000', tool = 'pencil', size = 4;
+const usedColors = new Set();
+
+const pal = $('palette');
+PALETTE.forEach((c, i) => {
+  const b = document.createElement('button');
+  b.className = 'swatch' + (i === 0 ? ' on' : '');
+  b.style.background = c;
+  b.title = c;
+  b.addEventListener('click', () => { color = c;
+    document.querySelectorAll('.swatch').forEach(s => s.classList.remove('on'));
+    b.classList.add('on'); });
+  pal.appendChild(b);
+});
+$('custom').addEventListener('input', e => { color = e.target.value;
+  document.querySelectorAll('.swatch').forEach(s => s.classList.remove('on')); });
+$('size').addEventListener('input', e => { size = +e.target.value; $('sizeval').textContent = size; });
+document.querySelectorAll('.tool[data-t]').forEach(b => b.addEventListener('click', () => {
+  tool = b.dataset.t;
+  document.querySelectorAll('.tool[data-t]').forEach(t => t.classList.remove('on'));
+  b.classList.add('on');
+}));
+
+/* ---------- undo / redo ---------- */
+let undoStack = [], redoStack = [];
+function snap() {
+  undoStack.push(ctx.getImageData(0, 0, cv.width, cv.height));
+  if (undoStack.length > 20) undoStack.shift();
+  redoStack = [];
+}
+$('undo').addEventListener('click', () => {
+  if (!undoStack.length) return;
+  redoStack.push(ctx.getImageData(0, 0, cv.width, cv.height));
+  ctx.putImageData(undoStack.pop(), 0, 0);
+});
+$('redo').addEventListener('click', () => {
+  if (!redoStack.length) return;
+  undoStack.push(ctx.getImageData(0, 0, cv.width, cv.height));
+  ctx.putImageData(redoStack.pop(), 0, 0);
+});
+let clearArmed = false;
+$('clearbtn').addEventListener('click', function () {
+  if (!clearArmed) { clearArmed = true; toast('click again to clear. no take-backs. (one take-back. undo exists.)');
+    setTimeout(() => clearArmed = false, 2200); return; }
+  snap(); ctx.clearRect(0, 0, cv.width, cv.height);
+});
+
+/* ---------- drawing ---------- */
+function pos(e) {
+  const r = cv.getBoundingClientRect();
+  return { x: Math.round((e.clientX - r.left) * cv.width / r.width),
+           y: Math.round((e.clientY - r.top) * cv.height / r.height) };
+}
+let drawing = false, start = null, last = null, sprayTimer = null;
+
+function strokeSeg(a, b, erase) {
+  ctx.save();
+  if (erase) ctx.globalCompositeOperation = 'destination-out';
+  ctx.strokeStyle = color; ctx.fillStyle = color;
+  ctx.lineWidth = tool === 'pencil' ? Math.max(1, Math.floor(size / 3)) : size;
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+  ctx.restore();
+}
+function sprayAt(p) {
+  ctx.save(); ctx.fillStyle = color;
+  const R = size * 2.2, n = Math.max(8, size * 3);
+  for (let i = 0; i < n; i++) {
+    const a = Math.random() * Math.PI * 2, r = Math.random() * R;
+    ctx.fillRect(p.x + Math.cos(a) * r, p.y + Math.sin(a) * r, 1.2, 1.2);
+  }
+  ctx.restore();
+}
+function drawShape(c2, a, b, commit) {
+  c2.save();
+  c2.strokeStyle = color; c2.lineWidth = size; c2.lineCap = 'round';
+  c2.beginPath();
+  if (tool === 'line') { c2.moveTo(a.x, a.y); c2.lineTo(b.x, b.y); }
+  else if (tool === 'rect') c2.rect(Math.min(a.x,b.x), Math.min(a.y,b.y), Math.abs(b.x-a.x), Math.abs(b.y-a.y));
+  else if (tool === 'ellipse') c2.ellipse((a.x+b.x)/2, (a.y+b.y)/2, Math.abs(b.x-a.x)/2 || 1, Math.abs(b.y-a.y)/2 || 1, 0, 0, Math.PI*2);
+  c2.stroke(); c2.restore();
+}
+
+/* scanline flood fill */
+function floodFill(x, y, hex) {
+  const img = ctx.getImageData(0, 0, cv.width, cv.height);
+  const d = img.data, W = cv.width, H = cv.height;
+  const idx = (x, y) => (y * W + x) * 4;
+  const t = idx(x, y);
+  const tr = d[t], tg = d[t+1], tb = d[t+2], ta = d[t+3];
+  const R = parseInt(hex.slice(1,3),16), G = parseInt(hex.slice(3,5),16), B = parseInt(hex.slice(5,7),16);
+  if (tr === R && tg === G && tb === B && ta === 255) return;
+  const match = i => d[i] === tr && d[i+1] === tg && d[i+2] === tb && d[i+3] === ta;
+  const paint = i => { d[i] = R; d[i+1] = G; d[i+2] = B; d[i+3] = 255; };
+  const stack = [[x, y]];
+  while (stack.length) {
+    const [sx, sy] = stack.pop();
+    let x0 = sx;
+    while (x0 >= 0 && match(idx(x0, sy))) x0--;
+    x0++;
+    let above = false, below = false;
+    for (let xi = x0; xi < W && match(idx(xi, sy)); xi++) {
+      paint(idx(xi, sy));
+      if (sy > 0) { const m = match(idx(xi, sy-1));
+        if (m && !above) { stack.push([xi, sy-1]); above = true; } if (!m) above = false; }
+      if (sy < H-1) { const m = match(idx(xi, sy+1));
+        if (m && !below) { stack.push([xi, sy+1]); below = true; } if (!m) below = false; }
+    }
+  }
+  ctx.putImageData(img, 0, 0);
+}
+
+/* text tool */
+const textEntry = $('textentry');
+let textPos = null;
+function placeText(e) {
+  const p = pos(e);
+  textPos = p;
+  const r = cv.getBoundingClientRect();
+  textEntry.style.display = 'block';
+  textEntry.style.left = (e.clientX - r.left) + 'px';
+  textEntry.style.top = (e.clientY - r.top) + 'px';
+  textEntry.style.font = (size * 4) + 'px ui-monospace, monospace';
+  textEntry.value = '';
+  setTimeout(() => textEntry.focus(), 0);
+}
+textEntry.addEventListener('keydown', e => {
+  if (e.key === 'Enter') {
+    if (textEntry.value.trim()) {
+      snap();
+      ctx.fillStyle = color;
+      ctx.font = 'bold ' + (size * 4) + 'px ui-monospace, monospace';
+      ctx.textBaseline = 'top';
+      ctx.fillText(textEntry.value, textPos.x, textPos.y);
+      usedColors.add(color);
+    }
+    textEntry.style.display = 'none';
+  }
+  if (e.key === 'Escape') textEntry.style.display = 'none';
+});
+
+cv.parentElement.addEventListener('pointerdown', e => {
+  if (e.target === textEntry) return;
+  e.preventDefault();
+  const p = pos(e);
+  if (tool === 'text') { placeText(e); return; }
+  snap();
+  drawing = true; start = p; last = p;
+  usedColors.add(tool === 'eraser' ? 'eraser' : color);
+  if (tool === 'fill') { floodFill(p.x, p.y, color); drawing = false; checkPaletteSecret(); return; }
+  if (tool === 'spray') { sprayAt(p); sprayTimer = setInterval(() => last && sprayAt(last), 40); return; }
+  if (tool === 'pencil' || tool === 'brush' || tool === 'eraser') strokeSeg(p, p, tool === 'eraser');
+});
+addEventListener('pointermove', e => {
+  if (!drawing) return;
+  const p = pos(e);
+  if (tool === 'pencil' || tool === 'brush' || tool === 'eraser') { strokeSeg(last, p, tool === 'eraser'); last = p; }
+  else if (tool === 'spray') last = p;
+  else if (tool === 'line' || tool === 'rect' || tool === 'ellipse') {
+    octx.clearRect(0, 0, ov.width, ov.height);
+    drawShape(octx, start, p);
+  }
+});
+addEventListener('pointerup', e => {
+  if (!drawing) return;
+  drawing = false;
+  clearInterval(sprayTimer); sprayTimer = null;
+  if (tool === 'line' || tool === 'rect' || tool === 'ellipse') {
+    octx.clearRect(0, 0, ov.width, ov.height);
+    drawShape(ctx, start, pos(e), true);
+  }
+  checkPaletteSecret();
+});
+function checkPaletteSecret() {
+  let n = 0;
+  for (const c of PALETTE) if (usedColors.has(c)) n++;
+  if (n >= 16) foundSecret('palette', 'all sixteen colors in one sitting. the art room salutes you.');
+}
+
+/* ---------- canvas size ---------- */
+$('preset').addEventListener('change', e => {
+  const [w, h] = e.target.value.split('x').map(Number);
+  const keep = ctx.getImageData(0, 0, Math.min(cv.width, w), Math.min(cv.height, h));
+  [cv, ov, onion].forEach(c => { c.width = w; c.height = h; });
+  ctx.imageSmoothingEnabled = false;
+  ctx.putImageData(keep, 0, 0);
+  undoStack = []; redoStack = [];
+  syncFrameSize();
+});
+
+/* ---------- frames ---------- */
+let frames = [null], cur = 0;   // frames hold dataURLs; current lives on the canvas
+function flatten() {
+  const out = document.createElement('canvas');
+  out.width = cv.width; out.height = cv.height;
+  const o = out.getContext('2d');
+  o.fillStyle = '#ffffff'; o.fillRect(0, 0, out.width, out.height);
+  o.drawImage(cv, 0, 0);
+  return out;
+}
+function saveCurrent() { frames[cur] = cv.toDataURL('image/png'); }
+function loadFrame(i, cb) {
+  const url = frames[i];
+  ctx.clearRect(0, 0, cv.width, cv.height);
+  if (!url) { drawOnion(); if (cb) cb(); return; }
+  const img = new Image();
+  img.onload = () => { ctx.drawImage(img, 0, 0); drawOnion(); if (cb) cb(); };
+  img.src = url;
+}
+function drawOnion() {
+  onctx.clearRect(0, 0, onion.width, onion.height);
+  if (cur > 0 && frames[cur - 1]) {
+    const img = new Image();
+    img.onload = () => onctx.drawImage(img, 0, 0);
+    img.src = frames[cur - 1];
+  }
+}
+function renderStrip() {
+  const strip = $('framestrip');
+  strip.innerHTML = '';
+  frames.forEach((f, i) => {
+    const d = document.createElement('div');
+    d.className = 'fthumb' + (i === cur ? ' on' : '');
+    if (f) d.style.backgroundImage = 'url(' + f + ')';
+    d.innerHTML = '<i>' + (i + 1) + '</i>';
+    d.addEventListener('click', () => { saveCurrent(); cur = i; loadFrame(cur, renderStrip); });
+    strip.appendChild(d);
+  });
+}
+function syncFrameSize() { frames = [null]; cur = 0; renderStrip(); drawOnion(); }
+$('addframe').addEventListener('click', () => {
+  saveCurrent();
+  frames.splice(cur + 1, 0, frames[cur]);   // duplicate = animation 101
+  cur++;
+  loadFrame(cur, renderStrip);
+  if (frames.length === 13) toast('13 frames. the forbidden frame count. (it\'s fine. probably.)');
+});
+$('delframe').addEventListener('click', () => {
+  if (frames.length <= 1) { toast('the last frame stays. a movie needs at least one still.'); return; }
+  frames.splice(cur, 1);
+  cur = Math.max(0, cur - 1);
+  loadFrame(cur, renderStrip);
+});
+$('onionchk').addEventListener('change', e => $('cwrap').classList.toggle('onionon', e.target.checked));
+$('togif').addEventListener('click', async () => {
+  saveCurrent();
+  const flat = [];
+  for (const f of frames) {
+    if (!f) continue;
+    flat.push(f);
+  }
+  if (!flat.length) { toast('draw something first. anything. a circle counts.'); return; }
+  await idbSet('handoff_frames', { frames: flat, w: cv.width, h: cv.height, from: 'paint' });
+  location.href = 'gifmachine.html?from=paint';
+});
+
+/* ---------- export ---------- */
+$('dlbtn').addEventListener('click', () => {
+  const a = document.createElement('a');
+  a.download = 'fort-painting.png';
+  a.href = flatten().toDataURL('image/png');
+  a.click();
+});
+$('postbtn').addEventListener('click', async function () {
+  this.disabled = true; this.textContent = 'POSTING...';
+  try {
+    const blob = await new Promise(r => flatten().toBlob(r, 'image/png'));
+    const buf = await blob.arrayBuffer();
+    const up = await api('upload', { method: 'POST', body: buf, raw: true });
+    if (!(up.data && up.data.ok)) throw new Error(up.data && up.data.error || 'upload failed');
+    const r = await api('post', { method: 'POST', body: { type: 'painting', media_key: up.data.media_key, text: $('caption').value.trim() } });
+    if (!(r.data && r.data.ok)) throw new Error(r.data && r.data.error || 'post failed');
+    toast('posted. the wall accepts your art.');
+  } catch (err) { toast(err.message); }
+  this.disabled = false; this.textContent = 'POST TO THE WALL';
+});
+
+renderStrip();
+</script>
+</body>
+</html>
