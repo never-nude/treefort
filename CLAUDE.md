@@ -2,8 +2,9 @@
 
 Private clubhouse website for Connor (13) and invited friends. Built as a gift by
 Michael. Bart Simpson's treehouse as a website: old-internet energy, deadpan absurdism,
-no engagement mechanics of any kind. Currently **built and verified, not yet deployed**
-— next milestone is DEPLOY.md, top to bottom.
+no engagement mechanics of any kind. **Live at https://treefort.lol since 2026-07-02**
+(Cloudflare account: michael.kushman@gmail.com; DNS via Porkbun → Cloudflare nameservers;
+workers.dev route disabled — the fort has exactly one address).
 
 ## Architecture
 
@@ -19,7 +20,7 @@ and mod the source. Do not introduce bundlers, frameworks, libraries, or CDN scr
 | `public/index.html` | the fort: door theater, bulletin, wall, dictionary, oracle, workshop, pixel dog |
 | `public/paint.html` | drawing tool + animation frames (onion skin) |
 | `public/kitchen.html` | meme maker (impact text, draw layer, remix-from-wall) |
-| `public/gifmachine.html` | client-side GIF89a encoder — **hand-written LZW, do not replace with a library** |
+| `public/gifmachine.html` | client-side GIF89a encoder — **hand-written LZW, do not replace with a library** — plus the projection booth: .mov/.mp4 → frames → gif, fully in-browser, video never uploaded |
 | `test/doortest.mjs` | full API integration test, stubbed D1/R2 — `node test/doortest.mjs` |
 | `DEPLOY.md` | the runbook (account → wrangler → D1/R2 → setup call → Porkbun nameservers) |
 
@@ -85,7 +86,9 @@ on the extracted script block.
   rate limits)
 - GIF encoder: byte-exact decode roundtrip vs PIL through all LZW code-width
   transitions (9→12 bits) and a 4096-entry dictionary reset
-- `wrangler.toml` still contains `PASTE_YOUR_D1_ID_HERE` — intentional; filled during deploy
+- `wrangler.toml` has the live D1 id and custom-domain routes (the routes block must stay
+  ABOVE the `[[...]]` tables — TOML otherwise adopts it into `r2_buckets` and wrangler
+  silently skips the domains; this bit us once)
 
 ## Known deliberate quirks
 
