@@ -290,10 +290,6 @@
       <p>impact font, top and bottom. draw on anything. export files, deploy anywhere.</p></a>
     <a class="room" href="gifmachine.html"><h3>&#9654; GIF MACHINE</h3>
       <p>frames go in. a gif comes out. built on-site, no outside contractors.</p></a>
-    <button class="room" id="lookout"><h3>&#9650; THE LOOKOUT</h3>
-      <p>climb up and check the perimeter. reports are filed daily. threat level: probably fine.</p></button>
-    <button class="room" id="lockedroom"><h3>&#9632; ???</h3>
-      <p>this door is locked. it hums quietly. do not knock three times. seriously, don't.</p></button>
     <button class="room" id="workshopbtn"><h3>&#9881; THE WORKSHOP</h3>
       <p>paint jobs and paperwork. founders will find additional paperwork.</p></button>
   </section>
@@ -318,17 +314,6 @@
     </div>
   </section>
 
-  <section class="roombox" id="oracle" style="background:#191324;border-color:#3a2d55">
-    <h2 class="roomhead" style="color:#c9b8f0">THE ORACLE</h2>
-    <p class="roomsub" style="color:#6f6390">ask it anything. it is never wrong. it is frequently useless.</p>
-    <div style="display:flex;gap:10px;max-width:560px;margin:0 auto">
-      <input id="oracleq" maxlength="120" autocomplete="off" placeholder="o great oracle..."
-        style="flex:1;font:inherit;font-size:14px;background:#120d1c;color:#e8ddff;border:1px solid #3a2d55;border-radius:8px;padding:11px 13px;outline:none">
-      <button id="oraclego" style="font:inherit;font-weight:700;cursor:pointer;background:#6a4bb5;color:#f1eaff;border:none;border-radius:8px;padding:11px 18px">CONSULT</button>
-    </div>
-    <div id="oraclea" style="max-width:560px;margin:14px auto 0;min-height:24px;text-align:center;font-size:16px;color:#e8ddff;text-shadow:0 0 14px #9d7bff55"></div>
-  </section>
-
   <footer>
     FORT ATTENDANCE: <span id="streakline"></span><br>
     SECRETS FOUND: <span id="secretcount">0/3</span> &middot; there are secrets in this fort. more than advertised.<br>
@@ -349,19 +334,22 @@
    dictionary, and three maker rooms (paint.html, kitchen.html,
    gifmachine.html — each one is its own readable file, go look).
 
-   still editable: HOROSCOPES, MISSIONS, FACTS, ORACLE_ANSWERS,
-   RANKS, LOOKOUT_REPORTS below. they're just lists. add lines.
-   keep the commas. that is the only rule.
+   still editable: HOROSCOPES, MISSIONS, FACTS, RANKS below.
+   they're just lists. add lines. keep the commas. that is the
+   only rule.
 
    the wall and the dictionary live on a server now. open your
    browser's devtools, watch the network tab, and you'll see the
    fort speaking json to /api/. that's the whole protocol. it is
    not complicated. nothing real is.
 
-   secret count: the footer advertises 3. the true number is
-   larger and grows when new rooms open. two of the new ones
-   cannot be found by clicking. one requires reading. one
-   requires painting like you mean it.
+   the lookout, the locked door, and the oracle were decommissioned
+   by dad in july 2026. their remains are archived in the git
+   history. DALE is fine about it. (he is not fine about it.)
+
+   secret count: the footer advertises 3. the truth is 5. the sky
+   knows one. the dog knows one. the dictionary, the paint room,
+   and the kitchen keep the rest.
 
    the founder code changes the locks. guard it like a dragon.
    — the management (a dog)
@@ -409,7 +397,7 @@ const MISSIONS = [
   "Find the oldest tree you pass today and give it a small, respectful nod. Seniority matters.",
   "Reply 'noted.' to at least one piece of unsolicited advice today. Nothing else. Just 'noted.'",
   "Eat lunch today like a king who has seen war. Slowly. Gratefully. With one thousand-yard stare.",
-  "Count how many people you see wearing red today. Report the number to the Oracle tonight. It cares.",
+  "Count how many people you see wearing red today. Report the number to the dog. He is keeping stats.",
   "Do one kind thing today with zero witnesses. Stealth kindness. The rarest loot in the game.",
   "Rename a homework assignment 'THE CONTRACT' in your head. Complete the contract. Collect the bounty (grades).",
   "The next time you sneeze, say 'critical hit' before anyone can say bless you.",
@@ -453,45 +441,6 @@ const FACTS = [
   { f: "Orcas have culture. Different pods have their own dialects, hunting styles, and food preferences that they teach their kids.", s: "whale traditions. passed down. grandma orca teaching recipes." },
   { f: "Bees can recognize human faces. Researchers trained them with sugar water, and the bees kept recognizing the faces days later.", s: "you are known to the bees. carry yourself accordingly." }
 ];
-const ORACLE_ANSWERS = [
-  "Yes, but at what cost. (About eleven dollars.)",
-  "The council of raccoons has voted. It's a no. They were very polite about it.",
-  "Absolutely. I checked twice.",
-  "Ask again after a snack. This is not a delay tactic. Snacks improve accuracy.",
-  "Signs point to yes, but the signs are handwritten and one is upside down.",
-  "No. And you knew that when you asked.",
-  "Outlook hazy. The fort's wifi is down. Spiritually.",
-  "That information is classified at the highest levels of the fort. So: probably.",
-  "Yes, if you're brave. No, if you're honest. So... maybe.",
-  "The moon says yes. The moon says yes to everything though. Don't tell the moon I said that.",
-  "100% yes. This is the most certain I have ever been. And I once predicted a Tuesday.",
-  "Unclear. A moth flew into the prophecy. The moth says hi.",
-  "It is known. (It is not known. But it FEELS known, doesn't it?)",
-  "Reply hazy. Try turning yourself off and on again. (Sleep. I'm describing sleep.)",
-  "The answer lies within you. Somewhere near the ribs. Left side.",
-  "Yes, and honestly? It's about time.",
-  "No, but something better is loading. Progress bar is at like 60%.",
-  "Consult a dog. Dogs know. Dogs always know.",
-  "The prophecy is buffering. In the meantime: assume yes and act cool.",
-  "Danger. Not from the thing you asked about. From homework. Always from homework.",
-  "The stars say yes but the stars are 4 light-years old and haven't seen your situation lately.",
-  "Certainly not. Unless...? No. No. ...Unless?",
-  "You already know the answer. I'm just here for the ambience.",
-  "Yes, on one condition: you have to be normal about it. So, no.",
-  "The fort has reviewed your request. The fort approves. The fort is proud of you, actually.",
-  "Mmm. Ask me something easier, like 'what's the best kind of stick.' (Medium. Slightly bendy.)",
-  "All signs point to 'eventually.'",
-  "It's a yes from me. It's a no from the moth. Split decision. Rock paper scissors?",
-  "The answer arrived but it was written in crayon and mostly it's a drawing of a horse. Interpret freely.",
-  "Whatever happens, act like it was your plan. That's not a prophecy, that's just good advice.",
-  "Nope. The universe said 'lol' and hung up.",
-  "Yes. And when it happens, post it on the wall. I love hearing how these turn out.",
-  "The odds are 50/50 but leaning 60/40. Don't check my math.",
-  "This question has been asked once before. By a squirrel. It did not end well. But YOU? You'll be fine.",
-  "Prophecy machine broke. Vibes machine still works though, and the vibes are good.",
-  "As foretold.",
-  "D'oh. (that's a no.)"
-];
 const RANKS = [
   [1, "FRESH RECRUIT"], [2, "CERTIFIED KNOCKER"], [3, "ASSISTANT TO THE RACCOON COUNCIL"],
   [5, "SNACK QUARTERMASTER"], [7, "KEEPER OF THE GOOD STICK"], [10, "MOON LIAISON"],
@@ -519,28 +468,6 @@ const SNACK_LINES = [
   "crunchy. loud. perfect.",
   "this is going straight to the tail.",
   "the prophecy said you'd feed me. the prophecy delivers."
-];
-const LOOKOUT_REPORTS = [
-  "PERIMETER REPORT: one (1) squirrel acting suspicious. Followed up. He was just like that.",
-  "PERIMETER REPORT: all clear. A cloud looked like a hand for a while. Logged it.",
-  "PERIMETER REPORT: mailman passed at standard velocity. The dog filed a formal objection.",
-  "PERIMETER REPORT: three birds held a meeting on the north branch. Minutes were not shared.",
-  "PERIMETER REPORT: the wind moved some leaves around. Redecorating, probably. Approved.",
-  "PERIMETER REPORT: a cat crossed the yard with zero permits. Let it slide. This time.",
-  "PERIMETER REPORT: nothing to report, which is exactly what someone hiding something would report. Investigating myself.",
-  "PERIMETER REPORT: dew levels: high. Vibe levels: higher.",
-  "PERIMETER REPORT: one worm relocated from the sidewalk to the grass. Hero work. No applause necessary.",
-  "PERIMETER REPORT: the moon was seen leaving the area around dawn. It'll be back. It always comes back.",
-  "PERIMETER REPORT: a beetle walked the entire length of the fence. Respect the grind.",
-  "PERIMETER REPORT: fog rolled in at 0600, looked extremely dramatic, rolled back out. Show-off.",
-  "PERIMETER REPORT: acorn count is up 12% from yesterday. The squirrels know something.",
-  "PERIMETER REPORT: someone's sprinkler ran for exactly one minute. We may never know why.",
-  "PERIMETER REPORT: a very good dog was observed from the lookout. it was the staff. it's always the staff. 10/10.",
-  "PERIMETER REPORT: crow on the wire made eye contact and nodded first. Alliance confirmed.",
-  "PERIMETER REPORT: grass grew an unmeasurable amount. But it grew. We believe in it.",
-  "PERIMETER REPORT: threat level remains 'probably fine.' It has never not been 'probably fine.'",
-  "PERIMETER REPORT: one sock found on the fence line. No matching sock. The mystery deepens.",
-  "PERIMETER REPORT: sunrise occurred on schedule. Reliable. Professional. We should all take notes."
 ];
 const POSTER_LINES = [
   "i have no comment at this time.",
@@ -759,7 +686,14 @@ function rankFor(total) {
 }
 
 /* ---------- secrets ---------- */
-let secrets = store.get('secrets', []);
+// the full roster of secrets that still exist, across every room:
+// moon (index) · name (index) · lexicon (index) · palette (paint) · silence (kitchen).
+// rooms get demolished sometimes. secrets found in demolished rooms don't count
+// anymore — the counter only believes in things that are still real.
+// adding a new secret anywhere? add its id here too, or the fort will forget it.
+const SECRET_IDS = ['moon', 'name', 'lexicon', 'palette', 'silence'];
+let secrets = store.get('secrets', []).filter(id => SECRET_IDS.includes(id));
+store.set('secrets', secrets);
 const SECRET_ADVERTISED = 3;
 function foundSecret(id, msg) {
   if (secrets.includes(id)) return false;
@@ -829,7 +763,7 @@ function drawDog(t) {
   if (hyped) px(17.8, 8, 1, 1.8, '#ff6b9d', bob);
 }
 
-/* ---------- bulletin / oracle / lookout / moon / secrets ---------- */
+/* ---------- bulletin / moon / secrets ---------- */
 function fillBulletin() {
   const d = new Date();
   const days = ['SUNDAY','MONDAY','TUESDAY','WEDNESDAY','THURSDAY','FRIDAY','SATURDAY'];
@@ -841,62 +775,6 @@ function fillBulletin() {
   $('fact').textContent = fact.f;
   $('subtake').textContent = fact.s;
 }
-let oracleBusy = false;
-function consult() {
-  if (oracleBusy) return;
-  const q = $('oracleq').value.trim(), out = $('oraclea');
-  if (!q) { out.textContent = 'you have to actually ask something. the oracle is not a mind reader. (it is. but it\'s polite.)'; return; }
-  ensureAudio(); oracleBusy = true;
-  let ans;
-  const ql = q.toLowerCase();
-  if (ql.includes('what is the fort') || ql.includes('what is this place') || ql.includes('what is treefort')) {
-    ans = 'The fort is a load-bearing joke. The fort is wherever the dog is. The fort is you, technically, legally, spiritually. Next question.';
-    foundSecret('source', 'you asked the one true question. the counter is not broken. the fort just likes you.');
-  }
-  else if (ql.includes('connor')) ans = 'Connor-related questions are handled on the priority channel. The answer is yes. It is basically always yes for Connor.';
-  else if (ql.includes('jamie')) ans = 'Jamie questions get answered at little-brother speed: immediately. The answer is yes and also be nice to him.';
-  else if (ql.includes(STATE.dog_name.toLowerCase())) ans = 'The dog already knows the answer. Look at his face. LOOK at it. Exactly.';
-  else if (ql.includes('moon')) ans = 'The moon has been notified of your question and is flattered.';
-  else ans = ORACLE_ANSWERS[Math.floor(Math.random() * ORACLE_ANSWERS.length)];
-  out.textContent = '';
-  let dots = 0;
-  const think = setInterval(() => { dots = (dots + 1) % 4; out.textContent = 'consulting' + '.'.repeat(dots); }, 260);
-  setTimeout(() => {
-    clearInterval(think); out.textContent = '';
-    let i = 0;
-    const type = setInterval(() => {
-      out.textContent = ans.slice(0, ++i);
-      if (i >= ans.length) { clearInterval(type); oracleBusy = false; }
-    }, 22);
-    sWhoosh(); burst($('oracle'), 12, ['#9d7bff', '#c9b8f0', '#e8ddff']);
-  }, 1300 + Math.random() * 900);
-}
-$('oraclego').addEventListener('click', consult);
-$('oracleq').addEventListener('keydown', e => { if (e.key === 'Enter') consult(); });
-
-$('lookout').addEventListener('click', function () {
-  ensureAudio(); sWhoosh();
-  const p = this.querySelector('p');
-  if (!this.dataset.used) { p.textContent = pickDaily(LOOKOUT_REPORTS); this.dataset.used = '1'; }
-  else p.textContent = LOOKOUT_REPORTS[Math.floor(Math.random() * LOOKOUT_REPORTS.length)];
-});
-let knocks3 = 0, knockTimer = null;
-$('lockedroom').addEventListener('click', function () {
-  ensureAudio(); sKnockSfx();
-  knocks3++;
-  clearTimeout(knockTimer); knockTimer = setTimeout(() => knocks3 = 0, 2500);
-  const p = this.querySelector('p');
-  if (knocks3 === 1) p.textContent = 'knock.';
-  else if (knocks3 === 2) p.textContent = 'knock. knock. (we said don\'t.)';
-  else if (knocks3 >= 3) {
-    knocks3 = 0;
-    if (!foundSecret('door', 'the hum stops. a voice says "finally." the door stays locked — but now it trusts you.')) {
-      p.textContent = 'the door remembers you. it hums a little warmer now.';
-    } else {
-      p.textContent = 'the hum has stopped. the door trusts you now. still locked though. some things take time.';
-    }
-  }
-});
 let moonClicks = 0, moonTimer = null;
 $('moon').addEventListener('click', () => {
   ensureAudio(); sWhoosh();

@@ -17,7 +17,7 @@ and mod the source. Do not introduce bundlers, frameworks, libraries, or CDN scr
 |---|---|
 | `src/worker.js` | entire backend: code-gate auth, sessions, wall, dictionary, media, founder ops |
 | `schema.sql` | entire database (D1) |
-| `public/index.html` | the fort: door theater, bulletin, wall, dictionary, oracle, workshop, pixel dog |
+| `public/index.html` | the fort: door theater, bulletin, wall, dictionary, workshop, pixel dog |
 | `public/paint.html` | drawing tool + animation frames (onion skin) |
 | `public/kitchen.html` | meme maker (impact text, draw layer, remix-from-wall) |
 | `public/gifmachine.html` | client-side GIF89a encoder — **hand-written LZW, do not replace with a library** — plus the projection booth: .mov/.mp4 → frames → gif, fully in-browser, video never uploaded |
@@ -58,11 +58,17 @@ Smart-13-year-old register: never condescend, never "hello fellow kids."
 ## Canon (affects jokes, don't contradict)
 
 - The dog is DALE (government name DALE; street name founder-configurable). He is
-  "the staff" and "the management." He files perimeter reports.
+  "the staff" and "the management." (He filed perimeter reports until the lookout
+  was decommissioned — see below.)
 - PATRICIA is the poster (Miss Fort 1944, a poodle). DALE won't discuss the calendar shoot.
-- Secrets: footer advertises 3; truth is 7 (locked-door knocks, moon x3, typing the
-  dog's name, oracle "what is the fort", defining "fort" in the dictionary, full
-  16-color palette in paint, wordless meme). Counter overflow (e.g. 7/3) is intentional.
+- Secrets: footer advertises 3; truth is 5 (moon x3 `moon`, typing the dog's name
+  `name`, defining "fort" in the dictionary `lexicon`, full 16-color palette in paint
+  `palette`, wordless meme `silence`). Counter overflow (e.g. 5/3) is intentional.
+  `SECRET_IDS` in index.html is the authoritative roster — the counter prunes ids
+  not on it, so a new secret's id must be added there or it won't count.
+- The lookout, the locked door (???), and the oracle were removed 2026-07-02 at
+  Michael's request (their two secrets `door`/`source` retired with them; the
+  source letter marks the decommissioning). Do not resurrect them without asking.
 - Attendance counts total days ever, NEVER consecutive streaks ("the fort is not your boss")
 - Every page opens with a source-code letter to Connor. Update it when rooms change.
 
