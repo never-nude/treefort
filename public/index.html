@@ -205,12 +205,8 @@
   <div id="doorbox">
     <div id="doorlog"></div>
     <div class="doorrow" id="coderow">
-      <input id="codefield" maxlength="64" autocomplete="off" spellcheck="false" placeholder="the code" type="password">
+      <input id="codefield" maxlength="64" autocomplete="off" spellcheck="false" placeholder="your knock" type="password">
       <button id="codego">KNOCK</button>
-    </div>
-    <div class="doorrow" id="namerow">
-      <input id="namefield" maxlength="20" autocomplete="off" spellcheck="false" placeholder="your name">
-      <button id="namego">ENTER</button>
     </div>
   </div>
 </div>
@@ -304,15 +300,19 @@
       <button class="themechip" data-t="swamp">SWAMP</button>
       <button class="themechip" data-t="midnight">MIDNIGHT</button>
     </div>
-    <div id="wsnote">renaming the fort is founder business. the founder outranks you. the dog outranks the founder.</div>
+    <div class="wrow"><label>CHANGE MY KNOCK</label><input id="mycur" maxlength="64" placeholder="current knock" type="password"><input id="mynew" maxlength="64" placeholder="new knock" type="password"><button class="minibtn" id="mycodebtn">change</button></div>
+    <div id="wsnote">your knock is yours alone — it's how the door knows you're you. change it whenever. forgot it? the founder can reset it. renaming the fort, though, is founder business. the founder outranks you. the dog outranks the founder.</div>
     <div id="founderpanel">
       <div class="founderhead">FOUNDER PAPERWORK — visible to you and the dog only</div>
       <div class="wrow"><label>FORT NAME</label><input id="cfg_fort" maxlength="14"><button class="minibtn" id="cfgsave1">save</button></div>
       <div class="wrow"><label>DOG'S STREET NAME</label><input id="cfg_dog" maxlength="10"><button class="minibtn" id="cfgsave2">save</button></div>
-      <div class="wrow"><label>CHANGE THE LOCKS</label><input id="newcode" maxlength="64" placeholder="new fort code"><button class="fortbtn danger" id="lockbtn">CHANGE</button></div>
-      <div class="wrow"><label>THE ROSTER</label><button class="minibtn" id="rosterbtn">who has knocked</button></div>
+      <div class="wrow"><label>ADD A MEMBER</label><input id="addhandle" maxlength="20" placeholder="handle"><input id="addcode" maxlength="64" placeholder="starter code"><button class="minibtn" id="addbtn">add</button></div>
+      <div class="wrow"><label>RESET A KNOCK</label><input id="resethandle" maxlength="20" placeholder="handle"><input id="resetcode" maxlength="64" placeholder="new code"><button class="fortbtn danger" id="resetbtn">reset</button></div>
+      <div class="wrow"><label>THE MEMBERS</label><button class="minibtn" id="membersbtn">who's on the roster</button></div>
+      <div id="membersbox"></div>
+      <div class="wrow"><label>KNOCK LOG</label><button class="minibtn" id="rosterbtn">who has knocked</button></div>
       <div id="rosterbox"></div>
-      <div id="wsnote">changing the locks logs everyone out except you. delete buttons live on the wall. use them like a dog would: rarely, and with great dignity.</div>
+      <div id="wsnote">give each kid their own handle and code — one code per person means nobody can post as anybody else. tell them their code in person; the fort never emails. delete buttons live on the wall. use them like a dog would: rarely, and with great dignity.</div>
     </div>
   </section>
 
@@ -353,7 +353,10 @@
    knows one. the dog knows one. the dictionary, the paint room,
    and the kitchen keep the rest.
 
-   the founder code changes the locks. guard it like a dragon.
+   the door works by knocks now: one personal code per person, and
+   the code is what says who you are — so nobody can post under your
+   name. give people their own knock in the workshop. yours also runs
+   the place. guard it like a dragon.
    — the management (a dog)
    ========================================================== */
 /* ================= CONTENT ================= */
@@ -827,20 +830,41 @@ $('cfgsave2').addEventListener('click', async () => {
   if (r.data && r.data.ok) { toast('the dog has a new street name. he took it well.'); refreshState(); }
   else toast(r.data && r.data.error || 'the dog rejected the paperwork.');
 });
-let lockArmed = false;
-$('lockbtn').addEventListener('click', async function () {
-  const code = $('newcode').value.trim();
-  if (code.length < 4) { toast('4+ characters. the raccoons insist.'); return; }
-  if (!lockArmed) {
-    lockArmed = true; this.textContent = 'SURE? EVERYONE RE-KNOCKS';
-    setTimeout(() => { lockArmed = false; this.textContent = 'CHANGE'; }, 3000);
-    return;
-  }
-  const r = await api('lock', { method: 'POST', body: { new_code: code } });
-  if (r.data && r.data.ok) { $('newcode').value = ''; this.textContent = 'CHANGE'; lockArmed = false;
-    toast('locks changed. spread the new code however you like.', 5000); }
-  else toast(r.data && r.data.error || 'the locks jammed.');
+// change my own knock (any member)
+$('mycodebtn').addEventListener('click', async () => {
+  const cur = $('mycur').value.trim(), next = $('mynew').value.trim();
+  if (next.length < 4) { toast('the new knock needs 4+ characters.'); return; }
+  const r = await api('mycode', { method: 'POST', body: { current_code: cur, new_code: next } });
+  if (r.data && r.data.ok) { $('mycur').value = ''; $('mynew').value = ''; toast('your knock is changed. the door will remember.', 4000); }
+  else toast(r.data && r.data.error || 'the door did not take it.');
 });
+// founder: add a member with a starter code
+$('addbtn').addEventListener('click', async () => {
+  const handle = $('addhandle').value.trim(), code = $('addcode').value.trim();
+  if (!handle || code.length < 4) { toast('a handle and a 4+ character starter code.'); return; }
+  const r = await api('members/add', { method: 'POST', body: { handle, code } });
+  if (r.data && r.data.ok) { $('addhandle').value = ''; $('addcode').value = ''; toast(r.data.note, 5000); loadMembers(); }
+  else toast(r.data && r.data.error || 'the roster refused.');
+});
+// founder: reset a member's knock (the recovery flow — a kid forgot their code)
+let resetArmed = false;
+$('resetbtn').addEventListener('click', async function () {
+  const handle = $('resethandle').value.trim(), code = $('resetcode').value.trim();
+  if (!handle || code.length < 4) { toast('a handle and a new 4+ character code.'); return; }
+  if (!resetArmed) { resetArmed = true; this.textContent = 'SURE?'; setTimeout(() => { resetArmed = false; this.textContent = 'reset'; }, 3000); return; }
+  const r = await api('members/reset', { method: 'POST', body: { handle, code } });
+  resetArmed = false; this.textContent = 'reset';
+  if (r.data && r.data.ok) { $('resethandle').value = ''; $('resetcode').value = ''; toast(r.data.note, 5000); }
+  else toast(r.data && r.data.error || 'the reset jammed.');
+});
+async function loadMembers() {
+  const r = await api('members');
+  if (!(r.data && r.data.ok)) return;
+  $('membersbox').innerHTML = r.data.members.map(m =>
+    esc(m.handle) + (m.is_founder ? ' &middot; <b>founder</b>' : '') + (m.created_at ? ' &middot; added ' + fortTime(m.created_at) : '')
+  ).join('<br>') || 'nobody yet. eerie.';
+}
+$('membersbtn').addEventListener('click', loadMembers);
 $('rosterbtn').addEventListener('click', async () => {
   const r = await api('roster');
   if (!(r.data && r.data.ok)) return;
@@ -1138,25 +1162,10 @@ async function submitCode() {
   if (!code) return;
   ensureAudio();
   $('coderow').classList.remove('show');
-  addLine('sys', 'checking the code against the sacred ledger... ', '');
+  addLine('sys', 'checking your knock against the sacred ledger... ', '');
+  // the knock alone says who you are — the ledger hands back your name.
+  const r = await api('knock', { method: 'POST', body: { code } });
   await sleep(900);
-  // stash; knock happens after we have a name
-  submitCode.pending = code;
-  addLine('ok', 'the ledger says: maybe.');
-  await sleep(400);
-  addLine('big', 'STATE YOUR NAME:');
-  $('namerow').classList.add('show');
-  $('namefield').focus();
-}
-
-async function submitName() {
-  let name = $('namefield').value.trim().toUpperCase().slice(0, 20);
-  if (!name) name = 'MYSTERY GUEST';
-  ensureAudio();
-  $('namerow').classList.remove('show');
-  addLine('sys', 'verifying "' + name + '"... ', '');
-  const r = await api('knock', { method: 'POST', body: { code: submitCode.pending, name } });
-  await sleep(700);
   if (!(r.data && r.data.ok)) {
     addLine('warn', 'hm.');
     await doorFail(r.data && r.data.error || 'the door said no and offered no reasons.', r.data && r.data.cooldown);
@@ -1200,8 +1209,6 @@ async function submitName() {
 }
 $('codego').addEventListener('click', submitCode);
 $('codefield').addEventListener('keydown', e => { if (e.key === 'Enter') submitCode(); });
-$('namego').addEventListener('click', submitName);
-$('namefield').addEventListener('keydown', e => { if (e.key === 'Enter') submitName(); });
 
 /* ---------- main loop + boot ---------- */
 let lastFrame = performance.now();

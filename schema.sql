@@ -2,13 +2,23 @@
 
 CREATE TABLE IF NOT EXISTS config (
   id INTEGER PRIMARY KEY CHECK (id = 1),
-  gen INTEGER NOT NULL DEFAULT 1,          -- bump = every session dies = the locks changed
+  gen INTEGER NOT NULL DEFAULT 1,          -- bump = every session dies (kept for future mass re-key)
   salt TEXT NOT NULL,
-  fort_hash TEXT NOT NULL,                 -- sha256(salt + fort code)
-  founder_hash TEXT NOT NULL,              -- sha256(salt + founder code)
+  fort_hash TEXT NOT NULL,                 -- legacy (v1 shared fort code) — unused since per-person knocks
+  founder_hash TEXT NOT NULL,              -- legacy (v1 single founder code) — unused since per-person knocks
   fort_name TEXT NOT NULL DEFAULT 'TREEFORT',
   dog_name TEXT NOT NULL DEFAULT 'DALE'
 );
+
+-- one row per person. the knock (a personal code) is what proves who you are, so
+-- nobody can post under someone else's handle. we store only the hash of the code.
+CREATE TABLE IF NOT EXISTS members (
+  handle TEXT PRIMARY KEY,                 -- the name stamped on your posts
+  code_hash TEXT NOT NULL,                 -- sha256(salt + CODE); the plaintext code lives nowhere
+  is_founder INTEGER NOT NULL DEFAULT 0,   -- 1 = admin powers (delete, rename, manage roster)
+  created_at INTEGER
+);
+CREATE INDEX IF NOT EXISTS idx_members_code ON members(code_hash);
 
 CREATE TABLE IF NOT EXISTS posts (
   id INTEGER PRIMARY KEY AUTOINCREMENT,

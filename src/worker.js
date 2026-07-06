@@ -90,6 +90,24 @@ async function getConfig(env) {
 }
 function now() { return Math.floor(Date.now() / 1000); }
 
+/* ---------------- members / knocks ----------------
+   a knock is one personal code. it hashes to exactly one member, and that member's
+   handle is what gets stamped on their posts. no name is ever typed at the door, so
+   nobody can wear someone else's name. we store only the hash, never the code. */
+function cleanCode(raw) { return (typeof raw === 'string' ? raw : '').trim(); }
+async function hashCode(salt, code) { return sha256hex(salt + code.trim().toUpperCase()); }
+async function memberByHash(env, h) {
+  return await env.DB.prepare('SELECT * FROM members WHERE code_hash=?').bind(h).first();
+}
+async function memberByHandle(env, handle) {
+  return await env.DB.prepare('SELECT * FROM members WHERE handle=?').bind(handle).first();
+}
+// codes must be unique (a code IS an identity). returns the other owner's handle, or null.
+async function codeTakenByOther(env, h, handle) {
+  const row = await env.DB.prepare('SELECT handle FROM members WHERE code_hash=?').bind(h).first();
+  return row && row.handle !== handle ? row.handle : null;
+}
+
 /* magic bytes: the only art criticism the fort performs */
 function sniffImage(buf) {
   const b = new Uint8Array(buf.slice(0, 12));
@@ -147,16 +165,15 @@ async function handleKnock(env, request, cfg, ip) {
   }
   const body = await readJson(request);
   if (!body) return nope('json required');
-  const code = cleanText(body.code, 64).toUpperCase();
-  const name = cleanName(body.name);
-  if (!code || !name) return nope('a code and a name. that is the whole form.');
+  const code = cleanCode(body.code);
+  if (!code) return nope('a knock is one code. that is the whole form.');
 
-  const h = await sha256hex(cfg.salt + code);
-  let role = null;
-  if (timingSafeEq(h, cfg.founder_hash)) role = 'founder';
-  else if (timingSafeEq(h, cfg.fort_hash)) role = 'member';
+  // the code alone decides who you are. no name is typed, so no name can be faked.
+  const h = await hashCode(cfg.salt, code);
+  const member = await memberByHash(env, h);
 
-  if (!role) {
+  if (!member) {
+    // wrong knock: count the miss, and never reveal whether any handle exists.
     if (!fail || t - fail.window_start >= KNOCK_WINDOW) {
       await env.DB.prepare(
         'INSERT INTO knock_fails (ip, fails, window_start) VALUES (?, 1, ?) ' +
@@ -165,8 +182,11 @@ async function handleKnock(env, request, cfg, ip) {
     } else {
       await env.DB.prepare('UPDATE knock_fails SET fails=fails+1 WHERE ip=?').bind(ip).run();
     }
-    return json({ ok: false, error: 'that is not the code. the raccoon council has been notified.' }, 401);
+    return json({ ok: false, error: 'that knock means nothing to the door. the raccoon council has been notified.' }, 401);
   }
+
+  const role = member.is_founder ? 'founder' : 'member';
+  const name = member.handle;
 
   await env.DB.prepare('DELETE FROM knock_fails WHERE ip=?').bind(ip).run();
   await env.DB.prepare(
@@ -319,19 +339,80 @@ async function handleDictStatus(env, request, session) {
   return json({ ok: true });
 }
 
-async function handleLock(env, request, session, cfg) {
-  if (session.role !== 'founder') return nope('only the founder changes the locks.', 403);
+// change your OWN knock. prove you know your current code, then set a new one.
+// no email, no recovery — if you forget it, a founder resets it for you (below).
+async function handleMyCode(env, request, session, cfg) {
   const body = await readJson(request);
-  const newCode = cleanText(body && body.new_code, 64).toUpperCase();
-  if (newCode.length < 4) return nope('4+ characters. the raccoons insist.');
-  const h = await sha256hex(cfg.salt + newCode);
-  if (timingSafeEq(h, cfg.founder_hash)) return nope('that is the founder code. pick literally anything else.');
-  const newGen = cfg.gen + 1;
-  await env.DB.prepare('UPDATE config SET gen=?, fort_hash=? WHERE id=1').bind(newGen, h).run();
-  // re-key the founder so their own session survives the lock change
-  const token = await makeSession(env, newGen, 'founder', session.name);
-  return json({ ok: true, gen: newGen, note: 'the locks are changed. everyone knocks again. spread the new code however you like.' },
-    200, { 'Set-Cookie': sessionCookie(token) });
+  if (!body) return nope('json required');
+  const cur = cleanCode(body.current_code), next = cleanCode(body.new_code);
+  if (next.length < 4) return nope('the new knock needs 4+ characters. the raccoons insist.');
+  const me = await memberByHandle(env, session.name);
+  if (!me) return nope('you are not on the roster. this should be impossible. tell connor.', 409);
+  const curH = await hashCode(cfg.salt, cur);
+  if (!timingSafeEq(curH, me.code_hash)) return nope('that is not your current knock.');
+  const nextH = await hashCode(cfg.salt, next);
+  const clash = await codeTakenByOther(env, nextH, session.name);
+  if (clash) return nope('someone already knocks like that. pick another.');
+  await env.DB.prepare('UPDATE members SET code_hash=? WHERE handle=?').bind(nextH, session.name).run();
+  return json({ ok: true, note: 'your knock is changed. the door will remember.' });
+}
+
+// founder: put a new person on the roster with a starter code (they change it later).
+async function handleMemberAdd(env, request, session, cfg) {
+  if (session.role !== 'founder') return nope('adding members is founder business.', 403);
+  const body = await readJson(request);
+  if (!body) return nope('json required');
+  const handle = cleanName(body.handle);
+  const code = cleanCode(body.code);
+  if (!handle) return nope('a member needs a handle. letters and numbers.');
+  if (code.length < 4) return nope('their starter code needs 4+ characters.');
+  if (await memberByHandle(env, handle)) return nope('someone already goes by ' + handle + '. handles are one to a customer.');
+  const h = await hashCode(cfg.salt, code);
+  if (await codeTakenByOther(env, h, handle)) return nope('that code already belongs to someone. pick another.');
+  await env.DB.prepare('INSERT INTO members (handle, code_hash, is_founder, created_at) VALUES (?, ?, 0, ?)').bind(handle, h, now()).run();
+  return json({ ok: true, note: handle + ' is on the roster. tell them their code in person.' });
+}
+
+// founder: reset a member's knock. THIS is the recovery flow — a kid forgot their code.
+async function handleMemberReset(env, request, session, cfg) {
+  if (session.role !== 'founder') return nope('resetting knocks is founder business.', 403);
+  const body = await readJson(request);
+  if (!body) return nope('json required');
+  const handle = cleanName(body.handle);
+  const code = cleanCode(body.code);
+  if (!handle || code.length < 4) return nope('a handle and a new 4+ character code.');
+  if (!(await memberByHandle(env, handle))) return nope('nobody on the roster goes by ' + handle + '.', 404);
+  const h = await hashCode(cfg.salt, code);
+  if (await codeTakenByOther(env, h, handle)) return nope('that code already belongs to someone else. pick another.');
+  await env.DB.prepare('UPDATE members SET code_hash=? WHERE handle=?').bind(h, handle).run();
+  return json({ ok: true, note: handle + '\'s knock has been reset. tell them the new one.' });
+}
+
+// founder: who is on the roster (handles only — the door never coughs up a code).
+async function handleMembers(env, session) {
+  if (session.role !== 'founder') return nope('the roster is founder business.', 403);
+  const rows = (await env.DB.prepare(
+    'SELECT handle, is_founder, created_at FROM members ORDER BY is_founder DESC, handle ASC'
+  ).all()).results || [];
+  return json({ ok: true, members: rows });
+}
+
+// one-time grandfather seeding, guarded by a worker secret. refuses once anyone exists.
+// this is how CONNOR (founder) and KUSHMAN get their first codes after deploy.
+async function handleSeed(env, request, cfg) {
+  if (!env.SEED_TOKEN) return nope('seeding is not enabled.', 403);
+  const body = await readJson(request);
+  if (!body || !timingSafeEq(String(body.token || ''), env.SEED_TOKEN)) return nope('no.', 403);
+  const count = await env.DB.prepare('SELECT COUNT(*) AS n FROM members').first();
+  if (count && count.n > 0) return nope('the roster already exists. seeding is a one-time thing.', 409);
+  const connor = cleanCode(body.connor_code), kushman = cleanCode(body.kushman_code);
+  if (connor.length < 4 || kushman.length < 4) return nope('both starter codes need 4+ characters.');
+  const ch = await hashCode(cfg.salt, connor), kh = await hashCode(cfg.salt, kushman);
+  if (timingSafeEq(ch, kh)) return nope('give connor and kushman different codes.');
+  const t = now();
+  await env.DB.prepare('INSERT INTO members (handle, code_hash, is_founder, created_at) VALUES (?, ?, 1, ?)').bind('CONNOR', ch, t).run();
+  await env.DB.prepare('INSERT INTO members (handle, code_hash, is_founder, created_at) VALUES (?, ?, 0, ?)').bind('KUSHMAN', kh, t).run();
+  return json({ ok: true, note: 'CONNOR (founder) and KUSHMAN seeded. tell them their codes, then delete the SEED_TOKEN secret.' });
 }
 
 async function handleConfig(env, request, session) {
@@ -379,6 +460,8 @@ export default {
     if (!cfg) return nope('the fort is not founded yet. (run the setup step in DEPLOY.md.)', 503);
 
     if (path === '/api/knock' && method === 'POST') return handleKnock(env, request, cfg, ip);
+    // one-time grandfather seeding (needs the secret, not a session — there are no members yet)
+    if (path === '/api/seed' && method === 'POST') return handleSeed(env, request, cfg);
 
     // everything below the door requires a living session
     const session = await readSession(env, request, cfg);
@@ -397,7 +480,10 @@ export default {
     if (path === '/api/dict' && method === 'GET') return handleDictGet(env);
     if (path === '/api/dict' && method === 'POST') return handleDictAdd(env, request, session);
     if (path === '/api/dict/status' && method === 'POST') return handleDictStatus(env, request, session);
-    if (path === '/api/lock' && method === 'POST') return handleLock(env, request, session, cfg);
+    if (path === '/api/mycode' && method === 'POST') return handleMyCode(env, request, session, cfg);
+    if (path === '/api/members' && method === 'GET') return handleMembers(env, session);
+    if (path === '/api/members/add' && method === 'POST') return handleMemberAdd(env, request, session, cfg);
+    if (path === '/api/members/reset' && method === 'POST') return handleMemberReset(env, request, session, cfg);
     if (path === '/api/config' && method === 'POST') return handleConfig(env, request, session);
     if (path === '/api/roster' && method === 'GET') return handleRoster(env, session);
 
