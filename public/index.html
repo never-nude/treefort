@@ -180,7 +180,7 @@
   .themechip { font: inherit; font-size: 11px; font-weight: 700; cursor: pointer;
     background: #241c10; color: #c9bda3; border: 2px solid #4a3a20; border-radius: 8px; padding: 7px 12px; }
   .themechip.on { border-color: var(--acc); color: var(--glow); }
-  #wsnote, .founderhead { font-size: 11px; color: #57503f; margin-top: 8px; line-height: 1.7; }
+  #wsnote, .wsnote, .founderhead { font-size: 11px; color: #57503f; margin-top: 8px; line-height: 1.7; }
   #founderpanel { display: none; border-top: 1px dashed #4a3a20; margin-top: 14px; padding-top: 14px; }
   #founderpanel.show { display: block; }
   .founderhead { color: #9ee493; letter-spacing: 2px; margin-bottom: 10px; }
@@ -302,6 +302,7 @@
     </div>
     <div class="wrow"><label>CHANGE MY KNOCK</label><input id="mycur" maxlength="64" placeholder="current knock" type="password"><input id="mynew" maxlength="64" placeholder="new knock" type="password"><button class="minibtn" id="mycodebtn">change</button></div>
     <div id="wsnote">your knock is yours alone — it's how the door knows you're you. change it whenever. forgot it? the founder can reset it. renaming the fort, though, is founder business. the founder outranks you. the dog outranks the founder.</div>
+    <div class="wrow"><label>LEAVE THE FORT</label><button class="minibtn" id="logoutbtn">climb down the ladder</button><span class="wsnote" style="margin:0">this device forgets you. your code still works. climb back up anytime.</span></div>
     <div id="founderpanel">
       <div class="founderhead">FOUNDER PAPERWORK — visible to you and the dog only</div>
       <div class="wrow"><label>FORT NAME</label><input id="cfg_fort" maxlength="14"><button class="minibtn" id="cfgsave1">save</button></div>
@@ -837,6 +838,13 @@ $('mycodebtn').addEventListener('click', async () => {
   const r = await api('mycode', { method: 'POST', body: { current_code: cur, new_code: next } });
   if (r.data && r.data.ok) { $('mycur').value = ''; $('mynew').value = ''; toast('your knock is changed. the door will remember.', 4000); }
   else toast(r.data && r.data.error || 'the door did not take it.');
+});
+// leave the fort: clear the cookie, then the door theater takes over on reload
+$('logoutbtn').addEventListener('click', async () => {
+  $('logoutbtn').disabled = true;
+  await api('logout', { method: 'POST' });
+  toast('climbing down. see you at the door.', 1600);
+  setTimeout(() => location.reload(), 900);
 });
 // founder: add a member with a starter code
 $('addbtn').addEventListener('click', async () => {

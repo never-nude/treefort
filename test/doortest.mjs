@@ -219,5 +219,13 @@ const png = () => { const b=new Uint8Array(64); b.set([0x89,0x50,0x4E,0x47,0x0D,
   assert(hit429,'post rate limit engages');
   console.log('rate limit: OK');
 
+  // logout clears the cookie; the session is gone on the very next request
+  r=await call('/api/knock',{method:'POST',body:{code:'FOUNDER1'},ip:'7.7.7.7',who:'leaver'});
+  assert(r.data.ok,'leaver knock');
+  r=await call('/api/state',{who:'leaver'}); assert(r.status===200 && r.data.ok,'leaver has a live session');
+  r=await call('/api/logout',{method:'POST',who:'leaver'}); assert(r.data.ok,'logout ok');
+  r=await call('/api/state',{who:'leaver'}); assert(r.status===401,'after logout the session is gone, got '+r.status);
+  console.log('logout: OK');
+
   console.log('\nTHE DOOR WORKS. PER-PERSON KNOCKS, NO IMPERSONATION. ALL ASSERTIONS PASSED.');
 })().catch(e=>{console.error('FAIL:',e.message);process.exit(1);});

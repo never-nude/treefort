@@ -63,6 +63,15 @@ async function readSession(env, request, cfg) {
 function sessionCookie(token) {
   return `fort_session=${token}; Max-Age=${SESSION_DAYS * DAY}; Path=/; HttpOnly; Secure; SameSite=Lax`;
 }
+// Max-Age=0 tells the browser to forget the cookie. that is the whole of logging out —
+// no name is stored anywhere, so leaving is just the door forgetting your face on purpose.
+function clearSessionCookie() {
+  return `fort_session=; Max-Age=0; Path=/; HttpOnly; Secure; SameSite=Lax`;
+}
+function handleLogout() {
+  return json({ ok: true, note: 'you climbed down. the ladder is still there.' },
+    200, { 'Set-Cookie': clearSessionCookie() });
+}
 
 /* ---------------- small utils ---------------- */
 function json(data, status = 200, headers = {}) {
@@ -462,6 +471,8 @@ export default {
     if (path === '/api/knock' && method === 'POST') return handleKnock(env, request, cfg, ip);
     // one-time grandfather seeding (needs the secret, not a session — there are no members yet)
     if (path === '/api/seed' && method === 'POST') return handleSeed(env, request, cfg);
+    // logout just clears the cookie — no session required (a stale cookie can still leave)
+    if (path === '/api/logout' && method === 'POST') return handleLogout();
 
     // everything below the door requires a living session
     const session = await readSession(env, request, cfg);
