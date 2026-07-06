@@ -237,9 +237,9 @@
     <h2>TODAY'S FORT BULLETIN</h2>
     <div id="boarddate"></div>
     <div id="cards">
-      <div class="note"><h3>GAMER HOROSCOPE</h3><div id="horo"></div></div>
+      <div class="note"><h3>HOROSCOPE</h3><div id="horo"></div></div>
       <div class="note"><h3>TODAY'S MISSION</h3><div id="mission"></div></div>
-      <div class="note"><h3>TRUE ANIMAL FACT</h3><div id="fact"></div><div class="subsay"><span id="doglabel">DALE</span>'s take: <b id="subtake"></b></div></div>
+      <div class="note"><h3>TRUE ANIMAL FACT</h3><div id="fact"></div></div>
     </div>
   </section>
 
@@ -286,7 +286,7 @@
       <p>impact font, top and bottom. draw on anything. export files, deploy anywhere.</p></a>
     <a class="room" href="gifmachine.html"><h3>&#9654; GIF MACHINE</h3>
       <p>frames go in. a gif comes out. built on-site, no outside contractors.</p></a>
-    <a class="room" href="handbook.html"><h3>&#9636; THE HANDBOOK</h3>
+    <a class="room" id="handbookroom" href="handbook.html"><h3>&#9636; THE HANDBOOK</h3>
       <p>the founder's field manual. how the whole fort works, on the record. required reading. (there's no quiz. probably.)</p></a>
     <button class="room" id="workshopbtn"><h3>&#9881; THE WORKSHOP</h3>
       <p>paint jobs and paperwork. founders will find additional paperwork.</p></button>
@@ -534,6 +534,9 @@ const store = {
   set(k, v) { try { localStorage.setItem('tf_' + k, JSON.stringify(v)); } catch (e) {} }
 };
 let STATE = { name: null, role: null, fort_name: 'TREEFORT', dog_name: 'DALE' };
+const FORT_BASE = '/' + (location.pathname.split('/').filter(Boolean)[0] || 'the_lookout');
+const apiUrl = path => FORT_BASE + '/api/' + path;
+const mediaUrl = key => FORT_BASE + '/api/media/' + key;
 
 async function api(path, opts = {}) {
   const init = { method: opts.method || 'GET', headers: {} };
@@ -541,7 +544,7 @@ async function api(path, opts = {}) {
     if (opts.raw) { init.body = opts.body; }
     else { init.body = JSON.stringify(opts.body); init.headers['Content-Type'] = 'application/json'; }
   }
-  const res = await fetch('/api/' + path, init);
+  const res = await fetch(apiUrl(path), init);
   let data = null;
   try { data = await res.json(); } catch (e) {}
   if (res.status === 401 && fortOpen) { toast('your session expired. knock again.'); setTimeout(() => location.reload(), 1600); }
@@ -779,7 +782,6 @@ function fillBulletin() {
   $('mission').textContent = pickDaily(MISSIONS);
   const fact = pickDaily(FACTS);
   $('fact').textContent = fact.f;
-  $('subtake').textContent = fact.s;
 }
 let moonClicks = 0, moonTimer = null;
 $('moon').addEventListener('click', () => {
@@ -887,7 +889,6 @@ async function refreshState() {
     document.querySelector('#sign h1').textContent = STATE.fort_name;
     document.title = STATE.fort_name.toLowerCase() + '.lol';
     $('feedbtn').textContent = 'GIVE ' + STATE.dog_name + ' A SNACK';
-    $('doglabel').textContent = STATE.dog_name;
     $('staffname').textContent = STATE.dog_name;
     $('cfg_fort').value = STATE.fort_name;
     $('cfg_dog').value = STATE.dog_name;
@@ -970,7 +971,7 @@ function renderPost(p) {
   if (STATE.role === 'founder') inner += '<span style="flex:1"></span><button class="minibtn tombbtn" data-id="' + p.id + '">remove</button>';
   inner += '</div>';
   if (p.text) inner += '<div class="ptext">' + rich(p.text) + '</div>';
-  if (p.media_key) inner += '<img class="pmedia" loading="lazy" src="/api/media/' + esc(p.media_key) + '" alt="posted by ' + esc(p.author) + '">';
+  if (p.media_key) inner += '<img class="pmedia" loading="lazy" src="' + esc(mediaUrl(p.media_key)) + '" alt="posted by ' + esc(p.author) + '">';
   inner += '<div class="replies">';
   for (const r of (p.replies || [])) inner += '<div class="reply"><b>' + esc(r.author) + '</b> ' + rich(r.text) + '</div>';
   inner += '</div><div class="riffrow"><input maxlength="500" placeholder="riff..."><button class="minibtn riffgo" data-id="' + p.id + '">reply</button></div>';
@@ -1093,6 +1094,7 @@ let fortOpen = false;
 function openFort() {
   if (fortOpen) return;
   fortOpen = true;
+  syncConnorRooms();
   $('door').style.display = 'none';
   $('fort').style.display = 'block';
   const dayN = updateAttendance();
@@ -1113,6 +1115,10 @@ function openFort() {
   applyTheme(); sizeDog(); resizeFx(); rain(90);
   fillBulletin(); loadWall(true); loadDict();
   setTimeout(() => dogSay(DOG_LINES[Math.floor(Math.random() * DOG_LINES.length)]), 900);
+}
+
+function syncConnorRooms() {
+  $('handbookroom').style.display = STATE.name === 'CONNOR' && STATE.role === 'founder' ? '' : 'none';
 }
 
 async function doorFail(msg, cooldown) {

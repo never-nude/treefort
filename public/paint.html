@@ -140,6 +140,8 @@ const store = {
   set(k, v) { try { localStorage.setItem('tf_' + k, JSON.stringify(v)); } catch (e) {} }
 };
 let toastTimer;
+const FORT_BASE = '/' + (location.pathname.split('/').filter(Boolean)[0] || 'the_lookout');
+const apiUrl = path => FORT_BASE + '/api/' + path;
 function toast(m, ms = 3000) { const t = $('toast'); t.textContent = m; t.classList.add('show');
   clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), ms); }
 function foundSecret(id, msg) {
@@ -152,7 +154,7 @@ async function api(path, opts = {}) {
   const init = { method: opts.method || 'GET' };
   if (opts.raw) init.body = opts.body;
   else if (opts.body !== undefined) { init.body = JSON.stringify(opts.body); init.headers = { 'Content-Type': 'application/json' }; }
-  const res = await fetch('/api/' + path, init);
+  const res = await fetch(apiUrl(path), init);
   let data = null; try { data = await res.json(); } catch (e) {}
   if (res.status === 401) location.href = 'index.html';
   return { status: res.status, data };

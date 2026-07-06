@@ -9,11 +9,31 @@ routes = [
   { pattern = "www.treefort.lol", custom_domain = true }
 ]
 
-# static fort files — served directly when the path matches a file,
-# everything else (i.e. /api/*) falls through to the worker
+# Static files are served through the Worker for fort routing. Root legacy
+# room URLs also hit the Worker, so they cannot bypass the fort slug model.
 [assets]
 directory = "./public"
 binding = "ASSETS"
+run_worker_first = [
+  "/api/*",
+  "/*/api/*",
+  "/paint",
+  "/paint.html",
+  "/kitchen",
+  "/kitchen.html",
+  "/gifmachine",
+  "/gifmachine.html",
+  "/handbook",
+  "/handbook.html",
+  "/*/paint",
+  "/*/paint.html",
+  "/*/kitchen",
+  "/*/kitchen.html",
+  "/*/gifmachine",
+  "/*/gifmachine.html",
+  "/*/handbook",
+  "/*/handbook.html"
+]
 
 [[d1_databases]]
 binding = "DB"

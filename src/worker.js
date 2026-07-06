@@ -12,6 +12,19 @@ const REPLY_TEXT_MAX = 500;
 const IMG_MAX = 4 * 1024 * 1024;
 const GIF_MAX = 10 * 1024 * 1024;
 const PAGE_SIZE = 20;
+const DEFAULT_FORT_SLUG = 'the_lookout';
+const ROOM_ASSETS = new Map([
+  ['/', '/index.html'],
+  ['/index.html', '/index.html'],
+  ['/paint', '/paint.html'],
+  ['/paint.html', '/paint.html'],
+  ['/kitchen', '/kitchen.html'],
+  ['/kitchen.html', '/kitchen.html'],
+  ['/gifmachine', '/gifmachine.html'],
+  ['/gifmachine.html', '/gifmachine.html'],
+  ['/handbook', '/handbook.html'],
+  ['/handbook.html', '/handbook.html']
+]);
 
 /* ---------------- crypto helpers ---------------- */
 const enc = new TextEncoder();
@@ -38,13 +51,13 @@ function randKey(prefix) {
 }
 
 /* ---------------- session cookie ---------------- */
-async function makeSession(env, gen, role, name) {
+async function makeSession(env, fort, role, name) {
   const exp = Math.floor(Date.now() / 1000) + SESSION_DAYS * DAY;
-  const body = ['v1', gen, role, encodeURIComponent(name), exp].join('.');
+  const body = ['v2', fort.id, fort.gen, role, encodeURIComponent(name), exp].join('.');
   const sig = await hmacHex(env.SESSION_SECRET, body);
   return body + '.' + sig;
 }
-async function readSession(env, request, cfg) {
+async function readSession(env, request, fort) {
   const cookie = request.headers.get('Cookie') || '';
   const m = cookie.match(/(?:^|;\s*)fort_session=([^;]+)/);
   if (!m) return null;
@@ -54,23 +67,27 @@ async function readSession(env, request, cfg) {
   const body = raw.slice(0, i), sig = raw.slice(i + 1);
   const expect = await hmacHex(env.SESSION_SECRET, body);
   if (!timingSafeEq(sig, expect)) return null;
-  const [v, gen, role, nameEnc, exp] = body.split('.');
-  if (v !== 'v1') return null;
+  const [v, fortId, gen, role, nameEnc, exp] = body.split('.');
+  if (v !== 'v2') return null;
+  if (fortId !== fort.id) return null;
   if (parseInt(exp, 10) < Math.floor(Date.now() / 1000)) return null;
-  if (parseInt(gen, 10) !== cfg.gen) return null;   // the locks changed
-  return { role, name: decodeURIComponent(nameEnc), gen: parseInt(gen, 10) };
+  if (parseInt(gen, 10) !== fort.gen) return null;   // the locks changed
+  const name = decodeURIComponent(nameEnc);
+  const member = await memberByHandle(env, fort.id, name);
+  if (!member) return null;
+  return { fort_id: fort.id, fort_slug: fort.slug, role: member.is_founder ? 'founder' : 'member', name, gen: parseInt(gen, 10) };
 }
-function sessionCookie(token) {
-  return `fort_session=${token}; Max-Age=${SESSION_DAYS * DAY}; Path=/; HttpOnly; Secure; SameSite=Lax`;
+function sessionCookie(token, fort) {
+  return `fort_session=${token}; Max-Age=${SESSION_DAYS * DAY}; Path=/${fort.slug}; HttpOnly; Secure; SameSite=Lax`;
 }
 // Max-Age=0 tells the browser to forget the cookie. that is the whole of logging out —
 // no name is stored anywhere, so leaving is just the door forgetting your face on purpose.
-function clearSessionCookie() {
-  return `fort_session=; Max-Age=0; Path=/; HttpOnly; Secure; SameSite=Lax`;
+function clearSessionCookie(fort) {
+  return `fort_session=; Max-Age=0; Path=/${fort.slug}; HttpOnly; Secure; SameSite=Lax`;
 }
-function handleLogout() {
+function handleLogout(fort) {
   return json({ ok: true, note: 'you climbed down. the ladder is still there.' },
-    200, { 'Set-Cookie': clearSessionCookie() });
+    200, { 'Set-Cookie': clearSessionCookie(fort) });
 }
 
 /* ---------------- small utils ---------------- */
@@ -99,21 +116,85 @@ async function getConfig(env) {
 }
 function now() { return Math.floor(Date.now() / 1000); }
 
+function normalizeFortSlug(displayNameOrSlug) {
+  if (typeof displayNameOrSlug !== 'string') return null;
+  const slug = displayNameOrSlug.trim().replace(/\s+/g, '_').toLowerCase();
+  return /^[a-z0-9_]+$/.test(slug) ? slug : null;
+}
+async function getFortBySlug(env, slug) {
+  const s = normalizeFortSlug(slug);
+  if (!s) return null;
+  return await env.DB.prepare('SELECT * FROM forts WHERE slug=?').bind(s).first();
+}
+async function createFort(env, { displayName, slug, founderHandle, founderCode, salt }) {
+  const cleanDisplay = cleanText(displayName, 40);
+  const normalized = normalizeFortSlug(slug || cleanDisplay);
+  if (!cleanDisplay || !normalized) return { ok: false, error: 'a fort needs a clean name and slug.' };
+  if (await getFortBySlug(env, normalized)) return { ok: false, error: 'that fort slug is already nailed to a tree.', status: 409 };
+  const fortSalt = salt || await randomSalt();
+  const t = now();
+  await env.DB.prepare(
+    'INSERT INTO forts (id, slug, display_name, dog_name, gen, salt, created_at) VALUES (?, ?, ?, ?, 1, ?, ?)'
+  ).bind(normalized, normalized, cleanDisplay, 'DALE', fortSalt, t).run();
+  if (founderHandle && founderCode) {
+    const handle = cleanName(founderHandle);
+    const code = cleanCode(founderCode);
+    if (!handle || code.length < 4) return { ok: false, error: 'founder needs a handle and a 4+ character code.' };
+    const h = await hashCode(fortSalt, code);
+    await env.DB.prepare(
+      'INSERT INTO members (fort_id, handle, code_hash, is_founder, created_at) VALUES (?, ?, ?, 1, ?)'
+    ).bind(normalized, handle, h, t).run();
+  }
+  return { ok: true, fort: await getFortBySlug(env, normalized) };
+}
+async function randomSalt() {
+  const saltBytes = new Uint8Array(16);
+  crypto.getRandomValues(saltBytes);
+  return [...saltBytes].map(b => b.toString(16).padStart(2, '0')).join('');
+}
+async function requireFortFromRequest(env, request) {
+  const url = new URL(request.url);
+  const parts = url.pathname.split('/').filter(Boolean);
+  if (!parts.length) return null;
+  const slug = normalizeFortSlug(parts[0]);
+  if (!slug) return null;
+  const fort = await getFortBySlug(env, slug);
+  if (!fort) return null;
+  const rest = '/' + parts.slice(1).join('/');
+  return {
+    fort,
+    requestedSlug: parts[0],
+    restPath: rest === '/' && parts.length === 1 ? '/' : rest,
+    needsCanonical: parts[0] !== fort.slug
+  };
+}
+function canonicalFortUrl(request, fortCtx) {
+  const url = new URL(request.url);
+  const path = fortCtx.restPath === '/' ? `/${fortCtx.fort.slug}/` : `/${fortCtx.fort.slug}${fortCtx.restPath}`;
+  url.pathname = path;
+  return url.toString();
+}
+function assetRequest(request, assetPath) {
+  const url = new URL(request.url);
+  url.pathname = assetPath;
+  return new Request(url.toString(), request);
+}
+
 /* ---------------- members / knocks ----------------
    a knock is one personal code. it hashes to exactly one member, and that member's
    handle is what gets stamped on their posts. no name is ever typed at the door, so
    nobody can wear someone else's name. we store only the hash, never the code. */
 function cleanCode(raw) { return (typeof raw === 'string' ? raw : '').trim(); }
 async function hashCode(salt, code) { return sha256hex(salt + code.trim().toUpperCase()); }
-async function memberByHash(env, h) {
-  return await env.DB.prepare('SELECT * FROM members WHERE code_hash=?').bind(h).first();
+async function memberByHash(env, fortId, h) {
+  return await env.DB.prepare('SELECT * FROM members WHERE fort_id=? AND code_hash=?').bind(fortId, h).first();
 }
-async function memberByHandle(env, handle) {
-  return await env.DB.prepare('SELECT * FROM members WHERE handle=?').bind(handle).first();
+async function memberByHandle(env, fortId, handle) {
+  return await env.DB.prepare('SELECT * FROM members WHERE fort_id=? AND handle=?').bind(fortId, handle).first();
 }
-// codes must be unique (a code IS an identity). returns the other owner's handle, or null.
-async function codeTakenByOther(env, h, handle) {
-  const row = await env.DB.prepare('SELECT handle FROM members WHERE code_hash=?').bind(h).first();
+// codes must be unique inside a fort. returns the other owner's handle, or null.
+async function codeTakenByOther(env, fortId, h, handle) {
+  const row = await env.DB.prepare('SELECT handle FROM members WHERE fort_id=? AND code_hash=?').bind(fortId, h).first();
   return row && row.handle !== handle ? row.handle : null;
 }
 
@@ -164,10 +245,10 @@ async function handleSetup(env, request) {
   return json({ ok: true, note: 'the fort is founded. this route is now sealed forever.' });
 }
 
-async function handleKnock(env, request, cfg, ip) {
+async function handleKnock(env, request, fort, ip) {
   // cooldown check
   const t = now();
-  const fail = await env.DB.prepare('SELECT * FROM knock_fails WHERE ip=?').bind(ip).first();
+  const fail = await env.DB.prepare('SELECT * FROM knock_fails WHERE fort_id=? AND ip=?').bind(fort.id, ip).first();
   if (fail && t - fail.window_start < KNOCK_WINDOW && fail.fails >= KNOCK_LIMIT) {
     const wait = KNOCK_WINDOW - (t - fail.window_start);
     return json({ ok: false, cooldown: wait, error: 'too many wrong codes. the door needs ' + wait + ' seconds to forget your face.' }, 423);
@@ -178,18 +259,18 @@ async function handleKnock(env, request, cfg, ip) {
   if (!code) return nope('a knock is one code. that is the whole form.');
 
   // the code alone decides who you are. no name is typed, so no name can be faked.
-  const h = await hashCode(cfg.salt, code);
-  const member = await memberByHash(env, h);
+  const h = await hashCode(fort.salt, code);
+  const member = await memberByHash(env, fort.id, h);
 
   if (!member) {
     // wrong knock: count the miss, and never reveal whether any handle exists.
     if (!fail || t - fail.window_start >= KNOCK_WINDOW) {
       await env.DB.prepare(
-        'INSERT INTO knock_fails (ip, fails, window_start) VALUES (?, 1, ?) ' +
-        'ON CONFLICT(ip) DO UPDATE SET fails=1, window_start=?'
-      ).bind(ip, t, t).run();
+        'INSERT INTO knock_fails (fort_id, ip, fails, window_start) VALUES (?, ?, 1, ?) ' +
+        'ON CONFLICT(fort_id, ip) DO UPDATE SET fails=1, window_start=?'
+      ).bind(fort.id, ip, t, t).run();
     } else {
-      await env.DB.prepare('UPDATE knock_fails SET fails=fails+1 WHERE ip=?').bind(ip).run();
+      await env.DB.prepare('UPDATE knock_fails SET fails=fails+1 WHERE fort_id=? AND ip=?').bind(fort.id, ip).run();
     }
     return json({ ok: false, error: 'that knock means nothing to the door. the raccoon council has been notified.' }, 401);
   }
@@ -197,30 +278,30 @@ async function handleKnock(env, request, cfg, ip) {
   const role = member.is_founder ? 'founder' : 'member';
   const name = member.handle;
 
-  await env.DB.prepare('DELETE FROM knock_fails WHERE ip=?').bind(ip).run();
+  await env.DB.prepare('DELETE FROM knock_fails WHERE fort_id=? AND ip=?').bind(fort.id, ip).run();
   await env.DB.prepare(
-    'INSERT INTO visits (name, first_seen, last_seen, knocks) VALUES (?, ?, ?, 1) ' +
-    'ON CONFLICT(name) DO UPDATE SET last_seen=?, knocks=knocks+1'
-  ).bind(name, t, t, t).run();
+    'INSERT INTO visits (fort_id, name, first_seen, last_seen, knocks) VALUES (?, ?, ?, ?, 1) ' +
+    'ON CONFLICT(fort_id, name) DO UPDATE SET last_seen=?, knocks=knocks+1'
+  ).bind(fort.id, name, t, t, t).run();
 
-  const token = await makeSession(env, cfg.gen, role, name);
+  const token = await makeSession(env, fort, role, name);
   return json(
-    { ok: true, role, name, fort_name: cfg.fort_name, dog_name: cfg.dog_name },
+    { ok: true, role, name, fort_name: fort.display_name, fort_slug: fort.slug, dog_name: fort.dog_name },
     200,
-    { 'Set-Cookie': sessionCookie(token) }
+    { 'Set-Cookie': sessionCookie(token, fort) }
   );
 }
 
-async function handleWall(env, request, session) {
+async function handleWall(env, request, fort, session) {
   const url = new URL(request.url);
   const before = parseInt(url.searchParams.get('before') || '0', 10);
   let q, binds;
   if (before > 0) {
-    q = 'SELECT * FROM posts WHERE id < ? ORDER BY id DESC LIMIT ?';
-    binds = [before, PAGE_SIZE + 1];
+    q = 'SELECT * FROM posts WHERE fort_id=? AND id < ? ORDER BY id DESC LIMIT ?';
+    binds = [fort.id, before, PAGE_SIZE + 1];
   } else {
-    q = 'SELECT * FROM posts ORDER BY id DESC LIMIT ?';
-    binds = [PAGE_SIZE + 1];
+    q = 'SELECT * FROM posts WHERE fort_id=? ORDER BY id DESC LIMIT ?';
+    binds = [fort.id, PAGE_SIZE + 1];
   }
   const rows = (await env.DB.prepare(q).bind(...binds).all()).results || [];
   const more = rows.length > PAGE_SIZE;
@@ -231,8 +312,8 @@ async function handleWall(env, request, session) {
     const ids = posts.map(p => p.id);
     const ph = ids.map(() => '?').join(',');
     const rr = (await env.DB.prepare(
-      `SELECT * FROM replies WHERE post_id IN (${ph}) ORDER BY id ASC`
-    ).bind(...ids).all()).results || [];
+      `SELECT * FROM replies WHERE fort_id=? AND post_id IN (${ph}) ORDER BY id ASC`
+    ).bind(fort.id, ...ids).all()).results || [];
     for (const r of rr) (repliesByPost[r.post_id] = repliesByPost[r.post_id] || []).push(
       { id: r.id, author: r.author, text: r.text, created: r.created }
     );
@@ -247,8 +328,8 @@ async function handleWall(env, request, session) {
   });
 }
 
-async function handlePost(env, request, session) {
-  if (rateLimited('post:' + session.name, 8, 60)) {
+async function handlePost(env, request, fort, session) {
+  if (rateLimited('post:' + fort.id + ':' + session.name, 8, 60)) {
     return nope('the wall needs a second. it is an old wall.', 429);
   }
   const body = await readJson(request);
@@ -262,39 +343,42 @@ async function handlePost(env, request, session) {
   if (mediaKey) {
     const head = await env.MEDIA.head(mediaKey);
     if (!head) return nope('that media does not exist. spooky. rejected.');
+    const mediaFort = head.customMetadata?.fort_id || null;
+    if (mediaFort && mediaFort !== fort.id) return nope('that media belongs to another fort.', 403);
+    if (!mediaFort && fort.id !== DEFAULT_FORT_SLUG) return nope('that media belongs to another fort.', 403);
   }
   const r = await env.DB.prepare(
-    'INSERT INTO posts (author, type, text, media_key, created) VALUES (?, ?, ?, ?, ?)'
-  ).bind(session.name, type, text || null, mediaKey, now()).run();
+    'INSERT INTO posts (fort_id, author, type, text, media_key, created) VALUES (?, ?, ?, ?, ?, ?)'
+  ).bind(fort.id, session.name, type, text || null, mediaKey, now()).run();
   return json({ ok: true, id: r.meta.last_row_id });
 }
 
-async function handleReply(env, request, session) {
-  if (rateLimited('reply:' + session.name, 15, 60)) return nope('easy. the riff will keep.', 429);
+async function handleReply(env, request, fort, session) {
+  if (rateLimited('reply:' + fort.id + ':' + session.name, 15, 60)) return nope('easy. the riff will keep.', 429);
   const body = await readJson(request);
   if (!body) return nope('json required');
   const postId = parseInt(body.post_id, 10);
   const text = cleanText(body.text, REPLY_TEXT_MAX);
   if (!postId || !text) return nope('a reply needs a post and some words.');
-  const post = await env.DB.prepare('SELECT id, deleted FROM posts WHERE id=?').bind(postId).first();
+  const post = await env.DB.prepare('SELECT id, deleted FROM posts WHERE fort_id=? AND id=?').bind(fort.id, postId).first();
   if (!post) return nope('that post does not exist.', 404);
   const r = await env.DB.prepare(
-    'INSERT INTO replies (post_id, author, text, created) VALUES (?, ?, ?, ?)'
-  ).bind(postId, session.name, text, now()).run();
+    'INSERT INTO replies (fort_id, post_id, author, text, created) VALUES (?, ?, ?, ?, ?)'
+  ).bind(fort.id, postId, session.name, text, now()).run();
   return json({ ok: true, id: r.meta.last_row_id });
 }
 
-async function handleDelete(env, request, session) {
+async function handleDelete(env, request, fort, session) {
   if (session.role !== 'founder') return nope('only the management deletes. the management is a dog.', 403);
   const body = await readJson(request);
   const postId = parseInt(body && body.post_id, 10);
   if (!postId) return nope('which post?');
-  await env.DB.prepare('UPDATE posts SET deleted=1, text=NULL, media_key=NULL WHERE id=?').bind(postId).run();
+  await env.DB.prepare('UPDATE posts SET deleted=1, text=NULL, media_key=NULL WHERE fort_id=? AND id=?').bind(fort.id, postId).run();
   return json({ ok: true });
 }
 
-async function handleUpload(env, request, session) {
-  if (rateLimited('upload:' + session.name, 10, 60)) return nope('the darkroom is busy. one minute.', 429);
+async function handleUpload(env, request, fort, session) {
+  if (rateLimited('upload:' + fort.id + ':' + session.name, 10, 60)) return nope('the darkroom is busy. one minute.', 429);
   const buf = await request.arrayBuffer();
   const type = sniffImage(buf);
   if (!type) return nope('that is not an image the fort recognizes. png, jpeg, gif, webp.', 415);
@@ -302,12 +386,19 @@ async function handleUpload(env, request, session) {
   if (buf.byteLength > cap) return nope('too big. the fort has one shelf.', 413);
   if (buf.byteLength < 24) return nope('too small to be real.', 400);
   const key = randKey('m/');
-  await env.MEDIA.put(key, buf, { httpMetadata: { contentType: type } });
+  await env.MEDIA.put(key, buf, {
+    httpMetadata: { contentType: type },
+    customMetadata: { fort_id: fort.id, uploaded_by: session.name }
+  });
   return json({ ok: true, media_key: key });
 }
 
-async function handleMedia(env, key) {
+async function handleMedia(env, fort, key) {
   if (!/^m\/[a-z0-9]+$/.test(key)) return nope('no.', 400);
+  const owner = await env.DB.prepare(
+    'SELECT id FROM posts WHERE fort_id=? AND media_key=? AND deleted=0 LIMIT 1'
+  ).bind(fort.id, key).first();
+  if (!owner) return nope('gone. or never was.', 404);
   const obj = await env.MEDIA.get(key);
   if (!obj) return nope('gone. or never was.', 404);
   return new Response(obj.body, {
@@ -319,12 +410,12 @@ async function handleMedia(env, key) {
   });
 }
 
-async function handleDictGet(env) {
-  const rows = (await env.DB.prepare('SELECT * FROM terms ORDER BY id DESC').all()).results || [];
+async function handleDictGet(env, fort) {
+  const rows = (await env.DB.prepare('SELECT * FROM terms WHERE fort_id=? ORDER BY id DESC').bind(fort.id).all()).results || [];
   return json({ ok: true, terms: rows });
 }
-async function handleDictAdd(env, request, session) {
-  if (rateLimited('dict:' + session.name, 6, 60)) return nope('the lexicographers need a break.', 429);
+async function handleDictAdd(env, request, fort, session) {
+  if (rateLimited('dict:' + fort.id + ':' + session.name, 6, 60)) return nope('the lexicographers need a break.', 429);
   const body = await readJson(request);
   if (!body) return nope('json required');
   const term = cleanText(body.term, 40);
@@ -332,11 +423,11 @@ async function handleDictAdd(env, request, session) {
   const example = cleanText(body.example, 300);
   if (!term || !def) return nope('a term and a definition. usage example optional but respected.');
   const r = await env.DB.prepare(
-    'INSERT INTO terms (term, def, example, author, created) VALUES (?, ?, ?, ?, ?)'
-  ).bind(term, def, example || null, session.name, now()).run();
+    'INSERT INTO terms (fort_id, term, def, example, author, created) VALUES (?, ?, ?, ?, ?, ?)'
+  ).bind(fort.id, term, def, example || null, session.name, now()).run();
   return json({ ok: true, id: r.meta.last_row_id });
 }
-async function handleDictStatus(env, request, session) {
+async function handleDictStatus(env, request, fort, session) {
   if (session.role !== 'founder') return nope('status chips are a founder power. them\'s the rules.', 403);
   const body = await readJson(request);
   if (!body) return nope('json required');
@@ -344,30 +435,30 @@ async function handleDictStatus(env, request, session) {
   const status = ['', 'CERTIFIED', 'ON LIFE SUPPORT', 'DECEASED'].includes(body.status) ? body.status : null;
   if (!id || status === null) return nope('unknown status. the fort recognizes three conditions and silence.');
   const died = status === 'DECEASED' ? now() : null;
-  await env.DB.prepare('UPDATE terms SET status=?, died=? WHERE id=?').bind(status, died, id).run();
+  await env.DB.prepare('UPDATE terms SET status=?, died=? WHERE fort_id=? AND id=?').bind(status, died, fort.id, id).run();
   return json({ ok: true });
 }
 
 // change your OWN knock. prove you know your current code, then set a new one.
 // no email, no recovery — if you forget it, a founder resets it for you (below).
-async function handleMyCode(env, request, session, cfg) {
+async function handleMyCode(env, request, fort, session) {
   const body = await readJson(request);
   if (!body) return nope('json required');
   const cur = cleanCode(body.current_code), next = cleanCode(body.new_code);
   if (next.length < 4) return nope('the new knock needs 4+ characters. the raccoons insist.');
-  const me = await memberByHandle(env, session.name);
+  const me = await memberByHandle(env, fort.id, session.name);
   if (!me) return nope('you are not on the roster. this should be impossible. tell connor.', 409);
-  const curH = await hashCode(cfg.salt, cur);
+  const curH = await hashCode(fort.salt, cur);
   if (!timingSafeEq(curH, me.code_hash)) return nope('that is not your current knock.');
-  const nextH = await hashCode(cfg.salt, next);
-  const clash = await codeTakenByOther(env, nextH, session.name);
+  const nextH = await hashCode(fort.salt, next);
+  const clash = await codeTakenByOther(env, fort.id, nextH, session.name);
   if (clash) return nope('someone already knocks like that. pick another.');
-  await env.DB.prepare('UPDATE members SET code_hash=? WHERE handle=?').bind(nextH, session.name).run();
+  await env.DB.prepare('UPDATE members SET code_hash=? WHERE fort_id=? AND handle=?').bind(nextH, fort.id, session.name).run();
   return json({ ok: true, note: 'your knock is changed. the door will remember.' });
 }
 
 // founder: put a new person on the roster with a starter code (they change it later).
-async function handleMemberAdd(env, request, session, cfg) {
+async function handleMemberAdd(env, request, fort, session) {
   if (session.role !== 'founder') return nope('adding members is founder business.', 403);
   const body = await readJson(request);
   if (!body) return nope('json required');
@@ -375,78 +466,130 @@ async function handleMemberAdd(env, request, session, cfg) {
   const code = cleanCode(body.code);
   if (!handle) return nope('a member needs a handle. letters and numbers.');
   if (code.length < 4) return nope('their starter code needs 4+ characters.');
-  if (await memberByHandle(env, handle)) return nope('someone already goes by ' + handle + '. handles are one to a customer.');
-  const h = await hashCode(cfg.salt, code);
-  if (await codeTakenByOther(env, h, handle)) return nope('that code already belongs to someone. pick another.');
-  await env.DB.prepare('INSERT INTO members (handle, code_hash, is_founder, created_at) VALUES (?, ?, 0, ?)').bind(handle, h, now()).run();
+  if (await memberByHandle(env, fort.id, handle)) return nope('someone already goes by ' + handle + '. handles are one to a customer.');
+  const h = await hashCode(fort.salt, code);
+  if (await codeTakenByOther(env, fort.id, h, handle)) return nope('that code already belongs to someone. pick another.');
+  await env.DB.prepare('INSERT INTO members (fort_id, handle, code_hash, is_founder, created_at) VALUES (?, ?, ?, 0, ?)').bind(fort.id, handle, h, now()).run();
   return json({ ok: true, note: handle + ' is on the roster. tell them their code in person.' });
 }
 
 // founder: reset a member's knock. THIS is the recovery flow — a kid forgot their code.
-async function handleMemberReset(env, request, session, cfg) {
+async function handleMemberReset(env, request, fort, session) {
   if (session.role !== 'founder') return nope('resetting knocks is founder business.', 403);
   const body = await readJson(request);
   if (!body) return nope('json required');
   const handle = cleanName(body.handle);
   const code = cleanCode(body.code);
   if (!handle || code.length < 4) return nope('a handle and a new 4+ character code.');
-  if (!(await memberByHandle(env, handle))) return nope('nobody on the roster goes by ' + handle + '.', 404);
-  const h = await hashCode(cfg.salt, code);
-  if (await codeTakenByOther(env, h, handle)) return nope('that code already belongs to someone else. pick another.');
-  await env.DB.prepare('UPDATE members SET code_hash=? WHERE handle=?').bind(h, handle).run();
+  if (!(await memberByHandle(env, fort.id, handle))) return nope('nobody on the roster goes by ' + handle + '.', 404);
+  const h = await hashCode(fort.salt, code);
+  if (await codeTakenByOther(env, fort.id, h, handle)) return nope('that code already belongs to someone else. pick another.');
+  await env.DB.prepare('UPDATE members SET code_hash=? WHERE fort_id=? AND handle=?').bind(h, fort.id, handle).run();
   return json({ ok: true, note: handle + '\'s knock has been reset. tell them the new one.' });
 }
 
 // founder: who is on the roster (handles only — the door never coughs up a code).
-async function handleMembers(env, session) {
+async function handleMembers(env, fort, session) {
   if (session.role !== 'founder') return nope('the roster is founder business.', 403);
   const rows = (await env.DB.prepare(
-    'SELECT handle, is_founder, created_at FROM members ORDER BY is_founder DESC, handle ASC'
-  ).all()).results || [];
+    'SELECT handle, is_founder, created_at FROM members WHERE fort_id=? ORDER BY is_founder DESC, handle ASC'
+  ).bind(fort.id).all()).results || [];
   return json({ ok: true, members: rows });
 }
 
-// one-time grandfather seeding, guarded by a worker secret. refuses once anyone exists.
-// this is how CONNOR (founder) and KUSHMAN get their first codes after deploy.
-async function handleSeed(env, request, cfg) {
+// one-time grandfather seeding, guarded by a worker secret. refuses once any fort exists.
+// this creates Connor's Lookout and Michael's Base Camp for fresh installs.
+async function handleSeed(env, request) {
   if (!env.SEED_TOKEN) return nope('seeding is not enabled.', 403);
   const body = await readJson(request);
   if (!body || !timingSafeEq(String(body.token || ''), env.SEED_TOKEN)) return nope('no.', 403);
-  const count = await env.DB.prepare('SELECT COUNT(*) AS n FROM members').first();
-  if (count && count.n > 0) return nope('the roster already exists. seeding is a one-time thing.', 409);
-  const connor = cleanCode(body.connor_code), kushman = cleanCode(body.kushman_code);
-  if (connor.length < 4 || kushman.length < 4) return nope('both starter codes need 4+ characters.');
-  const ch = await hashCode(cfg.salt, connor), kh = await hashCode(cfg.salt, kushman);
-  if (timingSafeEq(ch, kh)) return nope('give connor and kushman different codes.');
+  const count = await env.DB.prepare('SELECT COUNT(*) AS n FROM forts').first();
+  if (count && count.n > 0) return nope('the forts already exist. seeding is a one-time thing.', 409);
+  const connor = cleanCode(body.connor_code);
+  const lookoutKushman = cleanCode(body.kushman_code);
+  const baseCampKushman = cleanCode(body.base_camp_code || body.kushman_code);
+  if (connor.length < 4 || lookoutKushman.length < 4 || baseCampKushman.length < 4) {
+    return nope('all starter codes need 4+ characters.');
+  }
+  if (connor.trim().toUpperCase() === lookoutKushman.trim().toUpperCase()) {
+    return nope('connor and kushman need different codes inside the lookout.');
+  }
   const t = now();
-  await env.DB.prepare('INSERT INTO members (handle, code_hash, is_founder, created_at) VALUES (?, ?, 1, ?)').bind('CONNOR', ch, t).run();
-  await env.DB.prepare('INSERT INTO members (handle, code_hash, is_founder, created_at) VALUES (?, ?, 0, ?)').bind('KUSHMAN', kh, t).run();
-  return json({ ok: true, note: 'CONNOR (founder) and KUSHMAN seeded. tell them their codes, then delete the SEED_TOKEN secret.' });
+  const lookoutSalt = await randomSalt();
+  const baseSalt = await randomSalt();
+  await env.DB.prepare(
+    'INSERT INTO forts (id, slug, display_name, dog_name, gen, salt, created_at) VALUES (?, ?, ?, ?, 1, ?, ?)'
+  ).bind('the_lookout', 'the_lookout', 'The Lookout', 'DALE', lookoutSalt, t).run();
+  await env.DB.prepare(
+    'INSERT INTO forts (id, slug, display_name, dog_name, gen, salt, created_at) VALUES (?, ?, ?, ?, 1, ?, ?)'
+  ).bind('base_camp', 'base_camp', 'Base Camp', 'DALE', baseSalt, t).run();
+  await env.DB.prepare(
+    'INSERT INTO members (fort_id, handle, code_hash, is_founder, created_at) VALUES (?, ?, ?, 1, ?)'
+  ).bind('the_lookout', 'CONNOR', await hashCode(lookoutSalt, connor), t).run();
+  await env.DB.prepare(
+    'INSERT INTO members (fort_id, handle, code_hash, is_founder, created_at) VALUES (?, ?, ?, 0, ?)'
+  ).bind('the_lookout', 'KUSHMAN', await hashCode(lookoutSalt, lookoutKushman), t).run();
+  await env.DB.prepare(
+    'INSERT INTO members (fort_id, handle, code_hash, is_founder, created_at) VALUES (?, ?, ?, 1, ?)'
+  ).bind('base_camp', 'KUSHMAN', await hashCode(baseSalt, baseCampKushman), t).run();
+  return json({ ok: true, note: 'The Lookout and Base Camp are seeded. tell them their codes, then delete the SEED_TOKEN secret.' });
 }
 
-async function handleConfig(env, request, session) {
+async function handleFortCreate(env, request) {
+  if (!env.SEED_TOKEN) return nope('fort creation is not enabled.', 403);
+  const body = await readJson(request);
+  if (!body || !timingSafeEq(String(body.token || ''), env.SEED_TOKEN)) return nope('no.', 403);
+  const r = await createFort(env, {
+    displayName: body.display_name,
+    slug: body.slug || body.display_name,
+    founderHandle: body.founder_handle,
+    founderCode: body.founder_code
+  });
+  if (!r.ok) return nope(r.error, r.status || 400);
+  return json({ ok: true, fort: { id: r.fort.id, slug: r.fort.slug, display_name: r.fort.display_name } });
+}
+
+async function handleConfig(env, request, fort, session) {
   if (session.role !== 'founder') return nope('renaming things is a founder power.', 403);
   const body = await readJson(request);
   if (!body) return nope('json required');
   const updates = [];
   const binds = [];
   if (typeof body.fort_name === 'string') {
-    const v = cleanText(body.fort_name, 14).toUpperCase();
-    if (v) { updates.push('fort_name=?'); binds.push(v); }
+    const v = cleanText(body.fort_name, 40);
+    if (v) { updates.push('display_name=?'); binds.push(v); updates.push('renamed_at=?'); binds.push(now()); }
   }
   if (typeof body.dog_name === 'string') {
     const v = cleanText(body.dog_name, 10).toUpperCase();
     if (v) { updates.push('dog_name=?'); binds.push(v); }
   }
   if (!updates.length) return nope('nothing to rename.');
-  await env.DB.prepare('UPDATE config SET ' + updates.join(', ') + ' WHERE id=1').bind(...binds).run();
+  await env.DB.prepare('UPDATE forts SET ' + updates.join(', ') + ' WHERE id=?').bind(...binds, fort.id).run();
   return json({ ok: true });
 }
 
-async function handleRoster(env, session) {
+async function handleRoster(env, fort, session) {
   if (session.role !== 'founder') return nope('the roster is founder business.', 403);
-  const rows = (await env.DB.prepare('SELECT * FROM visits ORDER BY last_seen DESC').all()).results || [];
+  const rows = (await env.DB.prepare('SELECT * FROM visits WHERE fort_id=? ORDER BY last_seen DESC').bind(fort.id).all()).results || [];
   return json({ ok: true, roster: rows });
+}
+
+async function handleAsset(env, request, fort, path) {
+  const assetPath = ROOM_ASSETS.get(path);
+  if (assetPath === '/handbook.html') {
+    const session = await readSession(env, request, fort);
+    if (!session || fort.slug !== 'the_lookout' || session.name !== 'CONNOR' || session.role !== 'founder') {
+      return new Response('not found. some boards are not on your map.', {
+        status: 404,
+        headers: {
+          'Content-Type': 'text/plain; charset=utf-8',
+          'Cache-Control': 'no-store'
+        }
+      });
+    }
+  }
+  if (assetPath) return env.ASSETS.fetch(assetRequest(request, assetPath));
+  return env.ASSETS.fetch(assetRequest(request, path));
 }
 
 /* ---------------- router ---------------- */
@@ -455,48 +598,58 @@ export default {
     const url = new URL(request.url);
     const path = url.pathname;
 
-    if (!path.startsWith('/api/')) {
-      return env.ASSETS.fetch(request);
-    }
-
     const ip = request.headers.get('CF-Connecting-IP') || '0.0.0.0';
     const method = request.method;
 
-    // pre-config routes
+    if (path === '/') {
+      url.pathname = `/${DEFAULT_FORT_SLUG}/`;
+      return Response.redirect(url.toString(), 302);
+    }
+
+    // global seed/bootstrap routes, before a fort exists
     if (path === '/api/setup' && method === 'POST') return handleSetup(env, request);
+    if (path === '/api/seed' && method === 'POST') return handleSeed(env, request);
+    if (path === '/api/forts/create' && method === 'POST') return handleFortCreate(env, request);
 
-    const cfg = await getConfig(env);
-    if (!cfg) return nope('the fort is not founded yet. (run the setup step in DEPLOY.md.)', 503);
+    const fortCtx = await requireFortFromRequest(env, request);
+    if (!fortCtx) return nope('that fort does not exist. check the ladder label.', 404);
+    if (fortCtx.needsCanonical || (fortCtx.restPath === '/' && !path.endsWith('/'))) {
+      return Response.redirect(canonicalFortUrl(request, fortCtx), 308);
+    }
+    const fort = fortCtx.fort;
+    const route = fortCtx.restPath;
 
-    if (path === '/api/knock' && method === 'POST') return handleKnock(env, request, cfg, ip);
-    // one-time grandfather seeding (needs the secret, not a session — there are no members yet)
-    if (path === '/api/seed' && method === 'POST') return handleSeed(env, request, cfg);
+    if (!route.startsWith('/api/')) {
+      return handleAsset(env, request, fort, route);
+    }
+
+    if (route === '/api/knock' && method === 'POST') return handleKnock(env, request, fort, ip);
     // logout just clears the cookie — no session required (a stale cookie can still leave)
-    if (path === '/api/logout' && method === 'POST') return handleLogout();
+    if (route === '/api/logout' && method === 'POST') return handleLogout(fort);
 
     // everything below the door requires a living session
-    const session = await readSession(env, request, cfg);
+    const session = await readSession(env, request, fort);
     if (!session) return nope('no session. knock first. the door is not decorative.', 401);
 
-    if (path === '/api/state' && method === 'GET') {
+    if (route === '/api/state' && method === 'GET') {
       return json({ ok: true, name: session.name, role: session.role,
-        fort_name: cfg.fort_name, dog_name: cfg.dog_name });
+        fort_name: fort.display_name, fort_slug: fort.slug, dog_name: fort.dog_name });
     }
-    if (path === '/api/wall' && method === 'GET') return handleWall(env, request, session);
-    if (path === '/api/post' && method === 'POST') return handlePost(env, request, session);
-    if (path === '/api/reply' && method === 'POST') return handleReply(env, request, session);
-    if (path === '/api/delete' && method === 'POST') return handleDelete(env, request, session);
-    if (path === '/api/upload' && method === 'POST') return handleUpload(env, request, session);
-    if (path.startsWith('/api/media/') && method === 'GET') return handleMedia(env, path.slice('/api/media/'.length));
-    if (path === '/api/dict' && method === 'GET') return handleDictGet(env);
-    if (path === '/api/dict' && method === 'POST') return handleDictAdd(env, request, session);
-    if (path === '/api/dict/status' && method === 'POST') return handleDictStatus(env, request, session);
-    if (path === '/api/mycode' && method === 'POST') return handleMyCode(env, request, session, cfg);
-    if (path === '/api/members' && method === 'GET') return handleMembers(env, session);
-    if (path === '/api/members/add' && method === 'POST') return handleMemberAdd(env, request, session, cfg);
-    if (path === '/api/members/reset' && method === 'POST') return handleMemberReset(env, request, session, cfg);
-    if (path === '/api/config' && method === 'POST') return handleConfig(env, request, session);
-    if (path === '/api/roster' && method === 'GET') return handleRoster(env, session);
+    if (route === '/api/wall' && method === 'GET') return handleWall(env, request, fort, session);
+    if (route === '/api/post' && method === 'POST') return handlePost(env, request, fort, session);
+    if (route === '/api/reply' && method === 'POST') return handleReply(env, request, fort, session);
+    if (route === '/api/delete' && method === 'POST') return handleDelete(env, request, fort, session);
+    if (route === '/api/upload' && method === 'POST') return handleUpload(env, request, fort, session);
+    if (route.startsWith('/api/media/') && method === 'GET') return handleMedia(env, fort, route.slice('/api/media/'.length));
+    if (route === '/api/dict' && method === 'GET') return handleDictGet(env, fort);
+    if (route === '/api/dict' && method === 'POST') return handleDictAdd(env, request, fort, session);
+    if (route === '/api/dict/status' && method === 'POST') return handleDictStatus(env, request, fort, session);
+    if (route === '/api/mycode' && method === 'POST') return handleMyCode(env, request, fort, session);
+    if (route === '/api/members' && method === 'GET') return handleMembers(env, fort, session);
+    if (route === '/api/members/add' && method === 'POST') return handleMemberAdd(env, request, fort, session);
+    if (route === '/api/members/reset' && method === 'POST') return handleMemberReset(env, request, fort, session);
+    if (route === '/api/config' && method === 'POST') return handleConfig(env, request, fort, session);
+    if (route === '/api/roster' && method === 'GET') return handleRoster(env, fort, session);
 
     return nope('that room does not exist. yet?', 404);
   }
