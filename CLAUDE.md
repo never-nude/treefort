@@ -20,21 +20,32 @@ and mod the source. Do not introduce bundlers, frameworks, libraries, or CDN scr
 | `public/index.html` | the fort: door theater, bulletin, wall, dictionary, workshop, pixel dog |
 | `public/paint.html` | drawing tool + animation frames (onion skin) |
 | `public/kitchen.html` | meme maker (impact text, draw layer, remix-from-wall) |
+| `public/handbook.html` | the founder's field manual — static room, linked in the rooms row |
 | `public/gifmachine.html` | client-side GIF89a encoder — **hand-written LZW, do not replace with a library** — plus the projection booth: .mov/.mp4 → frames → gif, fully in-browser, video never uploaded |
 | `test/doortest.mjs` | full API integration test, stubbed D1/R2 — `node test/doortest.mjs` |
 | `DEPLOY.md` | the runbook (account → wrangler → D1/R2 → setup call → Porkbun nameservers) |
 
 ## Access model (the whole point — do not "improve" it)
 
-- No accounts, no emails, no passwords-per-person, no recovery flows
-- One shared FORT CODE opens the door; one FOUNDER CODE (Connor's; Michael has a copy
-  as backstop) unlocks founder powers: change code, delete posts, rename fort/dog,
-  dictionary status chips, roster
-- Sessions: signed HTTP-only cookie (HMAC, 90d). `config.gen` is a generation counter —
-  changing the fort code bumps it and invalidates every session (founder re-keyed in
-  the same response)
-- Names are honor-system. `CONNOR` and `JAMIE` (little brother, 9) get bespoke door
-  greetings. Wrong code x5 per IP → 10-minute cooldown
+**Per-person knocks (v2.1, live 2026-07-06).** The old shared-fort-code + single-founder-code
+model is retired (`config.fort_hash`/`founder_hash` are legacy, unused). Now:
+
+- No accounts, no emails, no passwords stored — one `members` row per person: `handle` +
+  `code_hash` (sha256(salt+CODE)) + `is_founder`. The plaintext code lives nowhere.
+- **The knock is one code and nothing else.** No name is typed at the door — the code alone
+  resolves to exactly one member, whose `handle` is stamped on their posts. This is what
+  kills impersonation; do not add a name field back.
+- Founder powers (delete posts, rename fort/dog, dict status, roster, add/reset members)
+  gate on `is_founder`. Seeded roster: `CONNOR` (founder) + `KUSHMAN` (Michael, member).
+- **Recovery flow = the founder resets a member's knock** (`/api/members/reset`). Anyone can
+  change their own knock (`/api/mycode`, proves current code first). No self-service founder
+  reset — losing the founder code is still break-glass (DEPLOY.md), Michael holds the backstop.
+- Codes must be globally unique (a code IS an identity — enforced on add/reset/mycode).
+- One-time `/api/seed` (guarded by `SEED_TOKEN` worker secret) grandfathers the first
+  members, then refuses forever once the roster is non-empty. Secret is deleted post-seed.
+- Sessions: signed HTTP-only cookie (HMAC, 90d). `config.gen` retained for future mass re-key.
+- `CONNOR` and `JAMIE` (little brother, 9) get bespoke door greetings. Wrong knock x5 per IP
+  → 10-minute cooldown.
 
 ## Hard nos (from the project brief — enforce these in code review)
 
