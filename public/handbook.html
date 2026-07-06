@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="ember">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>TREEFORT — The Founder's Handbook</title>
+<style>
+  /* ---------- THEMES (the fort's real paint jobs) ---------- */
+  :root{
+    --bg:#0b0f1a; --panel:#121826; --panel2:#0e1420; --line:#25304a;
+    --ink:#e8ecf5; --dim:#8a94ad; --accent:#6ee7ff; --accent2:#a78bfa;
+    --stamp:#ff5470;
+  }
+  html[data-theme="ember"]{
+    --bg:#14100b; --panel:#1d1710; --panel2:#171209; --line:#4a3a20;
+    --ink:#efe6d5; --dim:#8d8371; --accent:#ffb64d; --accent2:#ffe9a8; --stamp:#ff6a3d;
+  }
+  html[data-theme="arcade"]{
+    --bg:#09091a; --panel:#141433; --panel2:#0f0f26; --line:#2c2c66;
+    --ink:#f3e9ff; --dim:#9a90c8; --accent:#ff2e97; --accent2:#22d3ee; --stamp:#ffe14d;
+  }
+  html[data-theme="swamp"]{
+    --bg:#0a130e; --panel:#0f2018; --panel2:#0b1712; --line:#244534;
+    --ink:#e6ffe9; --dim:#86b39a; --accent:#7dff6a; --accent2:#c6ff4a; --stamp:#ff8a3d;
+  }
+
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:"DejaVu Sans Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+    padding:0 16px 80px;
+    transition:background .25s ease, color .25s ease;
+  }
+  .wrap{max-width:820px;margin:0 auto}
+  .display{
+    font-family:Impact, Haettenschweiler, "Arial Narrow", "DejaVu Sans Condensed", sans-serif;
+    letter-spacing:.5px; text-transform:uppercase; line-height:.98;
+  }
+  a{color:var(--accent)}
+  .topbar{ max-width:820px; margin:14px auto -4px; }
+  .topbar a{ color:var(--dim); text-decoration:none; font-size:12px; letter-spacing:1px; text-transform:uppercase; }
+  .topbar a:hover{ color:var(--accent) }
+
+  /* ---------- MASTHEAD ---------- */
+  header.sign{
+    margin:26px 0 10px; padding:26px 22px 22px;
+    border:2px solid var(--ink);
+    background:
+      repeating-linear-gradient(135deg, transparent 0 11px, rgba(255,255,255,.02) 11px 12px),
+      var(--panel);
+    position:relative; box-shadow:8px 8px 0 var(--panel2);
+  }
+  header.sign .est{
+    font-size:11px; letter-spacing:3px; color:var(--dim); text-transform:uppercase; margin-bottom:8px;
+  }
+  header.sign h1{
+    margin:0; font-size:clamp(46px,13vw,110px); color:var(--accent);
+    text-shadow:4px 4px 0 var(--panel2);
+  }
+  header.sign .sub{
+    margin-top:6px; font-size:clamp(13px,3.4vw,17px); color:var(--ink);
+    text-transform:uppercase; letter-spacing:1px;
+  }
+  header.sign .tag{ margin-top:12px; font-size:13px; color:var(--dim) }
+  .logo{position:absolute; top:16px; right:18px; width:78px; height:78px; color:var(--accent2)}
+  @media(max-width:520px){ .logo{display:none} }
+
+  /* ---------- PAINT-JOB SWITCHER ---------- */
+  .paintbar{
+    display:flex; flex-wrap:wrap; gap:8px; align-items:center;
+    margin:14px 0 4px; font-size:12px;
+  }
+  .paintbar .lbl{ color:var(--dim); letter-spacing:2px; text-transform:uppercase; margin-right:2px }
+  .swatch{
+    cursor:pointer; border:1.5px solid var(--line); background:var(--panel);
+    color:var(--ink); padding:6px 12px; text-transform:uppercase; letter-spacing:1px;
+    font-family:inherit; font-size:11px; transition:transform .08s ease;
+  }
+  .swatch:hover{transform:translateY(-1px)}
+  .swatch[aria-pressed="true"]{ border-color:var(--accent); color:var(--accent); box-shadow:0 0 0 1px var(--accent) inset }
+
+  /* ---------- CHAIN OF COMMAND CALLOUT ---------- */
+  .command{
+    margin:22px 0; border:2px dashed var(--line); padding:16px 18px; background:var(--panel2);
+  }
+  .command h2{ margin:0 0 8px; font-size:22px; color:var(--ink) }
+  .rank{ display:flex; align-items:center; gap:10px; padding:7px 0; border-bottom:1px dotted var(--line) }
+  .rank:last-child{border-bottom:0}
+  .rank .n{ color:var(--accent2); font-size:20px; width:26px; text-align:center }
+  .rank b{ color:var(--ink) }
+  .rank span{ color:var(--dim); font-size:13px }
+
+  /* ---------- SECTIONS (collapsible) ---------- */
+  details.card{
+    border:2px solid var(--line); background:var(--panel); margin:12px 0;
+    box-shadow:5px 5px 0 var(--panel2);
+  }
+  details.card[open]{ border-color:var(--accent) }
+  summary{
+    cursor:pointer; list-style:none; padding:14px 16px; display:flex; align-items:center; gap:14px;
+  }
+  summary::-webkit-details-marker{display:none}
+  summary .ico{ width:34px; height:34px; flex:0 0 34px; color:var(--accent) }
+  summary .t{ font-size:clamp(19px,4.5vw,26px); color:var(--ink) }
+  summary .plus{ margin-left:auto; color:var(--dim); font-size:22px; transition:transform .15s }
+  details[open] summary .plus{ transform:rotate(45deg); color:var(--accent) }
+  .body{ padding:2px 18px 18px 18px }
+  .body p{ margin:9px 0; color:var(--ink) }
+  .body p .d{ color:var(--dim) }
+  .body .step{ display:flex; gap:10px; margin:8px 0 }
+  .body .step .s{ color:var(--accent); flex:0 0 auto }
+  .pill{
+    display:inline-block; border:1px solid var(--line); border-radius:2px; padding:1px 7px;
+    font-size:12px; color:var(--accent2); background:var(--panel2); white-space:nowrap;
+  }
+  .quote{ border-left:3px solid var(--accent); padding:4px 0 4px 12px; margin:12px 0; color:var(--dim); font-style:italic }
+
+  /* ---------- SECRETS WIDGET ---------- */
+  .secrets{
+    margin:22px 0; border:2px solid var(--stamp); background:var(--panel); padding:16px 18px;
+  }
+  .secrets h2{ margin:0 0 4px; font-size:24px; color:var(--stamp) }
+  .secrets .count{ font-size:13px; color:var(--dim); margin-bottom:12px }
+  .secrets .count b{ color:var(--ink) }
+  .locks{ display:flex; gap:12px; flex-wrap:wrap }
+  .lock{
+    cursor:pointer; user-select:none; width:96px; height:96px; border:2px solid var(--line);
+    background:var(--panel2); display:flex; flex-direction:column; align-items:center; justify-content:center;
+    gap:6px; color:var(--dim); font-size:11px; text-align:center; transition:all .15s;
+  }
+  .lock:hover{ border-color:var(--stamp) }
+  .lock svg{ width:34px; height:34px }
+  .lock.found{ border-color:var(--stamp); color:var(--stamp); background:color-mix(in srgb, var(--stamp) 12%, var(--panel2)) }
+  .reveal{
+    margin-top:14px; padding:12px 14px; border:1px dashed var(--stamp); color:var(--ink);
+    background:var(--panel2); display:none; font-size:14px;
+  }
+  .reveal.show{ display:block; animation:pop .3s ease }
+  @keyframes pop{ from{ transform:scale(.96); opacity:0 } to{ transform:scale(1); opacity:1 } }
+
+  /* ---------- FIRST DAY CHECKLIST ---------- */
+  .checklist{ margin:22px 0; border:2px solid var(--line); background:var(--panel); padding:16px 18px }
+  .checklist h2{ margin:0 0 10px; font-size:24px; color:var(--accent) }
+  .chk{ display:flex; align-items:flex-start; gap:12px; padding:9px 0; border-bottom:1px dotted var(--line); cursor:pointer }
+  .chk:last-child{border-bottom:0}
+  .box{
+    flex:0 0 22px; width:22px; height:22px; border:2px solid var(--dim); display:flex; align-items:center; justify-content:center;
+    color:var(--accent); font-size:16px; margin-top:1px;
+  }
+  .chk.done .box{ border-color:var(--accent) }
+  .chk .txt{ color:var(--ink) }
+  .chk.done .txt{ color:var(--dim); text-decoration:line-through }
+
+  /* ---------- DALE ---------- */
+  .daledock{
+    position:fixed; right:16px; bottom:16px; z-index:40; display:flex; flex-direction:column; align-items:center; gap:6px;
+  }
+  .snackbtn{
+    cursor:pointer; font-family:inherit; font-size:11px; letter-spacing:1px; text-transform:uppercase;
+    border:2px solid var(--ink); background:var(--panel); color:var(--ink); padding:9px 12px; box-shadow:3px 3px 0 var(--panel2);
+  }
+  .snackbtn:active{ transform:translate(2px,2px); box-shadow:1px 1px 0 var(--panel2) }
+  .dalesays{
+    max-width:180px; font-size:11px; color:var(--dim); background:var(--panel); border:1px solid var(--line);
+    padding:6px 9px; text-align:center; opacity:0; transition:opacity .2s;
+  }
+  .dalesays.show{opacity:1}
+
+  /* ---------- CODE / FOOTER ---------- */
+  footer.code{
+    margin:30px 0 0; border:2px solid var(--ink); background:var(--panel); padding:20px 22px;
+    box-shadow:8px 8px 0 var(--panel2);
+  }
+  footer.code h2{ margin:0 0 12px; font-size:30px; color:var(--accent) }
+  footer.code ol{ margin:0; padding-left:22px }
+  footer.code li{ margin:7px 0; color:var(--ink) }
+  footer.code li b{ color:var(--accent2) }
+  .colophon{ margin-top:16px; padding-top:12px; border-top:1px dotted var(--line); font-size:12px; color:var(--dim) }
+  .noise{ font-size:11px; color:var(--dim); text-align:center; margin-top:26px; letter-spacing:1px }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="topbar"><a href="index.html">&#8592; back to the fort</a></div>
+
+  <!-- ===================== MASTHEAD ===================== -->
+  <header class="sign">
+    <svg class="logo" viewBox="0 0 100 100" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M18 82 V44 L50 22 L82 44 V82 Z"/>
+      <rect x="40" y="58" width="20" height="24"/>
+      <circle cx="55" cy="70" r="2" fill="currentColor" stroke="none"/>
+      <path d="M12 44 L50 18 L88 44"/>
+      <path d="M50 22 V8"/><path d="M44 12 h12"/>
+    </svg>
+    <div class="est">est. whenever · members only · .lol</div>
+    <h1 class="display">TREEFORT</h1>
+    <div class="sub display">The Founder's Handbook</div>
+    <div class="tag">property of <b>CONNOR</b> · founder · outranked only by the dog. one copy. don't lose it — Dale can't read it to you.</div>
+  </header>
+
+  <div class="paintbar">
+    <span class="lbl">paint job:</span>
+    <button class="swatch" data-set="ember" aria-pressed="true">Ember</button>
+    <button class="swatch" data-set="arcade">Arcade</button>
+    <button class="swatch" data-set="swamp">Swamp</button>
+    <button class="swatch" data-set="midnight">Midnight</button>
+  </div>
+
+  <!-- ===================== CHAIN OF COMMAND ===================== -->
+  <div class="command">
+    <h2 class="display">Who's in charge</h2>
+    <div class="rank"><span class="n">1</span><div><b>The dog (Dale).</b> <span>Management is a dog. This is not a bug.</span></div></div>
+    <div class="rank"><span class="n">2</span><div><b>You (the founder).</b> <span>You built the fort. You certify words. You hold the locks.</span></div></div>
+    <div class="rank"><span class="n">3</span><div><b>Everybody else.</b> <span>Members. They knock, they post, they riff.</span></div></div>
+    <p style="margin:12px 0 0;color:var(--dim);font-size:13px">Two rules run the whole place: <b style="color:var(--ink)">no narcs</b>, and <b style="color:var(--ink)">give Dale a snack</b>. No ads, no accounts, no algorithms. Nobody's watching. That's the entire point.</p>
+  </div>
+
+  <!-- ===================== SECTION: THE DOOR ===================== -->
+  <details class="card" open>
+    <summary>
+      <svg class="ico" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><rect x="12" y="6" width="24" height="36"/><circle cx="30" cy="24" r="2.5"/><path d="M18 12 h12 M18 18 h12"/></svg>
+      <span class="t display">The Door</span><span class="plus">+</span>
+    </summary>
+    <div class="body">
+      <p><b>KNOCK</b>, then <b>ENTER</b>. That's the whole security system, and it works because nobody would knock on a fort they weren't invited to.</p>
+      <p>"Members only" is not a password screen. <span class="d">If you have to ask whether you're a member, you find out by knocking.</span></p>
+      <p>Everyone who knocks lands on <span class="pill">THE ROSTER</span> in the Workshop. You can always see who's been by.</p>
+    </div>
+  </details>
+
+  <!-- ===================== SECTION: THE BULLETIN ===================== -->
+  <details class="card">
+    <summary>
+      <svg class="ico" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="8" width="30" height="34"/><path d="M15 8 v-2 h18 v2"/><path d="M15 18 h18 M15 25 h18 M15 32 h10"/></svg>
+      <span class="t display">Today's Bulletin</span><span class="plus">+</span>
+    </summary>
+    <div class="body">
+      <p>Every day the fort posts three things, on its own, whether you show up or not:</p>
+      <p class="step"><span class="s">★</span> a <b>Gamer Horoscope</b> — your prophecy, accuracy not guaranteed.</p>
+      <p class="step"><span class="s">★</span> <b>Today's Mission</b> — the assignment. Do it or don't. There's no grade.</p>
+      <p class="step"><span class="s">★</span> a <b>True Animal Fact</b> — with <b>Dale's take</b> underneath. Dale is an animal. Consider the source.</p>
+      <p class="d">The ritual is simple: show up, read it, move on. That's the fort's heartbeat.</p>
+    </div>
+  </details>
+
+  <!-- ===================== SECTION: THE WALL ===================== -->
+  <details class="card">
+    <summary>
+      <svg class="ico" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="10" width="16" height="12"/><rect x="26" y="10" width="16" height="12"/><rect x="6" y="28" width="16" height="10"/><rect x="26" y="28" width="16" height="10"/></svg>
+      <span class="t display">The Wall</span><span class="plus">+</span>
+    </summary>
+    <div class="body">
+      <p>The Wall is the main feed — where the fort actually lives.</p>
+      <p class="step"><span class="s">1.</span> Type your post. Everything shows up <b>with your name on it</b>. Own it.</p>
+      <p class="step"><span class="s">2.</span> <b>Attach an image</b> if you want, then hit <span class="pill">POST TO THE WALL</span>.</p>
+      <p class="step"><span class="s">3.</span> <b>Riff below the line.</b> Replying to each other is the whole sport. Older stuff hides behind <span class="pill">load older</span>.</p>
+      <div class="quote">Delete buttons exist. Use them like a dog would: rarely, and with great dignity.</div>
+      <p class="d">Translation: don't nuke a post just because it got embarrassing. Embarrassment is content. History is the point.</p>
+    </div>
+  </details>
+
+  <!-- ===================== SECTION: DICTIONARY + GRAVEYARD ===================== -->
+  <details class="card">
+    <summary>
+      <svg class="ico" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M24 12 C18 8 12 8 8 10 v26 c4-2 10-2 16 2"/><path d="M24 12 c6-4 12-4 16-2 v26 c-4-2-10-2-16 2 Z"/></svg>
+      <span class="t display">Dictionary &amp; Graveyard</span><span class="plus">+</span>
+    </summary>
+    <div class="body">
+      <p>The <b>Dictionary</b> is the official record of how the fort talks. Anyone can <span class="pill">SUBMIT TO THE RECORD</span> — but a word isn't real until <b>the founder certifies it</b>. That's you, holding the stamp.</p>
+      <p>Time kills words. When one dies, it moves to <b>The Graveyard</b>. <span class="d">They served. Mostly.</span></p>
+      <div class="quote">Inside jokes are a renewable resource — but only if you write them down before they rot.</div>
+    </div>
+  </details>
+
+  <!-- ===================== SECTION: THE TOOLS ===================== -->
+  <details class="card">
+    <summary>
+      <svg class="ico" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><rect x="16" y="10" width="14" height="9" rx="1"/><path d="M23 10 V6 h4"/><rect x="14" y="19" width="18" height="20" rx="2"/><path d="M20 27 h6"/></svg>
+      <span class="t display">The Tools</span><span class="plus">+</span>
+    </summary>
+    <div class="body">
+      <p class="d">Three machines. All built on-site. No outside contractors.</p>
+
+      <p style="margin-top:14px"><b style="color:var(--accent2)">✎ PAINT — the art room.</b> Draw with brush, pencil, or the spray can (which is "load-bearing," meaning: it's a joke, and also true). Pick a canvas size, undo your mistakes, then <span class="pill">POST TO THE WALL</span> or <span class="pill">DOWNLOAD PNG</span>.<br>
+      <span class="d">Frames turn art into motion: one frame is a still, more frames make a movie. <b>Onion Skin</b> ghosts the last frame so you can line up the next one — then <b>Send Frames → GIF Machine</b>.</span></p>
+
+      <p style="margin-top:12px"><b style="color:var(--accent2)">▨ MEME KITCHEN — impact font is a food group.</b> <span class="pill">LOAD PHOTO</span> or <span class="pill">GRAB FROM WALL</span>, add <b>top text / bottom text</b>, drop draggable <b>floating text</b>, and scribble on the draw layer. Export, or <b>Add as GIF Frame</b>.</p>
+      <div class="quote">Recent wall art shows up to remix. Remixing is a form of respect — a better bottom text is a compliment, not a theft.</div>
+
+      <p style="margin-top:12px"><b style="color:var(--accent2)">▶ GIF MACHINE — frames in, gif out.</b> Feed <b>The Reel</b> images or a whole video. In the <b>Projection Booth</b> set <i>start</i>, <i>length</i>, and <i>frames/sec</i>, then <span class="pill">CHEW INTO FRAMES</span>. Set the frame delay, watch the live preview, and <span class="pill">MAKE THE GIF</span>.</p>
+      <div class="quote">480 is as medium as it gets. There is no high. This is policy. Low-res is the look — don't fight it.</div>
+    </div>
+  </details>
+
+  <!-- ===================== SECTION: THE WORKSHOP ===================== -->
+  <details class="card">
+    <summary>
+      <svg class="ico" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><circle cx="24" cy="24" r="7"/><path d="M24 4 v6 M24 38 v6 M4 24 h6 M38 24 h6 M10 10 l4 4 M34 34 l4 4 M38 10 l-4 4 M14 34 l-4 4"/></svg>
+      <span class="t display">The Workshop</span><span class="plus">+</span>
+    </summary>
+    <div class="body">
+      <p><b>Paint Job</b> reskins the fort — <span class="pill">Ember</span> <span class="pill">Arcade</span> <span class="pill">Swamp</span> <span class="pill">Midnight</span>. It's <b>per-device</b>, so your paint job is yours alone. <span class="d">(Try the buttons up top — this page repaints too.)</span></p>
+      <p style="margin-top:12px"><b>Founder Paperwork</b> is visible to <b>you and the dog only</b>:</p>
+      <p class="step"><span class="s">▸</span><b>Fort Name</b> — rename the entire fort. Renaming is founder business.</p>
+      <p class="step"><span class="s">▸</span><b>Dog's Street Name</b> — Dale's official alias. Critical paperwork.</p>
+      <p class="step"><span class="s">▸</span><b>Change the Locks</b> — logs everyone out except you. The nuclear option. Use rarely.</p>
+      <p class="step"><span class="s">▸</span><b>The Roster</b> — everyone who has ever knocked.</p>
+      <p class="d">And the fine print says: "founders will find additional paperwork." So keep looking.</p>
+    </div>
+  </details>
+
+  <!-- ===================== SECRETS WIDGET ===================== -->
+  <div class="secrets">
+    <h2 class="display">The Secrets</h2>
+    <div class="count">FORT INTEL: <b id="secretCount">0</b>/3 found · the counter admits there are "more than advertised." So 3 is a lie — in your favor.</div>
+    <div class="locks">
+      <div class="lock" data-lock="1"><svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="7" y="14" width="18" height="13" rx="2"/><path d="M11 14 v-4 a5 5 0 0 1 10 0 v4"/></svg><span>secret #1</span></div>
+      <div class="lock" data-lock="2"><svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="7" y="14" width="18" height="13" rx="2"/><path d="M11 14 v-4 a5 5 0 0 1 10 0 v4"/></svg><span>secret #2</span></div>
+      <div class="lock" data-lock="3"><svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="7" y="14" width="18" height="13" rx="2"/><path d="M11 14 v-4 a5 5 0 0 1 10 0 v4"/></svg><span>secret #3</span></div>
+    </div>
+    <p style="margin:12px 0 0;color:var(--dim);font-size:13px">No map. That's the deal. <b style="color:var(--ink)">Click weird things. Hold buttons a beat too long. Read the fine print.</b> The fort rewards curiosity and nothing else. Tap a lock above as you find each one.</p>
+    <div class="reveal" id="reveal">★ THE FOURTH SECRET: there was never a limit. "More than advertised" meant it. Keep three eyes open — one of them is Dale's.</div>
+  </div>
+
+  <!-- ===================== FIRST-DAY CHECKLIST ===================== -->
+  <div class="checklist">
+    <h2 class="display">Founder's First Day</h2>
+    <div class="chk"><span class="box"> </span><span class="txt">Knock. Enter. Check who's already on the Roster.</span></div>
+    <div class="chk"><span class="box"> </span><span class="txt">Read today's Bulletin — and Dale's take.</span></div>
+    <div class="chk"><span class="box"> </span><span class="txt">Post something to the Wall. Anything. Break the seal.</span></div>
+    <div class="chk"><span class="box"> </span><span class="txt">Certify one word into the Dictionary.</span></div>
+    <div class="chk"><span class="box"> </span><span class="txt">Make one thing in Paint, Meme Kitchen, or the GIF Machine.</span></div>
+    <div class="chk"><span class="box"> </span><span class="txt">Pick a paint job. Give the dog a street name.</span></div>
+    <div class="chk"><span class="box"> </span><span class="txt">Find at least one secret.</span></div>
+  </div>
+
+  <!-- ===================== THE CODE ===================== -->
+  <footer class="code">
+    <h2 class="display">The Code</h2>
+    <ol>
+      <li><b>No narcs.</b> The oldest rule. Still the only one that matters.</li>
+      <li><b>Give Dale a snack.</b> Management is a dog. Keep management happy.</li>
+      <li><b>Rank is rank.</b> The dog outranks the founder. The founder outranks you. You outrank nobody — which is freeing.</li>
+      <li><b>Own your posts.</b> Your name's on it. Riffing is respect. Remixing is respect.</li>
+      <li><b>Delete rarely, with dignity.</b> History is the fort.</li>
+      <li><b>No ads. No accounts. No algorithms.</b> It stays that way. That's the whole promise.</li>
+    </ol>
+    <div class="colophon">founded by <b style="color:var(--ink)">CONNOR</b> · staff: DALE (dog) · management is a dog · a treefort.lol production</div>
+  </footer>
+
+  <div class="noise">members only. you know if you're a member.</div>
+</div>
+
+<!-- ===================== DALE (fixed) ===================== -->
+<div class="daledock">
+  <div class="dalesays" id="dalesays"></div>
+  <button class="snackbtn" id="snackbtn">🦴 Give Dale a snack</button>
+</div>
+
+<script>
+(function(){
+  var root = document.documentElement;
+
+  /* paint-job switcher */
+  document.querySelectorAll('.swatch').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      root.setAttribute('data-theme', btn.dataset.set);
+      document.querySelectorAll('.swatch').forEach(function(b){ b.setAttribute('aria-pressed', b===btn ? 'true':'false'); });
+    });
+  });
+
+  /* secrets tracker */
+  var found = 0;
+  document.querySelectorAll('.lock').forEach(function(l){
+    l.addEventListener('click', function(){
+      l.classList.toggle('found');
+      found += l.classList.contains('found') ? 1 : -1;
+      document.getElementById('secretCount').textContent = found;
+      document.getElementById('reveal').classList.toggle('show', found >= 3);
+    });
+  });
+
+  /* checklist */
+  document.querySelectorAll('.chk').forEach(function(c){
+    c.addEventListener('click', function(){
+      c.classList.toggle('done');
+      c.querySelector('.box').textContent = c.classList.contains('done') ? '✓' : ' ';
+    });
+  });
+
+  /* Dale */
+  var snacks = 0;
+  var lines = [
+    "Dale wags. Loyalty +1.",
+    "Dale accepts. Says nothing. He's management.",
+    "Dale did a spin. Unprompted.",
+    "Dale is now watching the door for you.",
+    "Dale approves this handbook.",
+    "Dale outranks you and he knows it."
+  ];
+  var says = document.getElementById('dalesays');
+  document.getElementById('snackbtn').addEventListener('click', function(){
+    says.textContent = lines[snacks % lines.length] + (snacks>=5 ? " ("+(snacks+1)+" snacks)" : "");
+    says.classList.add('show');
+    snacks++;
+    clearTimeout(says._t);
+    says._t = setTimeout(function(){ says.classList.remove('show'); }, 2600);
+  });
+
+  /* tiny easter egg: click the fort logo */
+  var lg = document.querySelector('.logo');
+  if(lg){ lg.style.cursor='pointer'; lg.addEventListener('click', function(){
+    says.textContent = "you found a secret in your own handbook. of course there are secrets.";
+    says.classList.add('show'); clearTimeout(says._t);
+    says._t = setTimeout(function(){ says.classList.remove('show'); }, 3200);
+  });}
+})();
+</script>
+</body>
+</html>
