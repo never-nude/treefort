@@ -276,7 +276,7 @@
     <h2>TODAY'S FORT BULLETIN</h2>
     <div id="boarddate"></div>
     <div id="cards">
-      <div class="note"><h3>THE PROPHECY</h3><div id="horo"></div></div>
+      <div class="note"><h3>THE ORACLE (RETIRED)</h3><div id="horo"></div></div>
       <div class="note"><h3>TODAY'S MISSION</h3><div id="mission"></div></div>
       <div class="note"><h3>TRUE ANIMAL FACT</h3><div id="fact"></div><div class="subsay"><span id="doglabel">DALE</span>'s take: <b id="subtake"></b></div></div>
     </div>
@@ -417,7 +417,7 @@
    dictionary, and three maker rooms (paint.html, kitchen.html,
    gifmachine.html — each one is its own readable file, go look).
 
-   still editable: HOROSCOPES, MISSIONS, FACTS, RANKS below.
+   still editable: ORACLE, MISSIONS, FACTS, RANKS below.
    they're just lists. add lines. keep the commas. that is the
    only rule.
 
@@ -433,7 +433,9 @@
    (the original lookout — the room — was decommissioned by dad in
    july 2026, along with the locked door and the oracle. their
    remains are archived in the git history. then the whole fort
-   took the name. DALE says this was his idea. it was not.)
+   took the name. DALE says this was his idea. it was not.
+   the oracle, on its way out, left a stack of index cards.
+   the bulletin reads one a day. we don't ask where it went.)
 
    secret count: the footer advertises 3. the truth is 5. the sky
    knows one. the dog knows one. the dictionary, the paint room,
@@ -446,31 +448,37 @@
    — the management (a dog)
    ========================================================== */
 /* ================= CONTENT ================= */
-const HOROSCOPES = [
-  "Your aim will be suspiciously good between 4 and 5 PM. Do not question the window. Use the window.",
-  "A loading screen will test your patience today. You will win, but it will remember.",
-  "Beware of side quests disguised as chores. Actually, do the chore. XP is XP.",
-  "Today you will find a snack you forgot you had. This is the universe apologizing for Monday.",
-  "Someone will say 'good game' and mean it. Treasure this. It happens like four times a year.",
-  "Your respawn energy is strong today. Whatever goes wrong, you get back up faster than usual.",
-  "Do not trust any door that opens too easily today. In games or otherwise.",
-  "The stars suggest saving your game AND your homework. The stars have seen things.",
-  "An NPC in your life (a teacher, probably) will drop actual useful information today. Rare event.",
-  "Your inventory is too full. Donate, delete, or eat something. The stars aren't picky.",
-  "Today's lag is not your fault. Today's lag is cosmic. Say it out loud: 'cosmic lag.'",
-  "A dog will look at you like you matter today. Correct. You do. Dogs don't lie.",
-  "You will think of the perfect comeback 45 minutes too late. Write it down. Post it on the wall. Recycle it Thursday.",
-  "The boss fight today is called 'getting out of bed.' You've beaten it every single time so far. Undefeated.",
-  "Small win incoming: something you dread will get cancelled. Act disappointed. Feel joy.",
-  "Your luck stat is buffed until sundown. Nothing crazy. Like, vending machine luck.",
-  "Someone will explain something to you that you already know. Nod. Collect the free wisdom points anyway.",
-  "Today is a stealth mission. Keep your head down, do your thing, extract at 3 PM sharp.",
-  "The universe has autosaved your progress. You cannot lose what you learned this week. It's banked.",
-  "Warning: a group project approaches. You will carry it. You know you will carry it. Stretch first.",
-  "Your headphones will deliver exactly the right song at exactly the right moment today. Trust the shuffle.",
-  "Mercury is in retrograde, which affects nothing, but it's a great excuse. Use it once. Only once.",
-  "Tonight's sleep will drop rare loot: an extremely weird dream. Report it to the wall in the morning.",
-  "You will be 4% braver today. Doesn't sound like much. It's enough. It's always been enough."
+const ORACLE = [
+  // the oracle was decommissioned in july 2026. it left index cards.
+  // one gets read each day. nobody has finished understanding one yet.
+  "the best time to log off was an hour ago. the second-best time is also an hour ago.",
+  "you miss 100% of the naps you don't take.",
+  "90% of lag is waiting. the other half is loading.",
+  "the loading bar isn't stuck. it's thinking about what it did.",
+  "autocorrect knows what you meant. it just doesn't agree.",
+  "read receipts don't mean they read it. they mean the phone confessed.",
+  "the wifi is strongest where you least need it. that's how it knows.",
+  "never trust a speedrun that isn't in a hurry.",
+  "every NPC thinks they're the main character. so do you. one of you is right.",
+  "two players can't both be player one. and yet.",
+  "the tutorial is the hardest level because you don't know anything yet. this never stops being true.",
+  "you can't be offline if they never saw you online.",
+  "the battery says 1%. 1% of what. exactly.",
+  "if you wait long enough at the bus stop, you become the bus stop.",
+  "yesterday's tomorrow is just today in a hoodie.",
+  "lore is gossip that graduated.",
+  "mute is the loudest button.",
+  "screenshot it or it didn't happen. screenshot it and now it happened twice.",
+  "it's only a phase if you stop. otherwise it's a style.",
+  "the moon is free to look at. that's how they get you.",
+  "every fort is load-bearing if you believe in it.",
+  "you never step in the same river twice, unless it's a water level.",
+  "the group chat is quietest right after something happens.",
+  "touch grass. bring the controller. balance.",
+  "half of winning is showing up. the other 70% is snacks.",
+  "a secret told to the dog is still a secret. dogs are like that.",
+  "nobody goes to the popular videos anymore. too crowded.",
+  "if the world were ending, someone would post it first. check the wall."
 ];
 const MISSIONS = [
   "Refer to your backpack as 'the payload' for the entire day. Explain nothing.",
@@ -1037,7 +1045,7 @@ function fillBulletin() {
   const days = ['SUNDAY','MONDAY','TUESDAY','WEDNESDAY','THURSDAY','FRIDAY','SATURDAY'];
   const months = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
   $('boarddate').textContent = days[d.getDay()] + ', ' + months[d.getMonth()] + ' ' + d.getDate() + ' — refreshes at midnight, fort time';
-  $('horo').textContent = pickDaily(HOROSCOPES);
+  $('horo').textContent = pickDaily(ORACLE);
   $('mission').textContent = pickDaily(MISSIONS);
   const fact = pickDaily(FACTS);
   $('fact').textContent = fact.f;
