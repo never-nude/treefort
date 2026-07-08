@@ -79,7 +79,8 @@ Post-upgrade smoke test:
 | thing | how |
 |---|---|
 | add a kid to a fort | that fort's founder: Workshop → ADD A MEMBER (handle + starter code) |
-| kid forgot their knock | founder: Workshop → RESET A KNOCK. you are the recovery flow |
+| kid lost/forgot their knock | THE SPARE KEY: door → "lost your knock?" → handle + spare → fresh knock (old knock + all old sessions die instantly). founders cannot reset anyone — whoever can re-key you can BE you |
+| kid lost knock AND spare | break-glass below (operator-only), then they cut a new spare inside |
 | change your own knock | Workshop → CHANGE MY KNOCK (any member) |
 | let someone found their own fort | founder: Workshop → SAPLINGS → grow one; say the code to exactly one person. they plant it at treefort.lol → "i have a sapling". max 5 unplanted per fort; compost to make room |
 | delete a post | founder session → remove button on the wall (media dies with it) |

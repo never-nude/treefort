@@ -84,9 +84,13 @@ unused). Now:
 - **Authentication is the fort URL plus one knock code.** No name is typed at the door —
   the code resolves to exactly one member inside that fort, whose `handle` is stamped on
   their posts. This is what kills impersonation; do not add a name field back.
-- Founder powers (delete posts, rename the companion, dict status, roster, add/reset members)
+- Founder powers (delete posts, dict status, roster, add members, mint saplings). NO renames
+  of anything (fort + staff carved at founding) and NO knock resets for others
   gate on `is_founder` inside the current fort.
-- **Recovery flow = the founder resets a member's knock** (`/api/members/reset`). Anyone can
+- **Recovery flow = THE SPARE KEY** (`/api/spare/cut` in-session, shown once, stored hashed;
+  `/api/spare/use` at the door, no session: handle + spare -> fresh knock, spare consumed,
+  and every session issued before the re-key dies via members.code_changed_at). Founder
+  resets are gone forever: whoever can re-key a member can BE them. Anyone can
   change their own knock (`/api/mycode`, proves current code first). No self-service founder
   reset — losing the founder code is still break-glass (DEPLOY.md), Michael holds the backstop.
 - Codes are unique only within a fort: `(fort_id, code_hash)`. The same knock code may

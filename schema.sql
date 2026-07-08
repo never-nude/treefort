@@ -36,6 +36,9 @@ CREATE TABLE IF NOT EXISTS members (
   created_at INTEGER,
   revoked INTEGER NOT NULL DEFAULT 0,      -- kicked out of the tree; access dies, record survives
   revoked_at INTEGER,
+  spare_hash TEXT,                         -- the spare key (hashed); plaintext lives on paper, hidden
+  spare_issued_at INTEGER,                 -- NULL = the fort owes this member a spare
+  code_changed_at INTEGER,                 -- sessions issued before this moment are dead
   PRIMARY KEY (fort_id, handle),
   UNIQUE (fort_id, code_hash),
   FOREIGN KEY (fort_id) REFERENCES forts(id)

@@ -188,24 +188,25 @@
   #sapbox { font-size: 11px; color: #57503f; line-height: 2; }
   #sapbox b { color: #c9bda3; }
   a.quiet:hover, a.quiet:focus-visible { color: #c9bda3; text-decoration: underline; }
-  /* the treehouse rules — shown once at the door, then it's in the logbook */
-  #rulesign { display: none; position: fixed; inset: 0; z-index: 60; background: #0b0806ee;
+  /* the treehouse rules + the spare key — door paperwork overlays */
+  #rulesign, #sparecard { display: none; position: fixed; inset: 0; z-index: 60; background: #0b0806ee;
     overflow-y: auto; padding: 24px 14px; }
-  #rulesign.show { display: grid; place-items: center; }
-  #rulesign .plank { background: linear-gradient(180deg,#33271497,#241b0e97), #2b2013;
+  #rulesign.show, #sparecard.show { display: grid; place-items: center; }
+  #rulesign .plank, #sparecard .plank { background: linear-gradient(180deg,#33271497,#241b0e97), #2b2013;
     border: 3px solid #4a3a20; border-radius: 10px; max-width: 460px; padding: 20px 22px 22px;
     box-shadow: 0 12px 34px #000c; }
-  #rulesign h3 { margin: 0; text-align: center; font-size: 15px; letter-spacing: 3px; color: #ffb64d; }
-  #rulesign .rsub { color: #57503f; text-align: center; font-size: 11px; margin: 4px 0 14px; }
-  #rulesign ol { margin: 0; padding: 0; list-style: none; display: grid; gap: 10px; font-size: 12.5px; line-height: 1.7; }
-  #rulesign ol b { color: #ffb64d; font-weight: 600; }
+  #rulesign h3, #sparecard h3 { margin: 0; text-align: center; font-size: 15px; letter-spacing: 3px; color: #ffb64d; }
+  #rulesign .rsub, #sparecard .rsub { color: #57503f; text-align: center; font-size: 11px; margin: 4px 0 14px; }
+  #rulesign ol, #sparecard ol { margin: 0; padding: 0; list-style: none; display: grid; gap: 10px; font-size: 12.5px; line-height: 1.7; }
+  #rulesign ol b, #sparecard ol b { color: #ffb64d; font-weight: 600; }
   #rulesign .rfine { margin-top: 14px; font-size: 10px; color: #57503f; line-height: 1.8;
     border-top: 1px dashed #4a3a20; padding-top: 10px; }
-  #rulesign .ragree { text-align: center; margin-top: 14px; font-size: 12px; }
-  #rulesign .rknock { font: inherit; margin-top: 10px; font-size: 13px; letter-spacing: 4px;
+  #rulesign .ragree, #sparecard .ragree { text-align: center; margin-top: 14px; font-size: 12px; }
+  #rulesign .rknock, #sparecard .rknock { font: inherit; margin-top: 10px; font-size: 13px; letter-spacing: 4px;
     background: #1d1710; color: #ffb64d; border: 2.5px solid #4a3a20; border-radius: 10px;
     padding: 10px 30px; cursor: pointer; }
-  #rulesign .rknock:hover, #rulesign .rknock:focus-visible { color: #ffdf8e; }
+  #rulesign .rknock:hover, #rulesign .rknock:focus-visible,
+  #sparecard .rknock:hover, #sparecard .rknock:focus-visible { color: #ffdf8e; }
   #founderpanel { display: none; border-top: 1px dashed #4a3a20; margin-top: 14px; padding-top: 14px; }
   #founderpanel.show { display: block; }
   .founderhead { color: #9ee493; letter-spacing: 2px; margin-bottom: 10px; }
@@ -232,6 +233,19 @@
     <div class="doorrow" id="coderow">
       <input id="codefield" maxlength="64" autocomplete="off" spellcheck="false" placeholder="your knock" type="password">
       <button id="codego">KNOCK</button>
+    </div>
+    <a href="#" id="sparelink" class="quiet" style="display:none;font-size:11px;margin-top:10px">lost your knock?</a>
+    <div id="sparerow" style="display:none;margin-top:10px">
+      <div class="doorrow show" style="margin-bottom:8px">
+        <input id="sp_handle" maxlength="20" autocomplete="off" spellcheck="false" placeholder="your handle">
+      </div>
+      <div class="doorrow show" style="margin-bottom:8px">
+        <input id="sp_key" maxlength="20" autocomplete="off" spellcheck="false" placeholder="the spare key (from the paper)">
+      </div>
+      <div class="doorrow show">
+        <input id="sp_new" maxlength="64" autocomplete="off" spellcheck="false" placeholder="a fresh knock" type="password">
+        <button id="sp_go">USE THE SPARE</button>
+      </div>
     </div>
   </div>
 </div>
@@ -326,14 +340,15 @@
       <button class="themechip" data-t="midnight">MIDNIGHT</button>
     </div>
     <div class="wrow"><label>CHANGE MY KNOCK</label><input id="mycur" maxlength="64" placeholder="current knock" type="password"><input id="mynew" maxlength="64" placeholder="new knock" type="password"><button class="minibtn" id="mycodebtn">change</button></div>
-    <div id="wsnote">your knock is yours alone — it's how the door knows you're you. change it whenever. forgot it? the founder can reset it. the fort's name was carved at the founding and stays carved. the founder outranks you. the dog outranks the founder.</div>
+    <div class="wrow"><label>MY SPARE KEY</label><button class="minibtn" id="sparecutbtn">cut a new one</button><span class="wsnote" style="margin:0">the old one stops working. hide the new one better.</span></div>
+    <div id="sparebox"></div>
+    <div id="wsnote">your knock is yours alone — it's how the door knows you're you. nobody can re-key it for you, not even the founder. lost it? your spare key works at the door. lost both? speak to the management. the fort's name was carved at the founding and stays carved. the founder outranks you. the dog outranks the founder.</div>
     <div class="wrow"><label>LEAVE THE FORT</label><button class="minibtn" id="logoutbtn">climb down the ladder</button><span class="wsnote" style="margin:0">this device forgets you. your code still works. climb back up anytime.</span></div>
     <div id="founderpanel">
       <div class="founderhead">FOUNDER PAPERWORK — visible to you and the dog only</div>
       <div class="wrow"><label>FORT NAME</label><span id="cfg_fort_carved" style="letter-spacing:1px"></span><span class="wsnote" style="margin:0">carved at the founding. it stays.</span></div>
-      <div class="wrow"><label>DOG'S STREET NAME</label><input id="cfg_dog" maxlength="10"><button class="minibtn" id="cfgsave2">save</button></div>
+      <div class="wrow"><label>THE STAFF</label><span id="cfg_staff_carved" style="letter-spacing:1px"></span><span class="wsnote" style="margin:0">named at the founding. it stays.</span></div>
       <div class="wrow"><label>ADD A MEMBER</label><input id="addhandle" maxlength="20" placeholder="handle"><input id="addcode" maxlength="64" placeholder="starter code"><button class="minibtn" id="addbtn">add</button></div>
-      <div class="wrow"><label>RESET A KNOCK</label><input id="resethandle" maxlength="20" placeholder="handle"><input id="resetcode" maxlength="64" placeholder="new code"><button class="fortbtn danger" id="resetbtn">reset</button></div>
       <div class="wrow"><label>SAPLINGS</label><input id="sapnote" maxlength="60" placeholder="who is it for?"><button class="minibtn" id="sapgrow">grow one</button></div>
       <div id="sapbox"></div>
       <div class="wrow"><label>THE MEMBERS</label><button class="minibtn" id="membersbtn">who's on the roster</button></div>
@@ -343,6 +358,23 @@
       <div id="wsnote">give each kid their own handle and code — one code per person means nobody can post as anybody else. tell them their code in person; the fort never emails. delete buttons live on the wall. use them like a dog would: rarely, and with great dignity.</div>
     </div>
   </section>
+
+  <div id="sparecard" role="dialog" aria-modal="true" aria-labelledby="sparecardhead">
+    <div class="plank">
+      <h3 id="sparecardhead">THE SPARE KEY</h3>
+      <p class="rsub">for the day your knock is lost, stolen, or forgotten.</p>
+      <ol>
+        <li>the fort owes you one spare key. nobody can reset your knock for you — <b>not even the founder.</b> the spare is how you get back in on a bad day.</li>
+        <li>it works at the door: <b>"lost your knock?"</b> &rarr; your handle + the spare &rarr; a fresh knock. the old knock (and anyone holding it) stops working instantly.</li>
+        <li>lost the spare too? <b>speak to the management.</b> slower, but the management always answers.</li>
+      </ol>
+      <div id="sparereveal"></div>
+      <div class="ragree">
+        <button class="rknock" id="sparecutfirst" type="button">CUT MY SPARE KEY</button>
+        <button class="rknock" id="sparehid" type="button" style="display:none">I HID IT</button>
+      </div>
+    </div>
+  </div>
 
   <div id="rulesign" role="dialog" aria-modal="true" aria-labelledby="rulesignhead">
     <div class="plank">
@@ -1053,11 +1085,7 @@ $('workshopbtn').addEventListener('click', () => {
   const w = $('workshop'); w.classList.toggle('show');
   if (w.classList.contains('show')) w.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 });
-$('cfgsave2').addEventListener('click', async () => {
-  const r = await api('config', { method: 'POST', body: { dog_name: $('cfg_dog').value } });
-  if (r.data && r.data.ok) { toast('the dog has a new street name. he took it well.'); refreshState(); }
-  else toast(r.data && r.data.error || 'the dog rejected the paperwork.');
-});
+// the staff's name is carved at the founding, same as the fort's. no paperwork bends.
 // change my own knock (any member)
 $('mycodebtn').addEventListener('click', async () => {
   const cur = $('mycur').value.trim(), next = $('mynew').value.trim();
@@ -1081,16 +1109,24 @@ $('addbtn').addEventListener('click', async () => {
   if (r.data && r.data.ok) { $('addhandle').value = ''; $('addcode').value = ''; toast(r.data.note, 5000); loadMembers(); }
   else toast(r.data && r.data.error || 'the roster refused.');
 });
-// founder: reset a member's knock (the recovery flow — a kid forgot their code)
-let resetArmed = false;
-$('resetbtn').addEventListener('click', async function () {
-  const handle = $('resethandle').value.trim(), code = $('resetcode').value.trim();
-  if (!handle || code.length < 4) { toast('a handle and a new 4+ character code.'); return; }
-  if (!resetArmed) { resetArmed = true; this.textContent = 'SURE?'; setTimeout(() => { resetArmed = false; this.textContent = 'reset'; }, 3000); return; }
-  const r = await api('members/reset', { method: 'POST', body: { handle, code } });
-  resetArmed = false; this.textContent = 'reset';
-  if (r.data && r.data.ok) { $('resethandle').value = ''; $('resetcode').value = ''; toast(r.data.note, 5000); }
-  else toast(r.data && r.data.error || 'the reset jammed.');
+/* founder knock-resets are gone: whoever can re-key you can BE you, and nobody
+   gets to be you. lost knocks use the spare key at the door. */
+
+/* the spare key: cut, shown once, hidden on paper. used at the door when a
+   knock is lost, stolen, or forgotten. */
+let spareArmed = false;
+$('sparecutbtn').addEventListener('click', async function () {
+  if (!spareArmed) {
+    spareArmed = true; this.textContent = 'SURE? THE OLD ONE DIES';
+    setTimeout(() => { spareArmed = false; this.textContent = 'cut a new one'; }, 3000);
+    return;
+  }
+  spareArmed = false; this.textContent = 'cut a new one';
+  const r = await api('spare/cut', { method: 'POST' });
+  if (!(r.data && r.data.ok)) { toast(r.data && r.data.error || 'the key grinder jammed.'); return; }
+  STATE.spare_ready = true;
+  $('sparebox').innerHTML = '<div class="saptoken">' + esc(r.data.spare) + '</div>' +
+    '<div class="wsnote" style="margin:2px 0 10px">' + esc(r.data.note) + '</div>';
 });
 /* the nursery: saplings grow here, get said to exactly one person, become forts */
 async function loadSaplings() {
@@ -1155,7 +1191,7 @@ async function refreshState() {
     $('mgmtline').textContent = staff.mgmt;
     if (STATE.founder_name) $('founderline').textContent = STATE.founder_name;
     $('cfg_fort_carved').textContent = STATE.fort_name;
-    $('cfg_dog').value = STATE.dog_name;
+    $('cfg_staff_carved').textContent = STATE.dog_name + ' (' + (STATE.companion_kind || 'dog') + ')';
     if (STATE.role === 'founder') { $('founderpanel').classList.add('show'); loadSaplings(); }
     syncFounderRooms();
     plantLadder();
@@ -1179,6 +1215,7 @@ function plantLadder() {
 /* the sign at the door: members who joined before the rules shipped knock it once */
 function maybeShowRules() {
   if (STATE.agreed === false) $('rulesign').classList.add('show');
+  else maybeShowSpare();
 }
 $('rulesknock').addEventListener('click', async () => {
   const r = await api('agree', { method: 'POST' });
@@ -1186,7 +1223,28 @@ $('rulesknock').addEventListener('click', async () => {
     STATE.agreed = true;
     $('rulesign').classList.remove('show');
     toast('heard you. door\'s open.');
+    maybeShowSpare();
   } else toast(r.data && r.data.error || 'the sign didn\'t hear that. knock again.');
+});
+
+/* the fort owes every member one spare key. offered once, after the rules. */
+function maybeShowSpare() {
+  if (STATE.spare_ready === false) $('sparecard').classList.add('show');
+}
+$('sparecutfirst').addEventListener('click', async function () {
+  this.disabled = true;
+  const r = await api('spare/cut', { method: 'POST' });
+  this.disabled = false;
+  if (!(r.data && r.data.ok)) { toast(r.data && r.data.error || 'the key grinder jammed.'); return; }
+  STATE.spare_ready = true;
+  $('sparereveal').innerHTML = '<div class="saptoken" style="font-size:17px">' + esc(r.data.spare) + '</div>' +
+    '<p class="ragree" style="margin-top:10px">shown exactly once. write it on PAPER. hide the paper —<br>under a mattress, inside a book, somewhere the internet isn\'t.</p>';
+  $('sparecutfirst').style.display = 'none';
+  $('sparehid').style.display = '';
+});
+$('sparehid').addEventListener('click', () => {
+  $('sparecard').classList.remove('show');
+  toast('the fort saw nothing. the fort knows nothing.');
 });
 /* ================= THE WALL ================= */
 let oldestId = 0, pendingBlob = null, pendingIsGif = false;
@@ -1462,6 +1520,7 @@ async function runDoor() {
   await sleep(350);
   addLine('big', 'STATE THE CODE:');
   $('coderow').classList.add('show');
+  $('sparelink').style.display = '';
   $('codefield').focus();
 }
 
@@ -1480,7 +1539,8 @@ async function submitCode() {
     return;
   }
   STATE = { name: r.data.name, role: r.data.role, fort_name: r.data.fort_name, dog_name: r.data.dog_name,
-    fort_slug: r.data.fort_slug, companion_kind: r.data.companion_kind, agreed: r.data.agreed };
+    fort_slug: r.data.fort_slug, companion_kind: r.data.companion_kind, agreed: r.data.agreed,
+    spare_ready: r.data.spare_ready };
   if (STATE.role === 'founder' && STATE.name === 'CONNOR') {
     addLine('ok', 'FOUNDER KEY DETECTED.');
     await sleep(550);
@@ -1518,6 +1578,43 @@ async function submitCode() {
 }
 $('codego').addEventListener('click', submitCode);
 $('codefield').addEventListener('keydown', e => { if (e.key === 'Enter') submitCode(); });
+
+/* the spare key at the door: lost, stolen, or forgotten knocks come back here */
+$('sparelink').addEventListener('click', e => {
+  e.preventDefault();
+  $('sparelink').style.display = 'none';
+  $('sparerow').style.display = '';
+  addLine('sys', 'the flowerpot procedure. handle, spare key, fresh knock.');
+  $('sp_handle').focus();
+});
+async function useSpare() {
+  const handle = $('sp_handle').value.trim(), spare = $('sp_key').value.trim(), nc = $('sp_new').value.trim();
+  if (!handle || !spare || nc.length < 4) {
+    addLine('warn', 'all three lines. handle, the key from the paper, a fresh knock (4+).');
+    return;
+  }
+  ensureAudio();
+  $('sparerow').style.display = 'none';
+  addLine('sys', 'checking under the flowerpot... ', '');
+  const r = await api('spare/use', { method: 'POST', body: { handle, spare, new_code: nc } });
+  await sleep(900);
+  if (!(r.data && r.data.ok)) {
+    addLine('bad', r.data && r.data.error || 'the flowerpot is empty.');
+    $('sparerow').style.display = '';
+    return;
+  }
+  STATE = { name: r.data.name, role: r.data.role, fort_name: r.data.fort_name, dog_name: r.data.dog_name,
+    fort_slug: r.data.fort_slug, companion_kind: r.data.companion_kind, agreed: r.data.agreed,
+    spare_ready: r.data.spare_ready };
+  addLine('ok', 'the spare fits. the old knock is dead. so is anyone who was holding it.');
+  await sleep(650);
+  await typeLine('big', 'THE LOCKS ARE YOURS AGAIN, ' + STATE.name + '.');
+  refreshState();
+  await sleep(900);
+  openFort();
+}
+$('sp_go').addEventListener('click', useSpare);
+$('sp_new').addEventListener('keydown', e => { if (e.key === 'Enter') useSpare(); });
 
 /* ---------- main loop + boot ---------- */
 let lastFrame = performance.now();

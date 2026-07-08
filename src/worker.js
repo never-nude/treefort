@@ -90,7 +90,15 @@ async function readSession(env, request, fort) {
   const name = decodeURIComponent(nameEnc);
   const member = await memberByHandle(env, fort.id, name);
   if (!member || member.revoked) return null;   // kicked out of the tree = the cookie means nothing
-  return { fort_id: fort.id, fort_slug: fort.slug, role: member.is_founder ? 'founder' : 'member', name, gen: parseInt(gen, 10) };
+  // sessions issued before the knock last changed are dead — a thief's stolen
+  // session does not outlive the re-keying. issued-at is derived as exp minus
+  // the session length, which means: DO NOT change SESSION_DAYS while tokens
+  // are in flight — old tokens would mis-derive by the delta for up to 90 days.
+  // if it must change, bump the token version ('v2' above) so old tokens die.
+  const issuedAt = parseInt(exp, 10) - SESSION_DAYS * DAY;
+  if (member.code_changed_at && issuedAt < member.code_changed_at) return null;
+  return { fort_id: fort.id, fort_slug: fort.slug, role: member.is_founder ? 'founder' : 'member', name, gen: parseInt(gen, 10),
+    spare_ready: !!member.spare_issued_at };
 }
 function sessionCookie(token, fort) {
   return `fort_session=${token}; Max-Age=${SESSION_DAYS * DAY}; Path=/${fort.slug}; HttpOnly; Secure; SameSite=Lax`;
@@ -252,6 +260,24 @@ function makeSaplingToken() {
   const chars = [...a].map(b => SAPLING_ALPHABET[b % SAPLING_ALPHABET.length]);
   return 'SAPLING-' + chars.slice(0, 4).join('') + '-' + chars.slice(4).join('');
 }
+/* the spare key: same honest alphabet, different lock */
+function makeSpareKey() {
+  const a = new Uint8Array(8);
+  crypto.getRandomValues(a);
+  const chars = [...a].map(b => SAPLING_ALPHABET[b % SAPLING_ALPHABET.length]);
+  return 'SPARE-' + chars.slice(0, 4).join('') + '-' + chars.slice(4).join('');
+}
+function normalizeSpare(raw) {
+  if (typeof raw !== 'string') return null;
+  const t = raw.toUpperCase().replace(/[^A-Z0-9]/g, '');
+  const core = t.startsWith('SPARE') ? t.slice(5) : t;
+  return core.length === 8 ? core : null;
+}
+async function spareHash(env, fortSalt, raw) {
+  const core = normalizeSpare(raw);
+  if (!core) return null;
+  return sha256hex(fortSalt + 'spare:' + core);
+}
 function normalizeSapling(raw) {
   if (typeof raw !== 'string') return null;
   const t = raw.toUpperCase().replace(/[^A-Z0-9]/g, '');
@@ -403,7 +429,8 @@ async function handleKnock(env, request, fort, ip) {
   const token = await makeSession(env, fort, role, name);
   return withLegacyCookieClear(json(
     { ok: true, role, name, fort_name: fort.display_name, fort_slug: fort.slug, dog_name: fort.dog_name,
-      companion_kind: fort.companion_kind || 'dog', agreed: !!agreed },
+      companion_kind: fort.companion_kind || 'dog', agreed: !!agreed,
+      spare_ready: !!member.spare_issued_at },
     200,
     { 'Set-Cookie': sessionCookie(token, fort) }
   ));
@@ -575,8 +602,14 @@ async function handleMyCode(env, request, fort, session) {
   const nextH = await hashCode(fort.salt, next);
   const clash = await codeTakenByOther(env, fort.id, nextH, session.name);
   if (clash) return nope('someone already knocks like that. pick another.');
-  await env.DB.prepare('UPDATE members SET code_hash=? WHERE fort_id=? AND handle=?').bind(nextH, fort.id, session.name).run();
-  return json({ ok: true, note: 'your knock is changed. the door will remember.' });
+  await env.DB.prepare(
+    'UPDATE members SET code_hash=?, code_changed_at=? WHERE fort_id=? AND handle=?'
+  ).bind(nextH, now(), fort.id, session.name).run();
+  // changing the knock kills every old session (including a thief's) —
+  // re-key THIS one so the changer doesn't get logged out by their own caution
+  const token = await makeSession(env, fort, session.role, session.name);
+  return json({ ok: true, note: 'your knock is changed. the door will remember. every other session just forgot you.' },
+    200, { 'Set-Cookie': sessionCookie(token, fort) });
 }
 
 // founder: put a new person on the roster with a starter code (they change it later).
@@ -598,20 +631,61 @@ async function handleMemberAdd(env, request, fort, session) {
   return json({ ok: true, note: handle + ' is on the roster. tell them their code in person.' });
 }
 
-// founder: reset a member's knock. THIS is the recovery flow — a kid forgot their code.
-async function handleMemberReset(env, request, fort, session) {
-  if (session.role !== 'founder') return nope('resetting knocks is founder business.', 403);
-  if (rateLimited('memreset:' + fort.id, 10, 3600)) return nope('that is a lot of lock changes for one hour. breathe.', 429);
+/* founder knock-resets are gone on purpose: whoever can reset your knock can BE
+   you, and nobody gets to be you — not even the founder. recovery is the spare
+   key (below); the double-loss backstop is the management's break-glass. */
+
+// cut a spare key. shown exactly once; only its hash survives here. cutting a
+// new one shreds the old one.
+async function handleSpareCut(env, request, fort, session) {
+  if (rateLimited('sparecut:' + fort.id + ':' + session.name, 3, 3600)) {
+    return nope('the key grinder is hot. an hour, tops.', 429);
+  }
+  const spare = makeSpareKey();
+  const h = await spareHash(env, fort.salt, spare);
+  await env.DB.prepare(
+    'UPDATE members SET spare_hash=?, spare_issued_at=? WHERE fort_id=? AND handle=?'
+  ).bind(h, now(), fort.id, session.name).run();
+  return json({ ok: true, spare,
+    note: 'shown exactly once. write it on paper. hide the paper. the old spare (if any) just became a bookmark.' });
+}
+
+// use the spare at the door: lost or stolen knock -> prove yourself with the
+// paper -> set a fresh knock. consumes the spare and kills every old session.
+async function handleSpareUse(env, request, fort, ip) {
+  if (rateLimited('spareuse:' + fort.id + ':' + ip, 5, 600)) {
+    return nope('too many tries at the flowerpot. the door needs ten minutes.', 429);
+  }
   const body = await readJson(request);
   if (!body) return nope('json required');
   const handle = cleanName(body.handle);
-  const code = cleanCode(body.code);
-  if (!handle || code.length < 4) return nope('a handle and a new 4+ character code.');
-  if (!(await memberByHandle(env, fort.id, handle))) return nope('nobody on the roster goes by ' + handle + '.', 404);
-  const h = await hashCode(fort.salt, code);
-  if (await codeTakenByOther(env, fort.id, h, handle)) return nope('that code already belongs to someone else. pick another.');
-  await env.DB.prepare('UPDATE members SET code_hash=? WHERE fort_id=? AND handle=?').bind(h, fort.id, handle).run();
-  return json({ ok: true, note: handle + '\'s knock has been reset. tell them the new one.' });
+  const newCode = cleanCode(body.new_code);
+  if (!handle) return nope('whose spare is it? a handle, please.');
+  if (newCode.length < 4) return nope('the new knock needs 4+ characters. the raccoons insist.');
+  const member = await memberByHandle(env, fort.id, handle);
+  const h = await spareHash(env, fort.salt, body.spare);
+  // one error for every failure mode — the door confirms nothing about who exists
+  const NOPE = 'that key doesn\'t fit anything here.';
+  if (!member || member.revoked || !member.spare_hash || !h) return nope(NOPE, 403);
+  if (!timingSafeEq(h, member.spare_hash)) return nope(NOPE, 403);
+  const newHash = await hashCode(fort.salt, newCode);
+  if (await codeTakenByOther(env, fort.id, newHash, handle)) return nope('someone already knocks like that. pick another.');
+  const t = now();
+  await env.DB.prepare(
+    'UPDATE members SET code_hash=?, spare_hash=NULL, spare_issued_at=NULL, code_changed_at=? WHERE fort_id=? AND handle=?'
+  ).bind(newHash, t, fort.id, handle).run();
+  // walk in re-keyed: fresh session, old sessions (thief's included) are already dead
+  const agreed = await env.DB.prepare(
+    'SELECT id FROM agreements WHERE fort_id=? AND handle=? AND rules_version=?'
+  ).bind(fort.id, handle, RULES_VERSION).first();
+  const token = await makeSession(env, fort, member.is_founder ? 'founder' : 'member', handle);
+  return withLegacyCookieClear(json(
+    { ok: true, name: handle, role: member.is_founder ? 'founder' : 'member',
+      fort_name: fort.display_name, fort_slug: fort.slug, dog_name: fort.dog_name,
+      companion_kind: fort.companion_kind || 'dog', agreed: !!agreed, spare_ready: false,
+      note: 'the locks are yours again. the fort will cut you a new spare inside.' },
+    200, { 'Set-Cookie': sessionCookie(token, fort) }
+  ));
 }
 
 // founder: who is on the roster (handles only — the door never coughs up a code).
@@ -675,25 +749,9 @@ async function handleFortCreate(env, request) {
   return json({ ok: true, fort: { id: r.fort.id, slug: r.fort.slug, display_name: r.fort.display_name } });
 }
 
-async function handleConfig(env, request, fort, session) {
-  if (session.role !== 'founder') return nope('renaming things is a founder power.', 403);
-  const body = await readJson(request);
-  if (!body) return nope('json required');
-  // a fort's name is carved at the founding — display name AND slug. no API path
-  // writes either after that, and none may be added. names are carved, not penciled.
-  if (typeof body.fort_name === 'string') {
-    return nope('the fort\'s name was carved at the founding. it stays.', 403);
-  }
-  const updates = [];
-  const binds = [];
-  if (typeof body.dog_name === 'string') {
-    const v = cleanText(body.dog_name, 10).toUpperCase();
-    if (v) { updates.push('dog_name=?'); binds.push(v); }
-  }
-  if (!updates.length) return nope('nothing to rename.');
-  await env.DB.prepare('UPDATE forts SET ' + updates.join(', ') + ' WHERE id=?').bind(...binds, fort.id).run();
-  return json({ ok: true });
-}
+/* the whole config endpoint is gone: a fort's identity — name, slug, AND staff —
+   is carved at the founding. nothing about a fort is penciled anymore. any POST
+   to the old /api/config path gets one sentence (see the router). */
 
 async function handleRoster(env, fort, session) {
   if (session.role !== 'founder') return nope('the roster is founder business.', 403);
@@ -976,6 +1034,8 @@ async function routeRequest(request, env) {
     if (route === '/api/knock' && method === 'POST') return handleKnock(env, request, fort, ip);
     // logout just clears the cookie — no session required (a stale cookie can still leave)
     if (route === '/api/logout' && method === 'POST') return handleLogout(fort);
+    // the spare key works from OUTSIDE the door — that is its entire job
+    if (route === '/api/spare/use' && method === 'POST') return handleSpareUse(env, request, fort, ip);
 
     // everything below the door requires a living session
     const session = await readSession(env, request, fort);
@@ -992,7 +1052,8 @@ async function routeRequest(request, env) {
         fort_name: fort.display_name, fort_slug: fort.slug, dog_name: fort.dog_name,
         companion_kind: fort.companion_kind || 'dog',
         founder_name: founder ? founder.handle : null,
-        rules_version: RULES_VERSION, agreed: !!agreed });
+        rules_version: RULES_VERSION, agreed: !!agreed,
+        spare_ready: session.spare_ready });
     }
     if (route === '/api/wall' && method === 'GET') return handleWall(env, request, fort, session);
     if (route === '/api/post' && method === 'POST') return handlePost(env, request, fort, session);
@@ -1004,14 +1065,19 @@ async function routeRequest(request, env) {
     if (route === '/api/dict' && method === 'POST') return handleDictAdd(env, request, fort, session);
     if (route === '/api/dict/status' && method === 'POST') return handleDictStatus(env, request, fort, session);
     if (route === '/api/mycode' && method === 'POST') return handleMyCode(env, request, fort, session);
+    if (route === '/api/spare/cut' && method === 'POST') return handleSpareCut(env, request, fort, session);
     if (route === '/api/agree' && method === 'POST') return handleAgree(env, request, fort, session);
     if (route === '/api/grants' && method === 'GET') return handleGrantList(env, fort, session);
     if (route === '/api/grants/mint' && method === 'POST') return handleGrantMint(env, request, fort, session);
     if (route === '/api/grants/revoke' && method === 'POST') return handleGrantRevoke(env, request, fort, session);
     if (route === '/api/members' && method === 'GET') return handleMembers(env, fort, session);
     if (route === '/api/members/add' && method === 'POST') return handleMemberAdd(env, request, fort, session);
-    if (route === '/api/members/reset' && method === 'POST') return handleMemberReset(env, request, fort, session);
-    if (route === '/api/config' && method === 'POST') return handleConfig(env, request, fort, session);
+    if (route === '/api/members/reset' && method === 'POST') {
+      return nope('nobody re-keys another person\'s knock anymore. not even the founder. lost knocks use the spare key at the door.', 410);
+    }
+    if (route === '/api/config' && method === 'POST') {
+      return nope('the fort was carved at the founding — name, slug, and staff. it stays.', 410);
+    }
     if (route === '/api/roster' && method === 'GET') return handleRoster(env, fort, session);
 
     return nope('that room does not exist. yet?', 404);

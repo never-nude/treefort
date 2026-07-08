@@ -203,9 +203,19 @@ function exec(sql, args) {
         });
         return { meta: {} };
       }
-      if (S.startsWith('UPDATE members SET code_hash=? WHERE fort_id=? AND handle=?')) {
-        const m = db.members.get(memberKey(args[1], args[2]));
-        if (m) m.code_hash = args[0];
+      if (S.startsWith('UPDATE members SET code_hash=?, code_changed_at=? WHERE fort_id=? AND handle=?')) {
+        const m = db.members.get(memberKey(args[2], args[3]));
+        if (m) { m.code_hash = args[0]; m.code_changed_at = args[1]; }
+        return { meta: {} };
+      }
+      if (S.startsWith('UPDATE members SET spare_hash=?, spare_issued_at=? WHERE fort_id=? AND handle=?')) {
+        const m = db.members.get(memberKey(args[2], args[3]));
+        if (m) { m.spare_hash = args[0]; m.spare_issued_at = args[1]; }
+        return { meta: {} };
+      }
+      if (S.startsWith('UPDATE members SET code_hash=?, spare_hash=NULL, spare_issued_at=NULL, code_changed_at=? WHERE fort_id=? AND handle=?')) {
+        const m = db.members.get(memberKey(args[2], args[3]));
+        if (m) { m.code_hash = args[0]; m.spare_hash = null; m.spare_issued_at = null; m.code_changed_at = args[1]; }
         return { meta: {} };
       }
       if (S.startsWith('INSERT INTO posts')) {
@@ -435,19 +445,15 @@ const png = () => { const b = new Uint8Array(64); b.set([0x89, 0x50, 0x4E, 0x47,
   assert(r.data.terms.length === 0, 'dictionary terms are scoped to their fort');
   console.log('dictionary scoping: OK');
 
-  // fort names are carved, not penciled: no API path renames a fort after founding
+  // the whole fort is carved at the founding — name, slug, AND staff. config is a tombstone.
   r = await call('/the_lookout/api/config', { method: 'POST', body: { fort_name: 'Megafort' }, who: 'connor' });
-  assert(r.status === 403 && /carved/.test(r.data.error), 'fort name is carved at the founding, even for the founder');
-  r = await call('/the_lookout/api/config', { method: 'POST', body: { fort_name: 'Megafort', dog_name: 'beans' }, who: 'connor' });
-  assert(r.status === 403, 'sneaking fort_name in beside dog_name still gets refused');
+  assert(r.status === 410 && /carved/.test(r.data.error), 'fort name is carved, even for the founder');
   r = await call('/the_lookout/api/config', { method: 'POST', body: { dog_name: 'beans' }, who: 'connor' });
-  assert(r.data.ok, 'the dog street name is still penciled');
+  assert(r.status === 410, 'the staff name is carved too — the config endpoint is gone entirely');
   r = await call('/the_lookout/api/state', { who: 'connor' });
-  assert(r.data.fort_name === 'The Lookout' && r.data.dog_name === 'BEANS', 'name untouched, dog renamed');
+  assert(r.data.fort_name === 'The Lookout' && r.data.dog_name === 'DALE', 'nothing renamed, ever');
   assert(db.forts.get('the_lookout').slug === 'the_lookout', 'slug never moved');
-  r = await call('/base_camp/api/state', { who: 'baseKushman' });
-  assert(r.data.fort_name === 'Base Camp' && r.data.dog_name === 'DALE', 'Base Camp untouched by Lookout paperwork');
-  console.log('founder config scoping (carved names): OK');
+  console.log('carved forts (no config endpoint): OK');
 
   r = await call('/the_lookout/api/mycode', { method: 'POST', body: { current_code: 'WRONGCUR', new_code: 'NEWDAD01' }, who: 'lookoutKushman' });
   assert(r.status === 400, 'wrong current knock rejected');
@@ -475,19 +481,57 @@ const png = () => { const b = new Uint8Array(64); b.set([0x89, 0x50, 0x4E, 0x47,
   assert(r.data.ok && r.data.role === 'member' && r.data.name === 'JAMIE', 'new member can knock in');
   console.log('add member scoping: OK');
 
-  r = await call('/the_lookout/api/members/reset', { method: 'POST', body: { handle: 'JAMIE', code: 'JAMIE999' }, who: 'lookoutKushman2' });
-  assert(r.status === 403, 'member cannot reset');
-  r = await call('/the_lookout/api/members/reset', { method: 'POST', body: { handle: 'NOBODY', code: 'JAMIE999' }, who: 'connor' });
-  assert(r.status === 404, 'reset unknown handle 404');
+  // founder resets are gone: whoever can re-key you can BE you, and nobody gets to be you
   r = await call('/the_lookout/api/members/reset', { method: 'POST', body: { handle: 'JAMIE', code: 'JAMIE999' }, who: 'connor' });
-  assert(r.data.ok, 'founder resets a knock');
-  r = await call('/the_lookout/api/knock', { method: 'POST', body: { code: 'JAMIE001' }, ip: '4.4.4.5', who: 'x' });
-  assert(r.status === 401, 'reset killed the old Lookout knock');
-  r = await call('/base_camp/api/knock', { method: 'POST', body: { code: 'JAMIE001' }, ip: '4.4.4.7', who: 'baseJamie' });
-  assert(r.data.ok && r.data.name === 'JAMIE', 'reset in The Lookout did not reset Base Camp JAMIE');
-  r = await call('/the_lookout/api/knock', { method: 'POST', body: { code: 'JAMIE999' }, ip: '4.4.4.6', who: 'jamie2' });
-  assert(r.data.ok && r.data.name === 'JAMIE', 'new Lookout knock works after reset');
-  console.log('reset knock scoping: OK');
+  assert(r.status === 410 && /not even the founder/.test(r.data.error), 'founder reset is dead, even for the founder');
+  console.log('no more founder resets: OK');
+
+  /* THE SPARE KEY — self-service recovery for lost/stolen/forgotten knocks */
+  r = await call('/the_lookout/api/spare/cut', { method: 'POST', who: 'lookoutKushman2' });
+  assert(r.data.ok && /^SPARE-[A-Z2-9]{4}-[A-Z2-9]{4}$/.test(r.data.spare), 'a member cuts a spare: ' + (r.data.spare || r.data.error));
+  const kushmanSpare = r.data.spare;
+  r = await call('/the_lookout/api/state', { who: 'lookoutKushman2' });
+  assert(r.data.spare_ready === true, 'state knows the spare exists (never what it says)');
+  // wrong spare, wrong handle: one uniform answer, no session needed
+  r = await call('/the_lookout/api/spare/use', { method: 'POST', body: { handle: 'KUSHMAN', spare: 'SPARE-XXXX-XXXX', new_code: 'FRESH123' }, ip: '4.5.6.1' });
+  assert(r.status === 403 && /doesn't fit/.test(r.data.error), 'wrong spare gets the uniform no');
+  r = await call('/the_lookout/api/spare/use', { method: 'POST', body: { handle: 'NOBODY', spare: kushmanSpare, new_code: 'FRESH123' }, ip: '4.5.6.1' });
+  assert(r.status === 403 && /doesn't fit/.test(r.data.error), 'wrong handle gets the same uniform no');
+  // the real thing: dashes optional, case-insensitive, walks you in re-keyed
+  r = await call('/the_lookout/api/spare/use', { method: 'POST',
+    body: { handle: 'kushman', spare: kushmanSpare.toLowerCase().replace(/-/g, ''), new_code: 'SPARENEW1' }, ip: '4.5.6.2', who: 'recovered' });
+  assert(r.data.ok && r.data.name === 'KUSHMAN' && r.data.spare_ready === false, 'the spare fits: ' + JSON.stringify(r.data.error || r.data.name));
+  assert(cookies.recovered && cookies.recovered.path === '/the_lookout', 'recovery walks you in with a live session');
+  r = await call('/the_lookout/api/spare/use', { method: 'POST', body: { handle: 'KUSHMAN', spare: kushmanSpare, new_code: 'AGAIN999' }, ip: '4.5.6.3' });
+  assert(r.status === 403, 'a spare only works once');
+  r = await call('/the_lookout/api/knock', { method: 'POST', body: { code: 'NEWDAD01' }, ip: '4.5.6.4' });
+  assert(r.status === 401, 'the old (stolen) knock is dead');
+  r = await call('/the_lookout/api/knock', { method: 'POST', body: { code: 'SPARENEW1' }, ip: '4.5.6.5', who: 'lookoutKushman2' });
+  assert(r.data.ok && r.data.name === 'KUSHMAN', 'the fresh knock lives');
+  // re-keying kills sessions issued before it — the thief's stolen cookie dies too
+  const km = db.members.get(memberKey('the_lookout', 'KUSHMAN'));
+  assert(km.code_changed_at > 0, 'the re-keying moment is recorded');
+  const savedCca = km.code_changed_at;
+  km.code_changed_at = Math.floor(Date.now() / 1000) + 5;   // simulate a token issued before the change
+  r = await call('/the_lookout/api/state', { who: 'recovered' });
+  assert(r.status === 401, 'sessions issued before the re-keying are dead');
+  km.code_changed_at = savedCca - 100;                      // restore for downstream tests
+  // a spare is fort-bound: cut a fresh one in The Lookout, try it on Base Camp
+  r = await call('/the_lookout/api/spare/cut', { method: 'POST', who: 'lookoutKushman2' });
+  const lookoutSpare = r.data.spare;
+  r = await call('/base_camp/api/spare/use', { method: 'POST', body: { handle: 'KUSHMAN', spare: lookoutSpare, new_code: 'CROSSFORT1' }, ip: '4.5.6.6' });
+  assert(r.status === 403 && /doesn't fit/.test(r.data.error), 'a Lookout spare opens nothing at Base Camp, even for the same person');
+  // a kicked-out member's spare is as dead as their knock
+  km.revoked = 1;
+  r = await call('/the_lookout/api/spare/use', { method: 'POST', body: { handle: 'KUSHMAN', spare: lookoutSpare, new_code: 'SNEAKY111' }, ip: '4.5.6.7' });
+  assert(r.status === 403 && /doesn't fit/.test(r.data.error), 'kicked out of the tree = the spare means nothing either');
+  km.revoked = 0;
+  // a sealed fort seals its flowerpot too
+  db.forts.get('the_lookout').frozen = 1;
+  r = await call('/the_lookout/api/spare/use', { method: 'POST', body: { handle: 'KUSHMAN', spare: lookoutSpare, new_code: 'SEALED111' }, ip: '4.5.6.8' });
+  assert(r.status === 403 && r.data.sealed, 'the seal covers spare recovery — no side doors');
+  db.forts.get('the_lookout').frozen = 0;
+  console.log('the spare key: OK');
 
   r = await call('/the_lookout/api/members', { who: 'lookoutKushman2' });
   assert(r.status === 403, 'member cannot list members');
@@ -634,12 +678,12 @@ const png = () => { const b = new Uint8Array(64); b.set([0x89, 0x50, 0x4E, 0x47,
   console.log('the seal: OK');
 
   // kicked out of the tree: session dies, code dies, record survives, no re-add
-  r = await call('/the_lookout/api/knock', { method: 'POST', body: { code: 'NEWDAD01' }, ip: '5.5.5.5', who: 'kicked' });
+  r = await call('/the_lookout/api/knock', { method: 'POST', body: { code: 'SPARENEW1' }, ip: '5.5.5.5', who: 'kicked' });
   assert(r.data.ok && r.data.name === 'KUSHMAN', 'kushman knocks in before the kicking');
   db.members.get(memberKey('the_lookout', 'KUSHMAN')).revoked = 1;
   r = await call('/the_lookout/api/state', { who: 'kicked' });
   assert(r.status === 401, 'revoked = the session means nothing');
-  r = await call('/the_lookout/api/knock', { method: 'POST', body: { code: 'NEWDAD01' }, ip: '5.5.5.6' });
+  r = await call('/the_lookout/api/knock', { method: 'POST', body: { code: 'SPARENEW1' }, ip: '5.5.5.6' });
   assert(r.status === 401, 'revoked = the code means nothing');
   assert(db.members.get(memberKey('the_lookout', 'KUSHMAN')), 'the record survives the kicking');
   r = await call('/the_lookout/api/members/add', { method: 'POST', body: { handle: 'KUSHMAN', code: 'SNEAKY99' }, who: 'connor' });
