@@ -1,139 +1,123 @@
-# DEPLOY.md — treefort v2 runbook (from zero)
+# DEPLOY.md — treefort runbook (multi-fort era)
 
-Michael's copy. Cut-paste top to bottom. ~30 minutes including DNS wait.
-After step 9 you are hands-off infrastructure, as designed.
+Michael's copy. Cut-paste top to bottom. Two different situations are covered:
+**A. the live upgrade** (what prod needs right now: single-fort DB → multi-fort) and
+**B. from zero** (a fresh install on a new account, should the tree ever burn down).
 
-## 0. Prereqs
+## A. THE GREAT RE-FORTING — upgrading live prod to multi-fort
 
-- Node 18+ on your Mac (`node -v`)
-- This repo pushed to GitHub (`never-nude/treefort`) — or deploy straight from the folder; wrangler doesn't care
-
-## 1. Cloudflare account
-
-1. https://dash.cloudflare.com/sign-up — free plan, your email
-2. Verify the email. That's it, no card needed yet.
-
-> **R2 note (the one asterisk):** enabling R2 requires putting a payment method on file
-> even though the free tier is $0 for 10 GB storage / 1M ops per month. Five kids posting
-> memes will use a fraction of that. Expected monthly bill: **$0.00**.
-> In the dashboard: **R2 → Enable R2** (do this once, before step 4).
-
-## 2. Wrangler CLI
-
-```bash
-npm install -g wrangler
-wrangler login        # opens browser, click allow
-wrangler whoami       # sanity check
-```
-
-## 3. Create the database
+Prod is currently: v2.1-era worker (single fort, hardcoded), single-fort D1 with real
+posts in it, kids actively using it. The upgrade is three commands and one knock.
+Sessions die once (everyone re-knocks with their same code). Posts survive. Codes survive.
 
 ```bash
 cd /path/to/treefort
-wrangler d1 create fort
-```
 
-Copy the `database_id` from the output and paste it into `wrangler.toml`
-(replacing `PASTE_YOUR_D1_ID_HERE`), then load the schema:
+# 0) backup. always. (media lives in R2 and is untouched by all of this)
+wrangler d1 export fort --remote --output backup-preforts-$(date +%F).sql
 
-```bash
-wrangler d1 execute fort --file schema.sql --remote
-```
+# 1) the migration — one atomic batch; if any statement fails, NOTHING applies.
+#    (deliberately has no BEGIN/COMMIT — remote D1 supplies its own transaction
+#    and rejects explicit ones. do not add them back.)
+wrangler d1 execute fort --remote --file migrations/0001_multi_fort_foundation.sql
 
-## 4. Create the media bucket
+# 2) verify the migration before deploying the worker that needs it:
+wrangler d1 execute fort --remote --command "SELECT (SELECT COUNT(*) FROM posts WHERE fort_id='the_lookout') AS posts, (SELECT COUNT(*) FROM members) AS members, (SELECT COUNT(*) FROM forts) AS forts"
+#    posts must equal the pre-migration count. members >= 3. forts = 2.
 
-```bash
-wrangler r2 bucket create fort-media
-```
-
-## 5. Session secret
-
-```bash
-openssl rand -hex 32 | wrangler secret put SESSION_SECRET
-```
-
-## 6. First deploy (workers.dev, before the domain)
-
-```bash
+# 3) ship the worker
 wrangler deploy
 ```
 
-Output ends with a URL like `https://treefort.<your-subdomain>.workers.dev`. Open it —
-you should see the door. It will refuse everyone, because the fort isn't founded yet.
+Then the human step: knock at https://treefort.lol with Connor's code (his same code —
+the salt traveled with the migration). You land in THE LOOKOUT as founder. Your same
+code opens both The Lookout (as member) and Base Camp (as its founder).
 
-## 7. Found the fort (one-time, then the route seals itself forever)
+Post-upgrade smoke test:
+- [ ] treefort.lol redirects to treefort.lol/the_lookout/
+- [ ] old bookmark treefort.lol/paint.html walks itself to /the_lookout/paint.html
+- [ ] knock as Connor → wall shows every old post → all four room links work
+- [ ] handbook room: visible to founders, 404 for members
+- [ ] treefort.lol/base_camp/ → its own door; your code opens it; its wall is empty and its own
+- [ ] a made-up fort URL shows the "wrong branch" sign, not raw JSON
 
-Pick two codes. FORT CODE is the one Connor hands out (4+ chars). FOUNDER CODE is the
-key to everything (6+, treat it like a dragon treats gold). Then:
+## B. FROM ZERO — fresh install on a new Cloudflare account
 
-```bash
-curl -X POST https://treefort.<your-subdomain>.workers.dev/api/setup \
-  -H 'Content-Type: application/json' \
-  -d '{"fort_code":"PICK-ONE","founder_code":"PICK-ANOTHER"}'
-```
+1. https://dash.cloudflare.com/sign-up — free plan. Verify email.
+   **R2 asterisk:** enabling R2 wants a card on file even though five kids of meme
+   traffic is $0.00/mo. Dashboard → **R2 → Enable R2**, once.
+2. CLI: `npm install -g wrangler && wrangler login && wrangler whoami`
+3. Database: `wrangler d1 create fort` → paste the id into `wrangler.toml` → then
+   **schema only** (fresh installs NEVER run migrations/0001 — that file is exclusively
+   the legacy upgrade and will refuse an empty database on purpose):
+   ```bash
+   wrangler d1 execute fort --file schema.sql --remote
+   ```
+4. Bucket: `wrangler r2 bucket create fort-media`
+5. Secrets:
+   ```bash
+   openssl rand -hex 32 | wrangler secret put SESSION_SECRET
+   openssl rand -hex 16 | wrangler secret put SEED_TOKEN     # temporary, deleted in step 8
+   ```
+6. Deploy: `wrangler deploy`
+7. Seed the founding forts (codes 4+ chars; tell people theirs in person, never email):
+   ```bash
+   curl -X POST https://treefort.lol/api/seed \
+     -H 'Content-Type: application/json' \
+     -d '{"token":"THE-SEED-TOKEN","connor_code":"CONNORS-CODE","kushman_code":"YOUR-LOOKOUT-CODE","base_camp_code":"YOUR-BASECAMP-CODE"}'
+   ```
+8. Lock the side door: `wrangler secret delete SEED_TOKEN`
+   (seed refuses to run twice anyway, but a deleted secret refuses harder. re-set the
+   secret temporarily any time you want /api/forts/create for founding a new fort.)
+9. Domain (only if starting from scratch there too): Cloudflare → Add a site →
+   treefort.lol → copy the two nameservers into Porkbun. Wait for "active" email.
+   Routes are already in wrangler.toml; `wrangler deploy` again and done.
 
-Expected: `{"ok":true,"note":"the fort is founded. this route is now sealed forever."}`
-
-Write the founder code on the DEED. By hand. Nowhere digital.
-
-## 8. Smoke test (2 minutes)
-
-- [ ] Open the workers.dev URL → door boots → wrong code gets mocked
-- [ ] 5 wrong codes → cooldown with countdown
-- [ ] Right code + a name → you're in; bulletin, dog, oracle all live
-- [ ] Post text to the Wall; reply to it
-- [ ] Founder code + any name → Workshop shows FOUNDER PAPERWORK; delete your test post → tombstone
-- [ ] PAINT: draw, post to wall
-- [ ] PAINT: 2+ frames → SEND TO GIF MACHINE → MAKE THE GIF → post
-- [ ] Phone check: everything again on your phone
-
-## 9. The domain
-
-1. Cloudflare dashboard → **Add a site** → `treefort.lol` → Free plan
-2. Cloudflare shows you two nameservers (like `ada.ns.cloudflare.com` / `bob.ns.cloudflare.com`)
-3. Porkbun → treefort.lol → **Nameservers** → replace with those two (registrar stays Porkbun; only DNS moves)
-4. Wait for Cloudflare to email "treefort.lol is active" (minutes to a couple hours)
-5. Uncomment the `routes` block in `wrangler.toml`, then:
-
-```bash
-wrangler deploy
-```
-
-6. https://treefort.lol → the door. HTTPS is automatic.
-
-## 10. Ops (all of it)
+## Ops (all of it)
 
 | thing | how |
 |---|---|
-| change the fort code | Connor does it in the Workshop (or you, with the founder code) |
-| delete a post | founder session → remove button on the wall |
-| Connor loses fort code | he has the founder code; Workshop → change the locks |
-| founder code lost entirely | break-glass below |
-| backup (optional, monthly-ish) | `wrangler d1 export fort --remote --output backup-$(date +%F).sql` — media stays in R2 |
+| add a kid to a fort | that fort's founder: Workshop → ADD A MEMBER (handle + starter code) |
+| kid forgot their knock | founder: Workshop → RESET A KNOCK. you are the recovery flow |
+| change your own knock | Workshop → CHANGE MY KNOCK (any member) |
+| delete a post | founder session → remove button on the wall (media dies with it) |
+| log a whole fort out at once | `wrangler d1 execute fort --remote --command "UPDATE forts SET gen=gen+1 WHERE id='the_lookout'"` — every session in that fort dies instantly; codes keep working |
+| revoke one person completely | `wrangler d1 execute fort --remote --command "DELETE FROM members WHERE fort_id='the_lookout' AND handle='NAME'"` — their session dies on their next request (sessions revalidate against the roster), their code stops opening the door |
+| found a new fort | re-set SEED_TOKEN, POST /api/forts/create with {token, display_name, founder_handle, founder_code}, delete the token again |
+| backup (monthly-ish) | `wrangler d1 export fort --remote --output backup-$(date +%F).sql` |
 | costs | $0/mo at friend-group scale; Workers free tier is 100k requests/day |
-| updates | edit files → `wrangler deploy` (or wire the repo to Workers Builds for push-to-deploy) |
+| updates | edit files → `wrangler deploy` |
 
-### Break-glass: reset codes if the founder code itself is lost
+### Break-glass: a founder code is lost and nobody can reset it from inside
+
+Codes hash per fort: `sha256(fort.salt + CODE_UPPERCASED)` into `members.code_hash`.
+(The old procedure that wrote `config.founder_hash` is dead — nothing reads config anymore.)
 
 ```bash
-# 1) get the salt
-wrangler d1 execute fort --remote --command "SELECT salt FROM config"
-# 2) hash new codes with it (uppercase the code!)
-node -e 'const c=require("crypto");console.log(c.createHash("sha256").update(process.argv[1]+process.argv[2].toUpperCase()).digest("hex"))' SALT_HERE NEW-FOUNDER-CODE
-node -e 'const c=require("crypto");console.log(c.createHash("sha256").update(process.argv[1]+process.argv[2].toUpperCase()).digest("hex"))' SALT_HERE NEW-FORT-CODE
-# 3) write them + change the locks (gen bump logs everyone out)
-wrangler d1 execute fort --remote --command "UPDATE config SET founder_hash='HASH1', fort_hash='HASH2', gen=gen+1"
+# 1) get THAT FORT's salt
+wrangler d1 execute fort --remote --command "SELECT salt FROM forts WHERE id='the_lookout'"
+# 2) hash a new code with it
+node -e 'const c=require("crypto");console.log(c.createHash("sha256").update(process.argv[1]+process.argv[2].toUpperCase()).digest("hex"))' SALT_HERE NEW-CODE
+# 3) write it onto the member and log that fort out
+wrangler d1 execute fort --remote --command "UPDATE members SET code_hash='HASH_HERE' WHERE fort_id='the_lookout' AND handle='CONNOR'"
+wrangler d1 execute fort --remote --command "UPDATE forts SET gen=gen+1 WHERE id='the_lookout'"
 ```
 
-## What was verified before shipping
+Write founder codes on the DEED. By hand. Nowhere digital.
 
-- Full API integration test (node, stubbed D1/R2): 40+ assertions — knock, cooldown,
-  sessions, wall, replies, tombstones, upload sniffing + caps, dictionary, founder
-  powers, lock-change generation invalidation, rate limits
-- GIF encoder: byte-exact decode roundtrip (PIL) through all LZW code-width
-  transitions and a full dictionary reset
+## What was verified before shipping (2026-07-08 hardening pass)
+
+- doortest (node, stubbed D1/R2): seed, fort routing + canonical redirects, per-fort
+  knocks + cross-fort session isolation, handbook founder gate, cooldown scoping,
+  wall/upload/media/dictionary scoping, founder powers, mycode + bootstrap rate
+  limits, logout, legacy Path=/ cookie retirement, friendly HTML 404, graceful 500
+- migration 0001 replayed locally against a simulated copy of prod: posts identical,
+  salt carried, both codes work after
+- routing exercised through the real platform (`wrangler dev`, not just worker.fetch):
+  /, /the_lookout/, all room pages, legacy redirects, robots.txt, security headers
 - All page scripts pass `node --check`
 
-The quiet safety layer (client canvas re-encode strips EXIF/GPS; media served only with
-a valid session; no third-party anything) is in the code, not in a settings page.
+The quiet safety layer (client canvas re-encode strips EXIF/GPS; media served only to
+sessions of the owning fort; CSP blocks every external script/style/image; the fort
+never emails, pings, or tracks anyone) is in the code, not in a settings page.
 Nothing to operate.

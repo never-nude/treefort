@@ -16,6 +16,14 @@ no framework, no npm install.** This is a load-bearing constraint, not an accide
 every page is a single readable file because the 13-year-old owner is meant to read
 and mod the source. Do not introduce bundlers, frameworks, libraries, or CDN scripts.
 
+**Routing law (learned the hard way, 2026-07-08):** `wrangler.toml` sets
+`run_worker_first = true` + `html_handling = "none"` so the Worker owns EVERY request
+and `env.ASSETS.fetch()` returns files, never redirects. Do not switch back to a
+run_worker_first glob list — the asset platform's html_handling was 307-ing fort paths
+(`/the_lookout/paint.html` → `/paint`) into dead ends. Legacy root URLs (`/paint.html`
+etc.) 301 to `/the_lookout/…`; `/` 302s to `/the_lookout/`; unknown fort slugs get an
+in-voice HTML "wrong branch" page for browsers, JSON for API paths.
+
 | path | what |
 |---|---|
 | `src/worker.js` | entire backend: code-gate auth, sessions, wall, dictionary, media, founder ops |
@@ -24,7 +32,7 @@ and mod the source. Do not introduce bundlers, frameworks, libraries, or CDN scr
 | `public/index.html` | the fort: door theater, bulletin, wall, dictionary, workshop, pixel dog |
 | `public/paint.html` | drawing tool + animation frames (onion skin) |
 | `public/kitchen.html` | meme maker (impact text, draw layer, remix-from-wall) |
-| `public/handbook.html` | Connor-only founder field manual — hidden from everyone else and gated by the Worker |
+| `public/handbook.html` | the founder's field manual — served only to a founder of the CURRENT fort (Worker-gated), hidden from members |
 | `public/gifmachine.html` | client-side GIF89a encoder — **hand-written LZW, do not replace with a library** — plus the projection booth: .mov/.mp4 → frames → gif, fully in-browser, video never uploaded |
 | `test/doortest.mjs` | full API integration test, stubbed D1/R2 — `node test/doortest.mjs` |
 | `DEPLOY.md` | the runbook (account → wrangler → D1/R2 → setup call → Porkbun nameservers) |
@@ -111,19 +119,26 @@ Smart-13-year-old register: never condescend, never "hello fellow kids."
 node test/doortest.mjs                                  # API integration test (offline, stubbed)
 wrangler dev                                            # local dev (needs D1 id in wrangler.toml)
 wrangler deploy                                         # ship
-wrangler d1 execute fort --file schema.sql --remote     # apply schema
-wrangler d1 migrations apply fort --remote              # apply one-time live migrations
+wrangler d1 execute fort --file schema.sql --remote     # apply schema (FRESH installs only)
+wrangler d1 execute fort --remote --file migrations/0001_multi_fort_foundation.sql
+                                                        # legacy single-fort upgrade, ONCE, by hand.
+                                                        # NEVER `wrangler d1 migrations apply` — 0001
+                                                        # is not a migrations-dir file and refuses
+                                                        # fresh DBs on purpose. see DEPLOY.md.
 wrangler d1 export fort --remote --output backup.sql    # backup
 ```
 
 Client pages have no test harness; changes there = manual check in browser + `node --check`
 on the extracted script block.
 
-## Verified before handoff
+## Verified before handoff (refreshed 2026-07-08 hardening pass)
 
-- doortest: 40+ assertions (setup sealing, knock/cooldown, sessions, wall/replies/
-  tombstones, upload validation, dict, founder powers, lock-change gen invalidation,
-  rate limits)
+- doortest: seed + fort routing + canonical redirects, per-fort knocks with cross-fort
+  session isolation, handbook founder gate, cooldown scoping, wall/upload/media/dict
+  scoping, founder powers, mycode + bootstrap rate limits, logout, legacy Path=/
+  cookie retirement, friendly HTML 404, graceful deadpan 500
+- migration 0001 replayed locally against a simulated prod copy: posts byte-identical,
+  salt carried, both existing codes still open the door
 - GIF encoder: byte-exact decode roundtrip vs PIL through all LZW code-width
   transitions (9→12 bits) and a 4096-entry dictionary reset
 - `wrangler.toml` has the live D1 id and custom-domain routes (the routes block must stay
@@ -136,5 +151,7 @@ on the extracted script block.
   `/api/seed`; live single-fort installs should use the migration file first.
 - In-memory rate-limit buckets are per-isolate best-effort — fine for five kids
 - GIF palette is fixed 3-3-2 (256 colors), no dithering: crunchy on purpose
-- localStorage keys are namespaced `tf_*`; per-device state (theme, attendance,
-  secrets found, wall-seen marker) is intentionally NOT server-side
+- localStorage is namespaced per fort AND per device: `the_lookout` keeps the original
+  bare `tf_*` keys (so nobody's attendance/secrets reset when multi-fort landed); every
+  other fort uses `tf_<slug>_*`. Per-device state (theme, attendance, secrets found,
+  wall-seen marker) is intentionally NOT server-side
