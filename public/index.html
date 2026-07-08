@@ -342,10 +342,10 @@
     <div class="wrow"><label>CHANGE MY KNOCK</label><input id="mycur" maxlength="64" placeholder="current knock" type="password"><input id="mynew" maxlength="64" placeholder="new knock" type="password"><button class="minibtn" id="mycodebtn">change</button></div>
     <div class="wrow"><label>MY SPARE KEY</label><button class="minibtn" id="sparecutbtn">cut a new one</button><span class="wsnote" style="margin:0">the old one stops working. hide the new one better.</span></div>
     <div id="sparebox"></div>
-    <div id="wsnote">your knock is yours alone — it's how the door knows you're you. nobody can re-key it for you, not even the founder. lost it? your spare key works at the door. lost both? speak to the management. the fort's name was carved at the founding and stays carved. the founder outranks you. the dog outranks the founder.</div>
+    <div id="wsnote">your knock is yours alone — it's how the door knows you're you. nobody can re-key it for you, not even the founder. lost it? your spare key works at the door. lost both? speak to the management. the fort's name was carved at the founding and stays carved. the founder outranks you. the <span class="staffword">dog</span> outranks the founder.</div>
     <div class="wrow"><label>LEAVE THE FORT</label><button class="minibtn" id="logoutbtn">climb down the ladder</button><span class="wsnote" style="margin:0">this device forgets you. your code still works. climb back up anytime.</span></div>
     <div id="founderpanel">
-      <div class="founderhead">FOUNDER PAPERWORK — visible to you and the dog only</div>
+      <div class="founderhead">FOUNDER PAPERWORK — visible to you and the <span class="staffword">dog</span> only</div>
       <div class="wrow"><label>FORT NAME</label><span id="cfg_fort_carved" style="letter-spacing:1px"></span><span class="wsnote" style="margin:0">carved at the founding. it stays.</span></div>
       <div class="wrow"><label>THE STAFF</label><span id="cfg_staff_carved" style="letter-spacing:1px"></span><span class="wsnote" style="margin:0">named at the founding. it stays.</span></div>
       <div class="wrow"><label>ADD A MEMBER</label><input id="addhandle" maxlength="20" placeholder="handle"><input id="addcode" maxlength="64" placeholder="starter code"><button class="minibtn" id="addbtn">add</button></div>
@@ -355,7 +355,7 @@
       <div id="membersbox"></div>
       <div class="wrow"><label>KNOCK LOG</label><button class="minibtn" id="rosterbtn">who has knocked</button></div>
       <div id="rosterbox"></div>
-      <div id="wsnote">give each kid their own handle and code — one code per person means nobody can post as anybody else. tell them their code in person; the fort never emails. delete buttons live on the wall. use them like a dog would: rarely, and with great dignity.</div>
+      <div id="wsnote">give each kid their own handle and code — one code per person means nobody can post as anybody else. tell them their code in person; the fort never emails. delete buttons live on the wall. use them like a <span class="staffword">dog</span> would: rarely, and with great dignity.</div>
     </div>
   </section>
 
@@ -900,8 +900,8 @@ $('feedbtn').addEventListener('click', () => {
   const staff = myStaff();
   dogSay(staff.snacks[Math.floor(Math.random() * staff.snacks.length)]);
   const snacks = store.get('snacks', 0) + 1; store.set('snacks', snacks);
-  if (snacks === 10) toast('the dog has filed a formal thank-you note. 10 snacks served.');
-  if (snacks === 50) toast('50 snacks. the dog has named a constellation after you.');
+  if (snacks === 10) toast(STATE.dog_name + ' has filed a formal thank-you note. 10 snacks served.');
+  if (snacks === 50) toast('50 snacks. ' + STATE.dog_name + ' has named a constellation after you.');
 });
 function drawDog(t) {
   const W = dog.width, H = dog.height;
@@ -1196,6 +1196,8 @@ function applyState() {
   $('cfg_fort_carved').textContent = STATE.fort_name;
   $('cfg_staff_carved').textContent = STATE.dog_name + ' (' + (STATE.companion_kind || 'dog') + ')';
   if (STATE.role === 'founder') { $('founderpanel').classList.add('show'); loadSaplings(); }
+  // everywhere the copy says "dog", it means THIS fort's staff. keep it honest.
+  document.querySelectorAll('.staffword').forEach(e => { e.textContent = STATE.companion_kind || 'dog'; });
   syncFounderRooms();
   plantLadder();
   maybeShowRules();
@@ -1323,9 +1325,9 @@ function renderPost(p) {
   const el = document.createElement('div');
   if (p.deleted) {
     el.className = 'post tomb';
-    // every removal is signed. old tombstones (pre-signature) stay the dog's work.
+    // every removal is signed. old tombstones (pre-signature) stay the staff's work.
     el.innerHTML = !p.deleted_by
-      ? 'removed by the management. the management is a dog.'
+      ? 'removed by the management. the management is a ' + esc(STATE.companion_kind || 'dog') + '.'
       : (p.deleted_by === p.author
         ? 'removed by ' + esc(p.deleted_by) + '. it was theirs to remove.'
         : 'removed by the management. the management is, in this case, ' + esc(p.deleted_by) + '.');
@@ -1484,7 +1486,7 @@ function openFort() {
   });
   applyTheme(); sizeDog(); resizeFx(); rain(90);
   fillBulletin(); loadWall(true); loadDict();
-  setTimeout(() => dogSay(DOG_LINES[Math.floor(Math.random() * DOG_LINES.length)]), 900);
+  setTimeout(() => { const staff = myStaff(); dogSay(staff.lines[Math.floor(Math.random() * staff.lines.length)]); }, 900);
 }
 
 // the founder's field manual shows for whoever holds THIS fort's founder key

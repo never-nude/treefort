@@ -421,6 +421,39 @@
     says._t = setTimeout(function(){ says.classList.remove('show'); }, 3200);
   });}
 })();
+
+/* ---------- the manual speaks in THIS fort's staff ----------
+   the handbook was written under a dog administration. forts run by a cat,
+   fern, pigeon, or moth get the same manual with the right species and the
+   right name — and no pixel dog dock, out of respect for the incumbent. */
+(async function () {
+  try {
+    var slug = location.pathname.split('/').filter(Boolean)[0] || 'the_lookout';
+    var r = await fetch('/' + slug + '/api/state');
+    var st = await r.json();
+    if (!st.ok) return;
+    var kind = st.companion_kind || 'dog', name = st.dog_name || 'DALE';
+    if (kind === 'dog' && name === 'DALE') return;   // the original administration
+    if (kind !== 'dog') {
+      var dock = document.querySelector('.daledock');
+      if (dock) dock.style.display = 'none';
+    }
+    var an = /^[aeiou]/i.test(kind) ? 'an ' : 'a ';
+    var walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+    var nodes = [];
+    while (walker.nextNode()) nodes.push(walker.currentNode);
+    for (var i = 0; i < nodes.length; i++) {
+      var t = nodes[i].nodeValue;
+      if (!/DALE|[Dd]ale|dog/.test(t)) continue;
+      t = t.replace(/\bDALE\b/g, name)
+           .replace(/\bDale\b/g, name)
+           .replace(/\bthe dog\b/g, 'the ' + kind)
+           .replace(/\ba dog\b/g, an + kind)
+           .replace(/\(dog\)/g, '(' + kind + ')');
+      nodes[i].nodeValue = t;
+    }
+  } catch (e) { /* the manual stands as written */ }
+})();
 </script>
 </body>
 </html>

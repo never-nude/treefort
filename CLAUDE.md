@@ -55,6 +55,11 @@ in-voice HTML "wrong branch" page for browsers, JSON for API paths.
 - **Companions**: `COMPANIONS` in index.html — dog | cat | fern | pigeon | moth, each with
   lines/snacks/takes/mgmt line and a procedural sprite (drawStaff dispatch). THE LOOKOUT's
   staff is DALE (dog), forever. No raccoon companion — the council stays external.
+- **Staff-copy law**: FORT-level copy follows the fort's staff (`.staffword` spans +
+  applyState on index.html; the handbook text-walks itself into the local species and
+  hides the dog dock under non-dog administrations). TREE-level copy stays dog forever:
+  the six rules sign (all three copies), /rules, the grove, worker-global strings —
+  that dog is DALE, the tree's own management, not the fort's staff.
 - **The treehouse rules**: RULES_VERSION in worker.js; the six rules text is IDENTICAL in
   index.html (door overlay), plant.html (founding), rules.html (public) — change all three
   together and bump the version (everyone re-knocks the sign once). Agreements logged.
