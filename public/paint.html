@@ -66,6 +66,29 @@
     padding: 11px 18px; font-size: 13px; font-weight: 700;
     transition: transform .35s cubic-bezier(.2,1.4,.4,1); z-index: 95; }
   #toast.show { transform: translateX(-50%) translateY(0); }
+
+  /* ---------- the pocket art room ----------
+     on a phone everything tightens up, and the quickbar pins the whole
+     animation loop under your thumb: draw, + frame, draw, + frame, -> gif.
+     delete this block and the room goes back to how it was. */
+  #quickbar { display: none; }
+  @media (max-width: 700px) {
+    #app { padding-bottom: 76px; }                     /* room for the quickbar */
+    #tools { display: flex; flex-wrap: wrap; gap: 5px; width: 100%; }
+    .tool { width: 38px; height: 38px; font-size: 14px; }
+    #side { max-width: none; gap: 8px; }
+    #palette { grid-template-columns: repeat(8, 1fr); }
+    #framesbar { margin-top: 10px; }
+    .fthumb { width: 64px; height: 48px; }
+    #toast { bottom: 78px; }                           /* above the quickbar */
+    #quickbar { display: flex; position: fixed; left: 0; right: 0; bottom: 0; z-index: 90;
+      gap: 6px; padding: 8px 10px calc(8px + env(safe-area-inset-bottom));
+      background: #1d1710f2; border-top: 2px solid #4a3a20;
+      backdrop-filter: blur(4px); align-items: center; }
+    #quickbar .fortbtn { flex: 1; padding: 10px 6px; font-size: 11px; white-space: nowrap; }
+    #quickbar .fortbtn.narrow { flex: 0 0 auto; }
+    #quickbar .fortbtn.lit { border-color: var(--acc); color: var(--glow); }
+  }
 </style>
 </head>
 <body>
@@ -127,6 +150,14 @@
       <button class="fortbtn" id="togif">SEND FRAMES &rarr; GIF MACHINE</button>
     </div>
   </div>
+</div>
+
+<!-- the pocket art room's quickbar: phones only, proxies the real buttons above -->
+<div id="quickbar">
+  <button class="fortbtn narrow" id="qundo" title="undo">&#8630;</button>
+  <button class="fortbtn" id="qframe">+ frame</button>
+  <button class="fortbtn narrow" id="qonion">onion</button>
+  <button class="fortbtn" id="qgif">&rarr; gif</button>
 </div>
 <div id="toast"></div>
 
@@ -456,6 +487,21 @@ $('postbtn').addEventListener('click', async function () {
 });
 
 renderStrip();
+
+/* ---------- the quickbar (phones): proxies the real controls above ----------
+   delete this block + the #quickbar div + its CSS and the room forgets phones exist. */
+$('qundo').addEventListener('click', () => $('undo').click());
+$('qframe').addEventListener('click', () => $('addframe').click());
+$('qgif').addEventListener('click', () => $('togif').click());
+$('qonion').addEventListener('click', () => { $('onionchk').click(); });
+function syncQuickbar() {
+  const n = document.querySelectorAll('.fthumb').length;
+  $('qframe').textContent = '+ frame (' + n + ')';
+  $('qonion').classList.toggle('lit', $('onionchk').checked);
+}
+new MutationObserver(syncQuickbar).observe($('framestrip'), { childList: true });
+$('onionchk').addEventListener('change', syncQuickbar);
+syncQuickbar();
 </script>
 </body>
 </html>
