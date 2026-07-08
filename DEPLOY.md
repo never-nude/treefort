@@ -16,14 +16,15 @@ cd /path/to/treefort
 # 0) backup. always. (media lives in R2 and is untouched by all of this)
 wrangler d1 export fort --remote --output backup-preforts-$(date +%F).sql
 
-# 1) the migration — one atomic batch; if any statement fails, NOTHING applies.
-#    (deliberately has no BEGIN/COMMIT — remote D1 supplies its own transaction
-#    and rejects explicit ones. do not add them back.)
+# 1) the migrations, in order — each is one atomic batch; if any statement
+#    fails, NOTHING from that file applies. (deliberately no BEGIN/COMMIT —
+#    remote D1 supplies its own transaction and rejects explicit ones.)
 wrangler d1 execute fort --remote --file migrations/0001_multi_fort_foundation.sql
+wrangler d1 execute fort --remote --file migrations/0002_the_tree_grows.sql
 
-# 2) verify the migration before deploying the worker that needs it:
-wrangler d1 execute fort --remote --command "SELECT (SELECT COUNT(*) FROM posts WHERE fort_id='the_lookout') AS posts, (SELECT COUNT(*) FROM members) AS members, (SELECT COUNT(*) FROM forts) AS forts"
-#    posts must equal the pre-migration count. members >= 3. forts = 2.
+# 2) verify the migrations before deploying the worker that needs them:
+wrangler d1 execute fort --remote --command "SELECT (SELECT COUNT(*) FROM posts WHERE fort_id='the_lookout') AS posts, (SELECT COUNT(*) FROM members) AS members, (SELECT COUNT(*) FROM forts) AS forts, (SELECT companion_kind FROM forts WHERE id='the_lookout') AS lookout_staff"
+#    posts must equal the pre-migration count. members >= 3. forts = 2. lookout_staff = dog.
 
 # 3) ship the worker
 wrangler deploy
@@ -80,13 +81,35 @@ Post-upgrade smoke test:
 | add a kid to a fort | that fort's founder: Workshop → ADD A MEMBER (handle + starter code) |
 | kid forgot their knock | founder: Workshop → RESET A KNOCK. you are the recovery flow |
 | change your own knock | Workshop → CHANGE MY KNOCK (any member) |
+| let someone found their own fort | founder: Workshop → SAPLINGS → grow one; say the code to exactly one person. they plant it at treefort.lol → "i have a sapling". max 5 unplanted per fort; compost to make room |
 | delete a post | founder session → remove button on the wall (media dies with it) |
 | log a whole fort out at once | `wrangler d1 execute fort --remote --command "UPDATE forts SET gen=gen+1 WHERE id='the_lookout'"` — every session in that fort dies instantly; codes keep working |
-| revoke one person completely | `wrangler d1 execute fort --remote --command "DELETE FROM members WHERE fort_id='the_lookout' AND handle='NAME'"` — their session dies on their next request (sessions revalidate against the roster), their code stops opening the door |
-| found a new fort | re-set SEED_TOKEN, POST /api/forts/create with {token, display_name, founder_handle, founder_code}, delete the token again |
+| kick someone out of the tree | `wrangler d1 execute fort --remote --command "UPDATE members SET revoked=1, revoked_at=unixepoch() WHERE fort_id='the_lookout' AND handle='NAME'"` — session dies on next request, code stops opening the door, the record SURVIVES |
+| let them back up | same, `SET revoked=0, revoked_at=NULL` |
+| **freeze a fort (seal it)** | `wrangler d1 execute fort --remote --command "UPDATE forts SET frozen=1 WHERE id='SLUG'"` — every URL in it (pages, api, media) shows the seal, instantly. reversible: `frozen=0` |
+| **freeze EVERYTHING** | `wrangler d1 execute fort --remote --command "UPDATE forts SET frozen=1"` — the big red switch |
+| read the management's mailbox | `wrangler d1 execute fort --remote --command "SELECT id, fort_id, reason, contact, datetime(created_at,'unixepoch') AS at FROM reports ORDER BY id DESC LIMIT 20"` |
+| who vouched for this fort? | `wrangler d1 execute fort --remote --command "WITH RECURSIVE chain(id, parent) AS (SELECT id, parent_fort FROM forts WHERE id='SLUG' UNION ALL SELECT f.id, f.parent_fort FROM forts f JOIN chain c ON f.id=c.parent) SELECT c.id, g.granted_by_handle AS vouched_by FROM chain c LEFT JOIN grants g ON g.used_by_fort=c.id"` |
+| email alerts for reports/foundings | optional — enable the send_email blocks in wrangler.toml (see comments there). without them, reports still land in D1 |
+| found a fort operator-side (no sapling) | re-set SEED_TOKEN, POST /api/forts/create, delete the token again |
 | backup (monthly-ish) | `wrangler d1 export fort --remote --output backup-$(date +%F).sql` |
 | costs | $0/mo at friend-group scale; Workers free tier is 100k requests/day |
 | updates | edit files → `wrangler deploy` |
+
+### If something truly bad gets posted (the incident playbook)
+
+**Preserve, then remove.** Removal is instant; evidence can't be reconstructed after.
+
+1. **Preserve**: `wrangler d1 export fort --remote --output incident-$(date +%F).sql`, and if
+   media is involved, download the object first:
+   `wrangler r2 object get fort-media/m/KEY --file incident-media-KEY`
+2. **Remove**: tombstone the post (founder remove button, or the unpublish one-liner), or
+   freeze the whole fort if it's bigger than one post.
+3. **If it is CSAM or a child is in danger**: preserve (step 1), freeze the fort, and report
+   to NCMEC (CyberTipline.org / 1-800-843-5678) and local law enforcement. Do NOT just
+   delete — preservation is part of the legal obligation.
+4. The grant chain tells you who vouched for the fort's owner (one-liner above) —
+   that's a phone call to a parent you can actually make.
 
 ### Break-glass: a founder code is lost and nobody can reset it from inside
 

@@ -37,6 +37,31 @@ in-voice HTML "wrong branch" page for browsers, JSON for API paths.
 | `test/doortest.mjs` | full API integration test, stubbed D1/R2 — `node test/doortest.mjs` |
 | `DEPLOY.md` | the runbook (account → wrangler → D1/R2 → setup call → Porkbun nameservers) |
 
+## The tree grows (Phase 3, 2026-07-08)
+
+- **The grove** (`public/grove.html`, served at `/`): landing page that denies everything.
+  No fort directory — ladders come from the device's own `tf_grove_ladders` localStorage
+  (fort pages plant a ladder on every successful knock). First-timers whisper a fort's
+  NAME; ground links: "i have a sapling" → `/plant`, "speak to the management" → `/rules#management`.
+- **Saplings** (`grants` table): one-use founding codes minted by founders (Workshop →
+  SAPLINGS, ≤5 unused). Token shown exactly once, stored hashed. `POST /api/found` consumes
+  one conditionally (race-proof) and creates fort+founder+agreement atomically-ish with a
+  compensating revert on naming races. The chain (`forts.parent_fort`, `founded_by_grant`)
+  is permanent record.
+- **Naming law**: display 2–18 printable ASCII; slug unique forever; collisions offer
+  "Name 2" explicitly (TAKE THE 2), reserved slugs (`RESERVED_SLUGS` in worker.js) refused.
+- **Companions**: `COMPANIONS` in index.html — dog | cat | fern | pigeon | moth, each with
+  lines/snacks/takes/mgmt line and a procedural sprite (drawStaff dispatch). THE LOOKOUT's
+  staff is DALE (dog), forever. No raccoon companion — the council stays external.
+- **The treehouse rules**: RULES_VERSION in worker.js; the six rules text is IDENTICAL in
+  index.html (door overlay), plant.html (founding), rules.html (public) — change all three
+  together and bump the version (everyone re-knocks the sign once). Agreements logged.
+- **Moderation**: `POST /api/report` (no session, 3/hr/IP) + optional operator email
+  (wrangler.toml send_email blocks); `forts.frozen` seals every route; `members.revoked`
+  kicks someone out with the record preserved. Operator one-liners + incident playbook in
+  DEPLOY.md. Glossary is binding: sapling / treehouse rules / speak to the management /
+  sealed / kicked out of the tree — system words never on kid-facing screens.
+
 ## Fort canon
 
 - Connor's fort: display name `The Lookout`, slug `the_lookout`, founder `CONNOR`.
