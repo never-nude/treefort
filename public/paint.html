@@ -401,6 +401,8 @@ $('preset').addEventListener('change', e => {
 
 /* ---------- frames ---------- */
 let frames = [null], cur = 0;   // frames hold dataURLs; current lives on the canvas
+let thumbs = [null];            // tiny twins of frames — the strip reads these, so
+                                // 100 frames redraw as 100 postage stamps, not 100 posters
 function flatten() {
   const out = document.createElement('canvas');
   out.width = cv.width; out.height = cv.height;
@@ -409,7 +411,13 @@ function flatten() {
   o.drawImage(cv, 0, 0);
   return out;
 }
-function saveCurrent() { frames[cur] = cv.toDataURL('image/png'); }
+function saveCurrent() {
+  frames[cur] = cv.toDataURL('image/png');
+  const t = document.createElement('canvas');
+  t.width = 96; t.height = Math.max(1, Math.round(96 * cv.height / cv.width));
+  t.getContext('2d').drawImage(cv, 0, 0, t.width, t.height);
+  thumbs[cur] = t.toDataURL('image/jpeg', 0.6);
+}
 function loadFrame(i, cb) {
   const url = frames[i];
   ctx.clearRect(0, 0, cv.width, cv.height);
@@ -432,23 +440,28 @@ function renderStrip() {
   frames.forEach((f, i) => {
     const d = document.createElement('div');
     d.className = 'fthumb' + (i === cur ? ' on' : '');
-    if (f) d.style.backgroundImage = 'url(' + f + ')';
+    if (thumbs[i] || f) d.style.backgroundImage = 'url(' + (thumbs[i] || f) + ')';
     d.innerHTML = '<i>' + (i + 1) + '</i>';
     d.addEventListener('click', () => { saveCurrent(); cur = i; loadFrame(cur, renderStrip); });
     strip.appendChild(d);
   });
 }
-function syncFrameSize() { frames = [null]; cur = 0; renderStrip(); drawOnion(); }
+function syncFrameSize() { frames = [null]; thumbs = [null]; cur = 0; renderStrip(); drawOnion(); }
+const FRAME_MAX = 100;   // the reel holds 100. hollywood was built on less.
 $('addframe').addEventListener('click', () => {
+  if (frames.length >= FRAME_MAX) { toast('the reel holds 100. hollywood was built on less.'); return; }
   saveCurrent();
   frames.splice(cur + 1, 0, frames[cur]);   // duplicate = animation 101
+  thumbs.splice(cur + 1, 0, thumbs[cur]);
   cur++;
   loadFrame(cur, renderStrip);
   if (frames.length === 13) toast('13 frames. the forbidden frame count. (it\'s fine. probably.)');
+  if (frames.length === 50) toast('50 frames. halfway to the whole reel. the art room believes in you.');
 });
 $('delframe').addEventListener('click', () => {
   if (frames.length <= 1) { toast('the last frame stays. a movie needs at least one still.'); return; }
   frames.splice(cur, 1);
+  thumbs.splice(cur, 1);
   cur = Math.max(0, cur - 1);
   loadFrame(cur, renderStrip);
 });

@@ -265,8 +265,10 @@ function renderStrip() {
   reelInfo();
   restartPreview();
 }
+const REEL_MAX = 100;   // the reel holds 100. hollywood was built on less.
 function addFrameFromURL(url) {
   return new Promise(resolve => {
+    if (reel.length >= REEL_MAX) { resolve('full'); return; }
     const img = new Image();
     img.onload = () => {
       if (!reel.length) {
@@ -397,7 +399,8 @@ $('chewbtn').addEventListener('click', async function () {
   try {
     const start = +$('vstart').value, fps = +$('vfps').value;
     const len = Math.min(+$('vlen').value, Math.max(0.5, vidDur - start));   // only chew film that exists
-    const n = Math.max(2, Math.round(len * fps));
+    const n = Math.min(Math.max(2, Math.round(len * fps)), REEL_MAX - reel.length);   // the reel holds 100, total
+    if (n < 1) throw new Error('the reel is full. 100 frames. make the movie.');
     const k = Math.min(1, VMAX / Math.max(vid.videoWidth, vid.videoHeight));
     const vw = Math.max(2, Math.round(vid.videoWidth * k));
     const vh = Math.max(2, Math.round(vid.videoHeight * k));
@@ -484,10 +487,15 @@ $('postbtn').addEventListener('click', async function () {
 (async () => {
   const h = await idbGet('handoff_frames');
   if (h && h.frames && h.frames.length) {
-    for (const url of h.frames) await addFrameFromURL(url);
+    let took = 0;
+    for (const url of h.frames) {
+      if (await addFrameFromURL(url) === 'full') break;
+      took++;
+    }
     await idbDel('handoff_frames');
     renderStrip();
-    toast(h.frames.length + ' frame(s) delivered from ' + (h.from === 'paint' ? 'the art room' : 'the kitchen') + '.');
+    toast(took + ' frame(s) delivered from ' + (h.from === 'paint' ? 'the art room' : 'the kitchen') + '.'
+      + (took < h.frames.length ? ' the reel held the first 100 and politely declined the rest.' : ''));
   } else {
     renderStrip();
   }
