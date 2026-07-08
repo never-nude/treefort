@@ -679,12 +679,13 @@ async function handleConfig(env, request, fort, session) {
   if (session.role !== 'founder') return nope('renaming things is a founder power.', 403);
   const body = await readJson(request);
   if (!body) return nope('json required');
+  // a fort's name is carved at the founding — display name AND slug. no API path
+  // writes either after that, and none may be added. names are carved, not penciled.
+  if (typeof body.fort_name === 'string') {
+    return nope('the fort\'s name was carved at the founding. it stays.', 403);
+  }
   const updates = [];
   const binds = [];
-  if (typeof body.fort_name === 'string') {
-    const v = cleanText(body.fort_name, 40);
-    if (v) { updates.push('display_name=?'); binds.push(v); updates.push('renamed_at=?'); binds.push(now()); }
-  }
   if (typeof body.dog_name === 'string') {
     const v = cleanText(body.dog_name, 10).toUpperCase();
     if (v) { updates.push('dog_name=?'); binds.push(v); }

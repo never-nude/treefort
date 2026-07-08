@@ -84,7 +84,7 @@ unused). Now:
 - **Authentication is the fort URL plus one knock code.** No name is typed at the door —
   the code resolves to exactly one member inside that fort, whose `handle` is stamped on
   their posts. This is what kills impersonation; do not add a name field back.
-- Founder powers (delete posts, rename fort/dog, dict status, roster, add/reset members)
+- Founder powers (delete posts, rename the companion, dict status, roster, add/reset members)
   gate on `is_founder` inside the current fort.
 - **Recovery flow = the founder resets a member's knock** (`/api/members/reset`). Anyone can
   change their own knock (`/api/mycode`, proves current code first). No self-service founder

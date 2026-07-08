@@ -326,11 +326,11 @@
       <button class="themechip" data-t="midnight">MIDNIGHT</button>
     </div>
     <div class="wrow"><label>CHANGE MY KNOCK</label><input id="mycur" maxlength="64" placeholder="current knock" type="password"><input id="mynew" maxlength="64" placeholder="new knock" type="password"><button class="minibtn" id="mycodebtn">change</button></div>
-    <div id="wsnote">your knock is yours alone — it's how the door knows you're you. change it whenever. forgot it? the founder can reset it. renaming the fort, though, is founder business. the founder outranks you. the dog outranks the founder.</div>
+    <div id="wsnote">your knock is yours alone — it's how the door knows you're you. change it whenever. forgot it? the founder can reset it. the fort's name was carved at the founding and stays carved. the founder outranks you. the dog outranks the founder.</div>
     <div class="wrow"><label>LEAVE THE FORT</label><button class="minibtn" id="logoutbtn">climb down the ladder</button><span class="wsnote" style="margin:0">this device forgets you. your code still works. climb back up anytime.</span></div>
     <div id="founderpanel">
       <div class="founderhead">FOUNDER PAPERWORK — visible to you and the dog only</div>
-      <div class="wrow"><label>FORT NAME</label><input id="cfg_fort" maxlength="14"><button class="minibtn" id="cfgsave1">save</button></div>
+      <div class="wrow"><label>FORT NAME</label><span id="cfg_fort_carved" style="letter-spacing:1px"></span><span class="wsnote" style="margin:0">carved at the founding. it stays.</span></div>
       <div class="wrow"><label>DOG'S STREET NAME</label><input id="cfg_dog" maxlength="10"><button class="minibtn" id="cfgsave2">save</button></div>
       <div class="wrow"><label>ADD A MEMBER</label><input id="addhandle" maxlength="20" placeholder="handle"><input id="addcode" maxlength="64" placeholder="starter code"><button class="minibtn" id="addbtn">add</button></div>
       <div class="wrow"><label>RESET A KNOCK</label><input id="resethandle" maxlength="20" placeholder="handle"><input id="resetcode" maxlength="64" placeholder="new code"><button class="fortbtn danger" id="resetbtn">reset</button></div>
@@ -1053,11 +1053,6 @@ $('workshopbtn').addEventListener('click', () => {
   const w = $('workshop'); w.classList.toggle('show');
   if (w.classList.contains('show')) w.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 });
-$('cfgsave1').addEventListener('click', async () => {
-  const r = await api('config', { method: 'POST', body: { fort_name: $('cfg_fort').value } });
-  if (r.data && r.data.ok) { toast('the fort has been renamed. paperwork filed.'); refreshState(); }
-  else toast(r.data && r.data.error || 'the paperwork failed.');
-});
 $('cfgsave2').addEventListener('click', async () => {
   const r = await api('config', { method: 'POST', body: { dog_name: $('cfg_dog').value } });
   if (r.data && r.data.ok) { toast('the dog has a new street name. he took it well.'); refreshState(); }
@@ -1159,7 +1154,7 @@ async function refreshState() {
     $('staffkind').textContent = STATE.companion_kind || 'dog';
     $('mgmtline').textContent = staff.mgmt;
     if (STATE.founder_name) $('founderline').textContent = STATE.founder_name;
-    $('cfg_fort').value = STATE.fort_name;
+    $('cfg_fort_carved').textContent = STATE.fort_name;
     $('cfg_dog').value = STATE.dog_name;
     if (STATE.role === 'founder') { $('founderpanel').classList.add('show'); loadSaplings(); }
     syncFounderRooms();

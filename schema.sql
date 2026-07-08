@@ -19,7 +19,7 @@ CREATE TABLE IF NOT EXISTS forts (
   gen INTEGER NOT NULL DEFAULT 1,
   salt TEXT NOT NULL,
   created_at INTEGER NOT NULL,
-  renamed_at INTEGER,
+  renamed_at INTEGER,                     -- vestigial: names are carved at founding now
   parent_fort TEXT,                        -- lineage: NULL = a root fort
   founded_by_grant INTEGER,                -- which sapling grew this fort (NULL = predates saplings)
   companion_kind TEXT NOT NULL DEFAULT 'dog',  -- dog|cat|fern|pigeon|moth

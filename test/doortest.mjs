@@ -435,13 +435,19 @@ const png = () => { const b = new Uint8Array(64); b.set([0x89, 0x50, 0x4E, 0x47,
   assert(r.data.terms.length === 0, 'dictionary terms are scoped to their fort');
   console.log('dictionary scoping: OK');
 
+  // fort names are carved, not penciled: no API path renames a fort after founding
+  r = await call('/the_lookout/api/config', { method: 'POST', body: { fort_name: 'Megafort' }, who: 'connor' });
+  assert(r.status === 403 && /carved/.test(r.data.error), 'fort name is carved at the founding, even for the founder');
   r = await call('/the_lookout/api/config', { method: 'POST', body: { fort_name: 'Megafort', dog_name: 'beans' }, who: 'connor' });
-  assert(r.data.ok, 'config rename');
+  assert(r.status === 403, 'sneaking fort_name in beside dog_name still gets refused');
+  r = await call('/the_lookout/api/config', { method: 'POST', body: { dog_name: 'beans' }, who: 'connor' });
+  assert(r.data.ok, 'the dog street name is still penciled');
   r = await call('/the_lookout/api/state', { who: 'connor' });
-  assert(r.data.fort_name === 'Megafort' && r.data.dog_name === 'BEANS', 'display name capitalization is preserved exactly');
+  assert(r.data.fort_name === 'The Lookout' && r.data.dog_name === 'BEANS', 'name untouched, dog renamed');
+  assert(db.forts.get('the_lookout').slug === 'the_lookout', 'slug never moved');
   r = await call('/base_camp/api/state', { who: 'baseKushman' });
-  assert(r.data.fort_name === 'Base Camp' && r.data.dog_name === 'DALE', 'renaming The Lookout does not rename Base Camp');
-  console.log('founder config scoping: OK');
+  assert(r.data.fort_name === 'Base Camp' && r.data.dog_name === 'DALE', 'Base Camp untouched by Lookout paperwork');
+  console.log('founder config scoping (carved names): OK');
 
   r = await call('/the_lookout/api/mycode', { method: 'POST', body: { current_code: 'WRONGCUR', new_code: 'NEWDAD01' }, who: 'lookoutKushman' });
   assert(r.status === 400, 'wrong current knock rejected');
