@@ -41,6 +41,10 @@ function exec(sql, args) {
         const p = db.posts.find(p => p.fort_id === args[0] && p.id === args[1]);
         return p ? { id: p.id, deleted: p.deleted } : null;
       }
+      if (S.startsWith('SELECT author, deleted FROM posts WHERE fort_id=? AND id=?')) {
+        const p = db.posts.find(p => p.fort_id === args[0] && p.id === args[1]);
+        return p ? { author: p.author, deleted: p.deleted } : null;
+      }
       if (S.startsWith('SELECT id FROM posts WHERE fort_id=? AND media_key=?')) {
         const p = db.posts.find(p => p.fort_id === args[0] && p.media_key === args[1] && p.deleted === 0);
         return p ? { id: p.id } : null;
@@ -227,9 +231,9 @@ function exec(sql, args) {
         db.posts.push(p);
         return { meta: { last_row_id: p.id } };
       }
-      if (S.startsWith('UPDATE posts SET deleted=1')) {
-        const p = db.posts.find(p => p.fort_id === args[0] && p.id === args[1]);
-        if (p) { p.deleted = 1; p.text = null; p.media_key = null; }
+      if (S.startsWith('UPDATE posts SET deleted=1, text=NULL, media_key=NULL, deleted_by=?')) {
+        const p = db.posts.find(p => p.fort_id === args[1] && p.id === args[2]);
+        if (p) { p.deleted = 1; p.text = null; p.media_key = null; p.deleted_by = args[0]; }
         return { meta: {} };
       }
       if (S.startsWith('INSERT INTO replies')) {
@@ -414,8 +418,15 @@ const png = () => { const b = new Uint8Array(64); b.set([0x89, 0x50, 0x4E, 0x47,
   assert(r.data.posts.length === 1 && r.data.posts[0].text === 'first. historic.', 'Base Camp post does not appear in The Lookout');
   console.log('wall scoping: OK');
 
+  // your post, your call: authors remove their own, and the removal is signed
   r = await call('/the_lookout/api/delete', { method: 'POST', body: { post_id: 1 }, who: 'lookoutKushman' });
-  assert(r.status === 403, 'Lookout member cannot delete');
+  assert(r.data.ok && r.data.deleted_by === 'KUSHMAN', 'a member removes their OWN post');
+  r = await call('/the_lookout/api/wall', { who: 'lookoutKushman' });
+  const selfTomb = r.data.posts.find(p => p.id === 1);
+  assert(selfTomb.deleted === true && selfTomb.deleted_by === 'KUSHMAN' && selfTomb.author === 'KUSHMAN',
+    'the tombstone is signed by its own author');
+  r = await call('/the_lookout/api/delete', { method: 'POST', body: { post_id: 1 }, who: 'lookoutKushman' });
+  assert(r.data.ok, 'removing a tombstone twice changes nothing');
 
   r = await call('/the_lookout/api/knock', { method: 'POST', body: { code: 'FOUNDER1' }, ip: '3.3.3.3', who: 'connor' });
   assert(r.data.role === 'founder' && r.data.name === 'CONNOR', 'Connor founder knock');
@@ -432,12 +443,22 @@ const png = () => { const b = new Uint8Array(64); b.set([0x89, 0x50, 0x4E, 0x47,
   assert(r.status === 404, 'fort media is not exposed through another fort');
   console.log('uploads + media scoping: OK');
 
+  // a member cannot remove someone ELSE's post — only the management can
+  r = await call('/the_lookout/api/delete', { method: 'POST', body: { post_id: 3 }, who: 'lookoutKushman' });
+  assert(r.status === 403 && /your name isn't on that one/.test(r.data.error), 'a member cannot remove another\'s post');
+  r = await call('/the_lookout/api/post', { method: 'POST', body: { type: 'text', text: 'to be removed by management' }, who: 'lookoutKushman' });
+  const mgmtTarget = r.data.id;
+  r = await call('/the_lookout/api/delete', { method: 'POST', body: { post_id: mgmtTarget }, who: 'connor' });
+  assert(r.data.ok && r.data.deleted_by === 'CONNOR', 'the management removes anyone\'s post');
   r = await call('/the_lookout/api/delete', { method: 'POST', body: { post_id: 3 }, who: 'connor' });
-  assert(r.data.ok, 'founder delete');
+  assert(r.data.ok, 'founder delete (their own painting)');
   r = await call('/the_lookout/api/wall', { who: 'lookoutKushman' });
   const tomb = r.data.posts.find(p => p.id === 3);
-  assert(tomb.deleted === true && !tomb.media_key, 'tombstone in Lookout wall');
-  console.log('tombstone: OK');
+  assert(tomb.deleted === true && !tomb.media_key, 'tombstone in Lookout wall, media gone');
+  const mgmtTomb = r.data.posts.find(p => p.id === mgmtTarget);
+  assert(mgmtTomb.deleted_by === 'CONNOR' && mgmtTomb.author === 'KUSHMAN',
+    'the management tombstone is signed by the hand that did it');
+  console.log('tombstone (signed removals): OK');
 
   r = await call('/the_lookout/api/dict', { method: 'POST', body: { term: 'rizz', def: 'charisma, allegedly', example: 'he has zero rizz' }, who: 'lookoutKushman' });
   assert(r.data.ok, 'dict add');

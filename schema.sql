@@ -54,6 +54,7 @@ CREATE TABLE IF NOT EXISTS posts (
   media_key TEXT,
   created INTEGER NOT NULL,
   deleted INTEGER NOT NULL DEFAULT 0,      -- tombstone, never actually dropped
+  deleted_by TEXT,                         -- whose hand removed it; every removal is signed
   FOREIGN KEY (fort_id) REFERENCES forts(id)
 );
 CREATE INDEX IF NOT EXISTS idx_posts_fort_id ON posts(fort_id, id DESC);

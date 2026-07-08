@@ -321,15 +321,12 @@ async function registryCheck(env, wantedName) {
 async function tellTheManagement(env, subject, text) {
   try {
     if (!env.MAIL || !env.MANAGEMENT_EMAIL) return;
-    const { EmailMessage } = await import('cloudflare:email');
-    const from = 'management@treefort.lol';
-    const raw = [
-      `From: the management <${from}>`, `To: <${env.MANAGEMENT_EMAIL}>`,
-      `Subject: ${subject.replace(/[\r\n]/g, ' ').slice(0, 120)}`,
-      'Content-Type: text/plain; charset=utf-8', '',
-      text.replace(/\r/g, '').slice(0, 2000)
-    ].join('\r\n');
-    await env.MAIL.send(new EmailMessage(from, env.MANAGEMENT_EMAIL, raw));
+    await env.MAIL.send({
+      to: env.MANAGEMENT_EMAIL,
+      from: { email: 'management@treefort.lol', name: 'the management' },
+      subject: subject.replace(/[\r\n]/g, ' ').slice(0, 120),
+      text: text.replace(/\r/g, '').slice(0, 2000)
+    });
   } catch (e) {
     console.error('smoke signal failed:', e.message);
   }
@@ -466,7 +463,8 @@ async function handleWall(env, request, fort, session) {
     ok: true,
     more,
     posts: posts.map(p => p.deleted
-      ? { id: p.id, deleted: true, created: p.created, replies: repliesByPost[p.id] || [] }
+      ? { id: p.id, deleted: true, deleted_by: p.deleted_by || null, author: p.author,
+          created: p.created, replies: repliesByPost[p.id] || [] }
       : { id: p.id, author: p.author, type: p.type, text: p.text, media_key: p.media_key,
           created: p.created, deleted: false, replies: repliesByPost[p.id] || [] })
   });
@@ -513,12 +511,21 @@ async function handleReply(env, request, fort, session) {
 }
 
 async function handleDelete(env, request, fort, session) {
-  if (session.role !== 'founder') return nope('only the management deletes. the management is a dog.', 403);
   const body = await readJson(request);
   const postId = parseInt(body && body.post_id, 10);
   if (!postId) return nope('which post?');
-  await env.DB.prepare('UPDATE posts SET deleted=1, text=NULL, media_key=NULL WHERE fort_id=? AND id=?').bind(fort.id, postId).run();
-  return json({ ok: true });
+  const post = await env.DB.prepare('SELECT author, deleted FROM posts WHERE fort_id=? AND id=?').bind(fort.id, postId).first();
+  if (!post) return nope('that post does not exist.', 404);
+  if (post.deleted) return json({ ok: true });   // already a tombstone; removing it twice changes nothing
+  // your post is yours to remove. everyone else's needs the founder key.
+  // either way, the removal is SIGNED — the tombstone says whose hand did it.
+  if (session.role !== 'founder' && post.author !== session.name) {
+    return nope('your name isn\'t on that one. only the management removes other people\'s posts.', 403);
+  }
+  await env.DB.prepare(
+    'UPDATE posts SET deleted=1, text=NULL, media_key=NULL, deleted_by=? WHERE fort_id=? AND id=?'
+  ).bind(session.name, fort.id, postId).run();
+  return json({ ok: true, deleted_by: session.name });
 }
 
 async function handleUpload(env, request, fort, session) {

@@ -1323,12 +1323,20 @@ function renderPost(p) {
   const el = document.createElement('div');
   if (p.deleted) {
     el.className = 'post tomb';
-    el.innerHTML = 'removed by the management. the management is a dog.';
+    // every removal is signed. old tombstones (pre-signature) stay the dog's work.
+    el.innerHTML = !p.deleted_by
+      ? 'removed by the management. the management is a dog.'
+      : (p.deleted_by === p.author
+        ? 'removed by ' + esc(p.deleted_by) + '. it was theirs to remove.'
+        : 'removed by the management. the management is, in this case, ' + esc(p.deleted_by) + '.');
     return el;
   }
   el.className = 'post';
   let inner = '<div class="phead"><b>' + esc(p.author) + '</b><span>' + fortTime(p.created) + '</span>';
-  if (STATE.role === 'founder') inner += '<span style="flex:1"></span><button class="minibtn tombbtn" data-id="' + p.id + '">remove</button>';
+  // your post carries your own remove button. the founder's reaches everything.
+  if (STATE.role === 'founder' || p.author === STATE.name) {
+    inner += '<span style="flex:1"></span><button class="minibtn tombbtn" data-id="' + p.id + '" data-mine="' + (p.author === STATE.name ? '1' : '') + '">remove</button>';
+  }
   inner += '</div>';
   if (p.text) inner += '<div class="ptext">' + rich(p.text) + '</div>';
   if (p.media_key) inner += '<img class="pmedia" loading="lazy" src="' + esc(mediaUrl(p.media_key)) + '" alt="posted by ' + esc(p.author) + '">';
@@ -1383,9 +1391,11 @@ $('wallposts').addEventListener('click', async e => {
       const post = tomb.closest('.post');
       const t = document.createElement('div');
       t.className = 'post tomb';
-      t.textContent = 'removed by the management. the management is a dog.';
+      t.textContent = tomb.dataset.mine
+        ? 'removed by ' + STATE.name + '. it was theirs to remove.'
+        : 'removed by the management. the management is, in this case, ' + STATE.name + '.';
       post.replaceWith(t);
-    }
+    } else if (r.data && r.data.error) toast(r.data.error);
   }
 });
 $('wallposts').addEventListener('keydown', e => {
