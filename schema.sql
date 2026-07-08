@@ -13,13 +13,17 @@ CREATE TABLE IF NOT EXISTS config (
 
 CREATE TABLE IF NOT EXISTS forts (
   id TEXT PRIMARY KEY,
-  slug TEXT NOT NULL UNIQUE,
+  slug TEXT NOT NULL UNIQUE,               -- the ledger: globally unique, first-come-first-served, never changes
   display_name TEXT NOT NULL,
-  dog_name TEXT NOT NULL DEFAULT 'DALE',
+  dog_name TEXT NOT NULL DEFAULT 'DALE',   -- the companion's NAME, whatever species (legacy column name)
   gen INTEGER NOT NULL DEFAULT 1,
   salt TEXT NOT NULL,
   created_at INTEGER NOT NULL,
-  renamed_at INTEGER
+  renamed_at INTEGER,
+  parent_fort TEXT,                        -- lineage: NULL = a root fort
+  founded_by_grant INTEGER,                -- which sapling grew this fort (NULL = predates saplings)
+  companion_kind TEXT NOT NULL DEFAULT 'dog',  -- dog|cat|fern|pigeon|moth
+  frozen INTEGER NOT NULL DEFAULT 0        -- 1 = sealed pending a raccoon council review
 );
 
 -- one row per person. the knock (a personal code) is what proves who you are, so
@@ -30,6 +34,8 @@ CREATE TABLE IF NOT EXISTS members (
   code_hash TEXT NOT NULL,                 -- sha256(salt + CODE); the plaintext code lives nowhere
   is_founder INTEGER NOT NULL DEFAULT 0,   -- 1 = admin powers (delete, rename, manage roster)
   created_at INTEGER,
+  revoked INTEGER NOT NULL DEFAULT 0,      -- kicked out of the tree; access dies, record survives
+  revoked_at INTEGER,
   PRIMARY KEY (fort_id, handle),
   UNIQUE (fort_id, code_hash),
   FOREIGN KEY (fort_id) REFERENCES forts(id)
@@ -91,4 +97,40 @@ CREATE TABLE IF NOT EXISTS knock_fails (
   window_start INTEGER NOT NULL,
   PRIMARY KEY (fort_id, ip),
   FOREIGN KEY (fort_id) REFERENCES forts(id)
+);
+
+-- saplings: a founder mints one, a new fort grows from it. rows never deleted
+-- once used — the chain is permanent record; every fort traces to its voucher.
+CREATE TABLE IF NOT EXISTS grants (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  token_hash TEXT NOT NULL UNIQUE,
+  granted_by_fort TEXT NOT NULL,
+  granted_by_handle TEXT NOT NULL,
+  note TEXT,
+  created_at INTEGER NOT NULL,
+  used_at INTEGER,
+  used_by_fort TEXT,
+  FOREIGN KEY (granted_by_fort) REFERENCES forts(id)
+);
+
+-- the logbook: who knocked past which rules sign, and when
+CREATE TABLE IF NOT EXISTS agreements (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  fort_id TEXT NOT NULL,
+  handle TEXT NOT NULL,
+  rules_version INTEGER NOT NULL,
+  agreed_at INTEGER NOT NULL,
+  FOREIGN KEY (fort_id) REFERENCES forts(id)
+);
+CREATE INDEX IF NOT EXISTS idx_agreements_fort ON agreements(fort_id, handle);
+
+-- the management's mailbox. no session required to write to it.
+CREATE TABLE IF NOT EXISTS reports (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  fort_id TEXT,
+  page TEXT,
+  reason TEXT NOT NULL,
+  contact TEXT,
+  created_at INTEGER NOT NULL,
+  ip TEXT
 );
