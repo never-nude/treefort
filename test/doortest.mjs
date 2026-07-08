@@ -670,6 +670,14 @@ const png = () => { const b = new Uint8Array(64); b.set([0x89, 0x50, 0x4E, 0x47,
   const lineage = db.grants.find(g => g.used_by_fort === 'north_fort');
   assert(lineage && lineage.granted_by_fort === 'the_lookout' && db.forts.get('north_fort').parent_fort === 'the_lookout',
     'the chain records who vouched');
+  // no daisy-chaining: a newborn fort's nursery is shut for its first day,
+  // so fort -> sapling -> fort -> sapling doesn't work as an afternoon plan
+  r = await call('/north_fort/api/grants/mint', { method: 'POST', body: { note: 'chain attempt' }, who: 'dylan' });
+  assert(r.status === 429 && /still a sapling itself/.test(r.data.error),
+    'a newborn fort cannot grow saplings: ' + (r.data.error || '?'));
+  db.forts.get('north_fort').created_at -= 86400 + 60;   // the fort turns one day old
+  r = await call('/north_fort/api/grants/mint', { method: 'POST', body: { note: 'patience' }, who: 'dylan' });
+  assert(r.data.ok, 'a day-old fort grows its first sapling: ' + (r.data.error || 'ok'));
   console.log('founding: OK');
 
   // the rules knock for pre-existing members

@@ -795,6 +795,14 @@ async function handleAsset(env, request, fort, path) {
 
 async function handleGrantMint(env, request, fort, session) {
   if (session.role !== 'founder') return nope('saplings grow for founders only.', 403);
+  // a newborn fort can't grow saplings for its first day — otherwise one kid
+  // daisy-chains fort -> sapling -> fort -> sapling all afternoon. the roots
+  // (parent_fort IS NULL) were here before saplings existed and don't wait.
+  if (fort.parent_fort && now() - fort.created_at < DAY) {
+    const hours = Math.ceil((DAY - (now() - fort.created_at)) / 3600);
+    return nope('this fort is still a sapling itself. the nursery opens when the fort is a day old — about '
+      + hours + ' more hour' + (hours === 1 ? '' : 's') + '. decorate.', 429);
+  }
   const unused = await env.DB.prepare(
     'SELECT COUNT(*) AS n FROM grants WHERE granted_by_fort=? AND used_at IS NULL AND composted_at IS NULL'
   ).bind(fort.id).first();
