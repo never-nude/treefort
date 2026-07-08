@@ -795,12 +795,21 @@ async function handleAsset(env, request, fort, path) {
 
 async function handleGrantMint(env, request, fort, session) {
   if (session.role !== 'founder') return nope('saplings grow for founders only.', 403);
-  if (rateLimited('mint:' + fort.id, 10, 3600)) return nope('the nursery needs an hour.', 429);
   const unused = await env.DB.prepare(
     'SELECT COUNT(*) AS n FROM grants WHERE granted_by_fort=? AND used_at IS NULL'
   ).bind(fort.id).first();
   if (unused && unused.n >= GRANTS_UNUSED_MAX) {
     return nope('the nursery is full. plant one first, or compost one.', 429);
+  }
+  // saplings grow at sapling speed: one per fort per day, counted from the last
+  // one grown (planted or not). composting frees the day again — but it also
+  // kills the composted token, so churning never yields extra live saplings.
+  const last = await env.DB.prepare(
+    'SELECT MAX(created_at) AS t FROM grants WHERE granted_by_fort=?'
+  ).bind(fort.id).first();
+  if (last && last.t && now() - last.t < DAY) {
+    const hours = Math.ceil((DAY - (now() - last.t)) / 3600);
+    return nope('the nursery grows one sapling a day. the soil needs about ' + hours + ' more hour' + (hours === 1 ? '' : 's') + '.', 429);
   }
   const body = await readJson(request);
   const note = cleanText(body && body.note, 60);

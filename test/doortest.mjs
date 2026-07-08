@@ -66,6 +66,10 @@ function exec(sql, args) {
       if (S.startsWith('SELECT COUNT(*) AS n FROM grants WHERE granted_by_fort=? AND used_at IS NULL')) {
         return { n: db.grants.filter(g => g.granted_by_fort === args[0] && g.used_at == null).length };
       }
+      if (S.startsWith('SELECT MAX(created_at) AS t FROM grants WHERE granted_by_fort=?')) {
+        const ts = db.grants.filter(g => g.granted_by_fort === args[0]).map(g => g.created_at);
+        return { t: ts.length ? Math.max(...ts) : null };
+      }
       if (S.startsWith('SELECT id FROM agreements WHERE fort_id=? AND handle=? AND rules_version=?')) {
         const a = db.agreements.find(a => a.fort_id === args[0] && a.handle === args[1] && a.rules_version === args[2]);
         return a ? { id: a.id } : null;
@@ -603,15 +607,24 @@ const png = () => { const b = new Uint8Array(64); b.set([0x89, 0x50, 0x4E, 0x47,
 
   /* ================= PHASE 3: THE TREE GROWS ================= */
 
-  // saplings: founder mints, member cannot, nursery caps at 5
+  // saplings: founder mints, member cannot, one a day, nursery caps at 5
   r = await call('/the_lookout/api/grants/mint', { method: 'POST', body: { note: 'for dylan' }, who: 'lookoutKushman2' });
   assert(r.status === 403, 'members cannot mint saplings');
   r = await call('/the_lookout/api/grants/mint', { method: 'POST', body: { note: 'for dylan' }, who: 'connor' });
   assert(r.data.ok && /^SAPLING-[A-Z2-9]{4}-[A-Z2-9]{4}$/.test(r.data.token), 'founder mints a sapling: ' + (r.data.token || r.data.error));
   const sapling1 = r.data.token;
-  for (let i = 0; i < 4; i++) { r = await call('/the_lookout/api/grants/mint', { method: 'POST', body: {}, who: 'connor' }); }
+  // the soil takes a day between saplings
   r = await call('/the_lookout/api/grants/mint', { method: 'POST', body: {}, who: 'connor' });
-  assert(r.status === 429 && /nursery/.test(r.data.error), 'nursery caps at 5 unused');
+  assert(r.status === 429 && /one sapling a day/.test(r.data.error), 'the nursery grows one a day: ' + (r.data.error || '?'));
+  // grow four more, one simulated day apart, to fill the nursery
+  for (let i = 0; i < 4; i++) {
+    db.grants.forEach(g => { g.created_at -= 86400 + 60; });   // yesterday, all of it
+    r = await call('/the_lookout/api/grants/mint', { method: 'POST', body: {}, who: 'connor' });
+    assert(r.data.ok, 'day-later mint #' + (i + 2) + ' works: ' + (r.data.error || 'ok'));
+  }
+  db.grants.forEach(g => { g.created_at -= 86400 + 60; });
+  r = await call('/the_lookout/api/grants/mint', { method: 'POST', body: {}, who: 'connor' });
+  assert(r.status === 429 && /nursery is full/.test(r.data.error), 'nursery caps at 5 unused even a day later');
   r = await call('/the_lookout/api/grants', { who: 'connor' });
   assert(r.data.ok && r.data.grants.length === 5 && !JSON.stringify(r.data).includes('token'), 'grant list shows status, never tokens');
   const compostId = r.data.grants[0].id;

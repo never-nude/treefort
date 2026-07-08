@@ -44,7 +44,7 @@ in-voice HTML "wrong branch" page for browsers, JSON for API paths.
   (fort pages plant a ladder on every successful knock). First-timers whisper a fort's
   NAME; ground links: "i have a sapling" → `/plant`, "speak to the management" → `/rules#management`.
 - **Saplings** (`grants` table): one-use founding codes minted by founders (Workshop →
-  SAPLINGS, ≤5 unused). Token shown exactly once, stored hashed. `POST /api/found` consumes
+  SAPLINGS, ONE per fort per day — D1-clocked from the last grown, ≤5 unused). Token shown exactly once, stored hashed. `POST /api/found` consumes
   one conditionally (race-proof) and creates fort+founder+agreement atomically-ish with a
   compensating revert on naming races. The chain (`forts.parent_fort`, `founded_by_grant`)
   is permanent record.
