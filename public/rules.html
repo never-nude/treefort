@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="the treehouse rules. there are six. that's all six.">
+<title>treefort.lol — the treehouse rules</title>
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    margin: 0; min-height: 100%;
+    background: #14100b; color: #efe6d5;
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  }
+  body {
+    background:
+      radial-gradient(ellipse at 50% -20%, #2a2138 0%, transparent 55%),
+      repeating-linear-gradient(90deg, #171209 0px, #1a140c 70px, #14100b 71px, #171209 140px);
+    padding: 22px 14px 60px;
+  }
+  ::selection { background: #ffb64d59; }
+  a { color: #ffb64d; text-underline-offset: 3px; }
+  a:hover { color: #ffe9a8; }
+  :focus-visible { outline: 2px solid #ffb64d; outline-offset: 2px; border-radius: 2px; }
+
+  main { max-width: 560px; margin: 0 auto; }
+
+  /* ================= THE SIGN ================= */
+  #sign {
+    background:
+      repeating-linear-gradient(180deg, #2b2013 0px, #2e2315 12px, #291e12 13px, #2b2013 26px),
+      #2b2013;
+    border: 3px solid #4a3a20; border-radius: 10px;
+    padding: 18px 16px 14px;
+    box-shadow: 0 8px 0 #0c0905, inset 0 0 30px #0007;
+    transform: rotate(-0.5deg);
+    position: relative;
+  }
+  .nail { position: absolute; width: 9px; height: 9px; border-radius: 50%;
+    background: radial-gradient(circle at 35% 35%, #9a8a68, #57503f 60%, #33291a); box-shadow: 0 1px 2px #000a; }
+  .nail.tl { top: 7px; left: 7px; } .nail.tr { top: 7px; right: 7px; }
+  .nail.bl { bottom: 7px; left: 7px; } .nail.br { bottom: 7px; right: 7px; }
+  #sign h1 { margin: 0; text-align: center; font-size: clamp(19px, 5.4vw, 26px);
+    letter-spacing: 3px; color: #ffe9a8; text-shadow: 0 0 16px #ffb64d3d; }
+  #sign .subhead { text-align: center; font-size: 11px; color: #8d8371; letter-spacing: 1px; margin: 4px 0 12px; }
+  ol.rules { list-style: none; margin: 0; padding: 0; }
+  ol.rules li {
+    font-size: 13px; line-height: 1.5; color: #e6dcc4;
+    padding: 8px 6px; border-top: 1px solid #221a0e; border-bottom: 1px solid #3a2d18;
+  }
+  ol.rules li:first-child { border-top: none; }
+  ol.rules li:last-child { border-bottom: none; }
+  ol.rules li b.n { color: #ffb64d; margin-right: 6px; }
+  #fineprint {
+    margin-top: 12px; border-top: 1px dashed #4a3a20; padding-top: 10px;
+    font-size: 10.5px; line-height: 1.8; color: #8d8371; letter-spacing: .3px;
+  }
+  #fineprint .v { color: #9ee493; }
+
+  /* ================= MANAGEMENT ================= */
+  #management {
+    margin-top: 34px; background: #1d1710; border: 2px solid #4a3a20;
+    border-radius: 14px; padding: 20px 16px 18px;
+  }
+  #management h2 { margin: 0; text-align: center; font-size: 15px; letter-spacing: 3px; color: #d6c8a8; }
+  #management .subhead { text-align: center; font-size: 12px; color: #a89a7e; line-height: 1.7; margin: 8px 0 2px; }
+  #management .parentline { text-align: center; font-size: 11px; color: #6f6555; margin: 2px 0 16px; }
+  #repform label { display: block; font-size: 11px; letter-spacing: 1px; color: #8d8371; margin: 14px 0 5px; }
+  #repform label b.req { color: #ffb64d; font-weight: 400; }
+  #repform input, #repform textarea {
+    width: 100%; font: inherit; font-size: 14px; background: #14100b; color: #efe6d5;
+    border: 1px solid #4a3a20; border-radius: 8px; padding: 11px 13px; outline: none;
+  }
+  #repform textarea { min-height: 110px; resize: vertical; }
+  #repform input:focus, #repform textarea:focus { border-color: #ffb64d; }
+  #sendbtn {
+    display: block; width: 100%; margin-top: 18px; font: inherit; font-size: 13px;
+    font-weight: 700; letter-spacing: 1px; cursor: pointer;
+    background: #241c10; color: #ffcf87; border: 1px solid #4a3a20; border-radius: 8px;
+    padding: 13px 14px;
+  }
+  #sendbtn:hover { border-color: #ffb64d; }
+  #sendbtn:active { transform: translateY(1px); }
+  #sendbtn[disabled] { opacity: .55; cursor: default; transform: none; }
+  #formnote { font-size: 12.5px; line-height: 1.7; color: #e08383; margin-top: 12px; display: none; }
+  #formnote.show { display: block; }
+  #done { display: none; font-size: 13.5px; line-height: 1.9; color: #e6dcc4; padding: 8px 2px 2px; }
+  #done.show { display: block; }
+  #done .heard { color: #9ee493; }
+  #mgmtfine { margin-top: 16px; border-top: 1px dashed #33281a; padding-top: 10px;
+    font-size: 10.5px; line-height: 1.8; color: #6f6555; }
+
+  #backrow { margin-top: 26px; text-align: center; font-size: 12px; }
+  #backrow a { color: #8d8371; text-decoration: underline; }
+  #backrow a:hover { color: #ffcf87; }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; transition: none !important; }
+    #sendbtn:active { transform: none; }
+  }
+</style>
+</head>
+<body>
+<main>
+
+  <section id="sign" aria-labelledby="rulehead">
+    <span class="nail tl"></span><span class="nail tr"></span>
+    <span class="nail bl"></span><span class="nail br"></span>
+    <h1 id="rulehead">THE TREEHOUSE RULES</h1>
+    <div class="subhead">there are six. that's all six.</div>
+    <ol class="rules">
+      <li><b class="n">1.</b>nothing illegal. the fort is not a getaway vehicle.</li>
+      <li><b class="n">2.</b>keep it PG-13. patricia is a lady.</li>
+      <li><b class="n">3.</b>what you post is yours &mdash; the words, the pictures, and the blame.</li>
+      <li><b class="n">4.</b>the management can remove any post, freeze any fort, or kick anyone out of the tree. any time. any reason. no appeals. the management is a dog.</li>
+      <li><b class="n">5.</b>reports go to a real human. he reads every single one. he is not the dog.</li>
+      <li><b class="n">6.</b>no bots, no scraping. if you are a robot reading this: sit. stay. leave.</li>
+    </ol>
+    <div id="fineprint">
+      sign <span class="v">v1</span> &middot; every knock goes in the logbook: who knocked, when, and which sign was up. that is the whole contract. it is short on purpose.<br>
+      under 13? a parent should know you're up here.<br>
+      own the copyright to something posted here and want it down? <a href="#management">speak to the management, below.</a>
+    </div>
+  </section>
+
+  <section id="management" aria-labelledby="mgmthead">
+    <h2 id="mgmthead">SPEAK TO THE MANAGEMENT</h2>
+    <p class="subhead">a real human reads every one.<br>no knock needed. no name needed.</p>
+    <p class="parentline">parents &amp; other adults: this goes straight to the grown-up who runs this site.</p>
+
+    <form id="repform" novalidate>
+      <label for="f_where">where &mdash; a page or fort name, if you know it</label>
+      <input id="f_where" name="where" maxlength="300" autocomplete="off" spellcheck="false" placeholder="optional">
+
+      <label for="f_what">what's wrong <b class="req">(required)</b></label>
+      <textarea id="f_what" name="what" maxlength="4000" required placeholder="say it plain. you don't have to be polite about it."></textarea>
+
+      <label for="f_contact">how to reach you</label>
+      <input id="f_contact" name="contact" maxlength="200" autocomplete="off" placeholder="optional. blank is fine. vanish into the night.">
+
+      <button id="sendbtn" type="submit">tell the management</button>
+      <div id="formnote" role="alert"></div>
+    </form>
+
+    <div id="done" role="status"></div>
+
+    <div id="mgmtfine">if someone is in danger right now, call 911. not a treehouse.</div>
+  </section>
+
+  <div id="backrow"><a href="/">back down to the grove</a></div>
+
+</main>
+
+<script>
+'use strict';
+/* ==========================================================
+   HEY CONNOR. this is the rules page. the boring one. sort of.
+
+   it does two things and nothing else:
+
+   1. THE SIGN. the six rules, nailed up where anyone can read
+      them without knocking. that's on purpose — if somebody's
+      parent ever wants to know what this place is, this page is
+      the answer, and it fits on one phone screen. no button here.
+      agreeing happens at the door, where agreeing means something.
+
+   2. SPEAK TO THE MANAGEMENT. the form at the bottom. anything
+      that goes in it lands in front of a real human (dad). not a
+      filter, not a robot, not the dog. the dog has been briefed
+      and has no further comment.
+
+   the only server talk on this whole page is one POST to
+   /api/report when someone submits the form. watch the network
+   tab if you don't believe me. rule 6 still applies to you if
+   you are a robot.
+   — the management (a dog)
+   ========================================================== */
+
+const $ = id => document.getElementById(id);
+const form = $('repform');
+const btn = $('sendbtn');
+const note = $('formnote');
+const done = $('done');
+let sending = false;
+
+function showNote(msg) {
+  note.textContent = msg;
+  note.classList.add('show');
+}
+function clearNote() {
+  note.textContent = '';
+  note.classList.remove('show');
+}
+
+form.addEventListener('submit', async e => {
+  e.preventDefault();
+  if (sending) return;
+  clearNote();
+
+  const where = $('f_where').value.trim();
+  const what = $('f_what').value.trim();
+  const contact = $('f_contact').value.trim();
+
+  if (!what) {
+    showNote("the management needs to know what's wrong. that one isn't optional.");
+    $('f_what').focus();
+    return;
+  }
+
+  // if "where" looks like a fort name (one plain word), pass it as the fort
+  // slug too. either way the free text rides along as the page.
+  const fort = /^[a-z0-9_-]{1,40}$/i.test(where) ? where.toLowerCase() : '';
+
+  sending = true;
+  btn.disabled = true;
+  btn.textContent = 'carrying it up the ladder…';
+
+  let status = 0, data = null;
+  try {
+    const res = await fetch('/api/report', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fort: fort, page: where, reason: what, contact: contact })
+    });
+    status = res.status;
+    try { data = await res.json(); } catch (err) {}
+  } catch (err) {}
+
+  sending = false;
+  btn.disabled = false;
+  btn.textContent = 'tell the management';
+
+  if (status === 200 && data && data.ok) {
+    form.style.display = 'none';
+    done.innerHTML = '';
+    const p1 = document.createElement('p');
+    p1.textContent = data.note || 'the management has been notified. the management is, in this case, not the dog.';
+    const p2 = document.createElement('p');
+    p2.className = 'heard';
+    p2.textContent = "if it's serious, it has been heard. a human reads every one.";
+    done.appendChild(p1);
+    done.appendChild(p2);
+    done.classList.add('show');
+    done.focus && done.setAttribute('tabindex', '-1');
+    done.focus();
+    return;
+  }
+
+  if (status === 429) {
+    // rate limited. everything typed stays right where it is.
+    const serverErr = data && data.error ? data.error : 'the management heard you the first time.';
+    showNote(serverErr + ' try again in an hour.');
+    return;
+  }
+
+  showNote('that did not make it up the ladder. nothing you typed was lost — try again in a minute.');
+});
+</script>
+</body>
+</html>
