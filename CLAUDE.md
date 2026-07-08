@@ -31,7 +31,7 @@ in-voice HTML "wrong branch" page for browsers, JSON for API paths.
 | `migrations/0001_multi_fort_foundation.sql` | one-time live migration from single fort to multi-fort |
 | `public/index.html` | the fort: door theater, bulletin, wall, dictionary, workshop, pixel dog |
 | `public/paint.html` | drawing tool + animation frames (onion skin) |
-| `public/kitchen.html` | meme maker (impact text, draw layer, remix-from-wall) |
+| `public/kitchen.html` | meme maker (impact text, draw layer, remix-from-wall) + the moving pictures department: hand-written GIF89a **decoder** (twin of the gif machine's encoder, same do-not-replace-with-a-library rule), letters on every frame, MAKE IT MOVE AGAIN re-encode with speed/direction knobs |
 | `public/handbook.html` | the founder's field manual — served only to a founder of the CURRENT fort (Worker-gated), hidden from members |
 | `public/gifmachine.html` | client-side GIF89a encoder — **hand-written LZW, do not replace with a library** — plus the projection booth: .mov/.mp4 → frames → gif, fully in-browser, video never uploaded |
 | `test/doortest.mjs` | full API integration test, stubbed D1/R2 — `node test/doortest.mjs` |

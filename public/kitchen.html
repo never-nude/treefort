@@ -36,6 +36,7 @@
   .tool { width: 38px; height: 38px; font-size: 15px; cursor: pointer; border-radius: 8px;
     background: #241c10; color: #ffcf87; border: 2px solid #4a3a20; }
   .tool.on { border-color: var(--acc); background: #33270f; }
+  .tool.spd, .tool.dir { width: auto; padding: 0 10px; font-size: 11px; letter-spacing: 1px; white-space: nowrap; }
   #floaters .frow { display: flex; gap: 6px; margin-top: 6px; align-items: center; }
   #floaters input { flex: 1; }
   #wallpick { display: none; margin-top: 12px; background: #1d1710; border: 2px solid #4a3a20;
@@ -92,6 +93,29 @@
       <button class="fortbtn" id="dlbtn">DOWNLOAD PNG</button>
       <button class="fortbtn" id="framebtn">ADD AS GIF FRAME &rarr;</button>
       <div class="lbl" id="framecount"></div>
+
+      <!-- appears only when the loaded thing MOVES. letters go on every frame. -->
+      <button class="fortbtn" id="movebtn" style="display:none"></button>
+      <div id="movetweaks" style="display:none">
+        <div class="lbl">SPEED</div>
+        <div class="toolrow">
+          <button class="tool spd" data-v="0.5" title="half speed">slug</button>
+          <button class="tool spd on" data-v="1" title="as filmed">normal</button>
+          <button class="tool spd" data-v="2" title="double speed">espresso</button>
+        </div>
+        <div class="lbl">DIRECTION</div>
+        <div class="toolrow">
+          <button class="tool dir on" data-v="fwd" title="as filmed">forwards</button>
+          <button class="tool dir" data-v="rev" title="time regrets everything">backwards</button>
+          <button class="tool dir" data-v="boom" title="forwards, then it thinks better of it">there and back</button>
+        </div>
+      </div>
+      <div id="moveout" style="display:none">
+        <div class="lbl">IT MOVES AGAIN</div>
+        <img id="movepreview" alt="your gif, re-lettered" style="max-width:100%;border:2px solid #4a3a20;border-radius:8px;display:block;margin:6px 0">
+        <button class="fortbtn" id="movepost">POST TO THE WALL</button>
+        <button class="fortbtn" id="movedl">DOWNLOAD GIF</button>
+      </div>
     </div>
   </div>
 
@@ -104,7 +128,15 @@
 
 <script>
 'use strict';
-/* the kitchen. where images become memes and nothing is sacred. — the management */
+/* the kitchen. where images become memes and nothing is sacred.
+
+   new since july 2026: the moving pictures department. a gif off the wall
+   (or from your pocket) gets taken apart frame by frame — there's a whole
+   hand-written gif DECODER below, the twin of the gif machine's encoder;
+   read them side by side and you'll know how every gif ever made works —
+   then your letters go on every frame and MAKE IT MOVE AGAIN stitches it
+   back together. speed knob. backwards. there and back. nothing is sacred,
+   especially not the direction of time. — the management */
 
 const $ = id => document.getElementById(id);
 const store = {
@@ -178,28 +210,31 @@ function drawMemeText(c, text, y, sizePx, baseline) {
   c.fillText(text.toUpperCase(), x, y);
   c.restore();
 }
-function render() {
-  ctx.clearRect(0, 0, cv.width, cv.height);
-  if (baseImg) ctx.drawImage(baseImg, 0, 0, cv.width, cv.height);
+/* paint one finished meme: a base (image or frame canvas), the drawings, the
+   letters. render() feeds the visible canvas; the gif re-stitcher feeds frames. */
+function renderTo(c, base) {
+  c.clearRect(0, 0, cv.width, cv.height);
+  if (base) c.drawImage(base, 0, 0, cv.width, cv.height);
   else {
-    ctx.fillStyle = '#e8e2d4'; ctx.fillRect(0, 0, cv.width, cv.height);
-    ctx.fillStyle = '#8d8371'; ctx.font = '20px ui-monospace, monospace'; ctx.textAlign = 'center';
-    ctx.fillText('load a photo. or grab one from the wall.', cv.width / 2, cv.height / 2);
+    c.fillStyle = '#e8e2d4'; c.fillRect(0, 0, cv.width, cv.height);
+    c.fillStyle = '#8d8371'; c.font = '20px ui-monospace, monospace'; c.textAlign = 'center';
+    c.fillText('load a photo. or grab one from the wall.', cv.width / 2, cv.height / 2);
   }
-  ctx.drawImage(drawLayer, 0, 0);
+  c.drawImage(drawLayer, 0, 0);
   const big = Math.round(cv.width / 9);
-  drawMemeText(ctx, $('toptext').value, Math.round(big * 0.25), big, 'top');
-  drawMemeText(ctx, $('bottomtext').value, cv.height - Math.round(big * 0.25), big, 'bottom');
+  drawMemeText(c, $('toptext').value, Math.round(big * 0.25), big, 'top');
+  drawMemeText(c, $('bottomtext').value, cv.height - Math.round(big * 0.25), big, 'bottom');
   for (const f of floaters) {
-    ctx.save();
-    ctx.font = '900 ' + f.size + 'px ' + IMPACT;
-    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillStyle = '#ffffff'; ctx.strokeStyle = '#000'; ctx.lineWidth = Math.max(2, f.size / 9); ctx.lineJoin = 'round';
-    ctx.strokeText(f.text.toUpperCase(), f.x, f.y);
-    ctx.fillText(f.text.toUpperCase(), f.x, f.y);
-    ctx.restore();
+    c.save();
+    c.font = '900 ' + f.size + 'px ' + IMPACT;
+    c.textAlign = 'center'; c.textBaseline = 'middle';
+    c.fillStyle = '#ffffff'; c.strokeStyle = '#000'; c.lineWidth = Math.max(2, f.size / 9); c.lineJoin = 'round';
+    c.strokeText(f.text.toUpperCase(), f.x, f.y);
+    c.fillText(f.text.toUpperCase(), f.x, f.y);
+    c.restore();
   }
 }
+function render() { renderTo(ctx, baseImg); }
 $('toptext').addEventListener('input', render);
 $('bottomtext').addEventListener('input', render);
 
@@ -288,17 +323,66 @@ document.querySelectorAll('.tool[data-t]').forEach(b => b.addEventListener('clic
 $('drawcolor').addEventListener('input', e => drawColor = e.target.value);
 $('drawsize').addEventListener('input', e => drawSize = +e.target.value);
 
+/* ---------- the moving pictures department ----------
+   when a gif comes off the wall (or in from a file), we take it apart, let you
+   letter it, and stitch it back together. the reel holds the original frames. */
+let gifReel = null;   // { frames: [{canvas, delayMs}], srcW, srcH } — null = still life
+function clearReel() {
+  gifReel = null;
+  $('movebtn').style.display = 'none';
+  $('movetweaks').style.display = 'none';
+  $('moveout').style.display = 'none';
+}
+/* the two knobs on the projector: how fast, and which way through time */
+let moveSpeed = 1, moveDir = 'fwd';
+document.querySelectorAll('.spd').forEach(b => b.addEventListener('click', () => {
+  moveSpeed = +b.dataset.v;
+  document.querySelectorAll('.spd').forEach(x => x.classList.toggle('on', x === b));
+}));
+document.querySelectorAll('.dir').forEach(b => b.addEventListener('click', () => {
+  moveDir = b.dataset.v;
+  document.querySelectorAll('.dir').forEach(x => x.classList.toggle('on', x === b));
+}));
+function frameToCanvas(frame, w, h) {
+  const c = document.createElement('canvas');
+  c.width = w; c.height = h;
+  c.getContext('2d').putImageData(new ImageData(frame.data, w, h), 0, 0);
+  return c;
+}
+/* try to read bytes as a MOVING gif. returns true if the reel is loaded. */
+function tryLoadReel(bytes) {
+  try {
+    const g = decodeGIF(bytes);
+    if (!g.frames || g.frames.length < 2) return false;
+    const frames = g.frames.map(f => ({ canvas: frameToCanvas(f, g.width, g.height), delayMs: f.delayMs }));
+    gifReel = { frames, srcW: g.width, srcH: g.height };
+    setBase(frames[0].canvas);
+    $('movebtn').style.display = '';
+    $('movebtn').textContent = 'MAKE IT MOVE AGAIN (' + frames.length + ' frames)';
+    $('movetweaks').style.display = '';
+    $('moveout').style.display = 'none';
+    return true;
+  } catch (e) {
+    return false;   // the projector refused. the still life path takes it from here.
+  }
+}
+
 /* ---------- sources ---------- */
 $('loadbtn').addEventListener('click', () => $('loadfile').click());
-$('loadfile').addEventListener('change', e => {
+$('loadfile').addEventListener('change', async e => {
   const f = e.target.files[0];
   if (!f) return;
+  e.target.value = '';
+  clearReel();
+  if (f.type === 'image/gif') {
+    const bytes = new Uint8Array(await f.arrayBuffer());
+    if (tryLoadReel(bytes)) { toast('this one moves. ' + gifReel.frames.length + ' frames on the counter.'); return; }
+  }
   const img = new Image();
   const url = URL.createObjectURL(f);
   img.onload = () => { URL.revokeObjectURL(url); setBase(img); };   // canvas re-encode on export strips metadata
   img.onerror = () => toast('that is not an image.');
   img.src = url;
-  e.target.value = '';
 });
 $('fromwall').addEventListener('click', async () => {
   const box = $('wallpick');
@@ -314,19 +398,326 @@ $('fromwall').addEventListener('click', async () => {
     const img = document.createElement('img');
     img.src = mediaUrl(p.media_key);
     img.title = 'by ' + p.author;
-    img.addEventListener('click', () => {
+    img.addEventListener('click', async () => {
+      clearReel();
+      if (p.type === 'gif') {
+        // gifs come off the wall in one piece and get taken apart on the counter
+        try {
+          const bytes = new Uint8Array(await (await fetch(mediaUrl(p.media_key))).arrayBuffer());
+          if (tryLoadReel(bytes)) {
+            box.classList.remove('show');
+            toast('remixing ' + p.author + '\'s gif. ' + gifReel.frames.length + ' frames, all yours.');
+            return;
+          }
+        } catch (e) { /* the still life path takes it from here */ }
+      }
       const big = new Image();
       big.onload = () => {
         setBase(big); box.classList.remove('show');
-        // an animated gif lands as its first frame — the canvas is a still-life kind of place
         toast(p.type === 'gif'
-          ? 'remixing ' + p.author + '\'s gif — first frame only. the other frames are on break.'
+          ? 'remixing ' + p.author + '\'s gif — first frame only. the projector refused the rest.'
           : 'remixing ' + p.author + '\'s post. an honor, really.');
       };
       big.src = img.src;
     });
     grid.appendChild(img);
   });
+});
+
+/* ================= GIF89a DECODER ================= */
+/* the encoder's mirror twin. hand it the bytes of a .gif
+   (Uint8Array or ArrayBuffer) and it hands back
+     { width, height, frames: [{ data, delayMs }] }
+   data: full-canvas RGBA Uint8ClampedArray, already composited —
+   frame 30 is the whole picture at frame 30, not the postage-stamp
+   sub-rectangle the file happened to store. delayMs is per frame.
+   built-in caps: 150 frames, 4 megapixels. a corrupt file gets you
+   a partial movie or a polite Error, never an infinite loop. */
+function decodeGIF(bytes) {
+  if (bytes instanceof ArrayBuffer) bytes = new Uint8Array(bytes);
+  const refuse = () => { throw new Error('that is not a gif. the projector refuses.'); };
+  if (!bytes || !bytes.subarray || bytes.length < 13) refuse();
+
+  let pos = 0;
+  const u8 = () => bytes[pos++] & 0xFF;               // reads past the end come back 0. calm.
+  const u16 = () => u8() | (u8() << 8);               // little-endian, same as the encoder writes
+
+  // header — GIF87a and GIF89a are both welcome. nothing else is.
+  const sig = String.fromCharCode(...bytes.subarray(0, 6)); pos = 6;
+  if (sig !== 'GIF89a' && sig !== 'GIF87a') refuse();
+
+  // logical screen descriptor
+  const width = u16(), height = u16();
+  if (!width || !height) refuse();
+  if (width * height > 4_000_000) throw new Error('over 4 megapixels. the projector is a small machine.');
+  const lsdPacked = u8(); u8(); u8();                 // packed, background index, aspect (those two: read and released)
+  const colorTable = n => { const t = bytes.subarray(pos, pos + n * 3); pos += n * 3; return t; };
+  const globalTable = (lsdPacked & 0x80) ? colorTable(2 << (lsdPacked & 7)) : null;
+
+  const canvas = new Uint8ClampedArray(width * height * 4);   // starts all-transparent
+  const frames = [];
+
+  // graphic control state: an extension sets these, the next image spends them
+  let delayCs = 0, transparent = -1, disposal = 0;
+
+  const skipSubBlocks = () => {                       // sub-block chains end on a 0-length block
+    while (pos < bytes.length) { const n = u8(); if (!n) break; pos += n; }
+  };
+
+  while (pos < bytes.length && frames.length < 150) { // 150 frames and the reel is full
+    const block = u8();
+    if (block === 0x3B) break;                        // trailer. roll credits.
+
+    if (block === 0x21) {                             // extension
+      if (u8() === 0xF9) {                            // graphic control — the one we actually read
+        u8();                                         // block size, always 4
+        const p = u8();
+        disposal = (p >> 2) & 7;
+        delayCs = u16();
+        const ti = u8();
+        transparent = (p & 1) ? ti : -1;
+        u8();                                         // terminator
+      } else skipSubBlocks();                         // app / comment / plain-text: skipped without judgment
+      continue;
+    }
+
+    if (block !== 0x2C) break;                        // unknown block type — keep what we have, go home
+
+    // ---- image descriptor ----
+    const left = u16(), top = u16(), w = u16(), h = u16();
+    const ip = u8();
+    const localTable = (ip & 0x80) ? colorTable(2 << (ip & 7)) : null;
+    const table = localTable || globalTable;
+    const minCode = u8();
+    if (w * h > 4_000_000) throw new Error('a frame bigger than the whole projector. refused.');  // no absurd scratch buffers
+    const idxs = lzwDecode(minCode, w * h);
+    if (!table) { delayCs = 0; transparent = -1; disposal = 0; continue; }  // no palette anywhere: nothing to paint with
+
+    // disposal 3 will want the canvas exactly as it was before this frame
+    const before = disposal === 3 ? canvas.slice() : null;
+
+    // rows of the sub-image in the order the file stores them.
+    // interlaced = the 4-pass venetian-blind shuffle; plain = top to bottom.
+    const rows = [];
+    if (ip & 0x40) {
+      for (let y = 0; y < h; y += 8) rows.push(y);    // pass 1: every 8th row, from 0
+      for (let y = 4; y < h; y += 8) rows.push(y);    // pass 2: every 8th row, from 4
+      for (let y = 2; y < h; y += 4) rows.push(y);    // pass 3: every 4th row, from 2
+      for (let y = 1; y < h; y += 2) rows.push(y);    // pass 4: the odd rows
+    } else for (let y = 0; y < h; y++) rows.push(y);
+
+    for (let r = 0; r < rows.length; r++) {
+      const y = top + rows[r];
+      if (y >= height) continue;                      // sub-image hanging off the canvas: clipped
+      for (let x = 0; x < w; x++) {
+        if (left + x >= width) continue;
+        const px = idxs[r * w + x];
+        if (px === transparent) continue;             // see-through: whatever is underneath stays
+        const o = (y * width + left + x) * 4, c = px * 3;
+        canvas[o] = table[c]; canvas[o + 1] = table[c + 1];
+        canvas[o + 2] = table[c + 2]; canvas[o + 3] = 255;
+      }
+    }
+
+    // a delay of 0 or 1 centiseconds means "you decide". browsers decided 100ms. so did we.
+    frames.push({ data: canvas.slice(), delayMs: delayCs <= 1 ? 100 : delayCs * 10 });
+
+    // disposal, for whoever renders next:
+    // 0/1 = leave it. 2 = wipe this frame's rectangle back to transparent. 3 = rewind.
+    if (disposal === 2) {
+      for (let y = top; y < top + h && y < height; y++)
+        for (let x = left; x < left + w && x < width; x++) {
+          const o = (y * width + x) * 4;
+          canvas[o] = canvas[o + 1] = canvas[o + 2] = canvas[o + 3] = 0;
+        }
+    } else if (before) canvas.set(before);
+
+    delayCs = 0; transparent = -1; disposal = 0;      // control state is single-use
+  }
+
+  return { width, height, frames };
+
+  /* GIF-variant LZW, running the encoder's lzw() in reverse:
+     variable code width, CLEAR resets the dictionary, EOI ends it,
+     and the bytes arrive chopped into ≤255-byte sub-blocks. */
+  function lzwDecode(minCode, npix) {
+    if (minCode < 2 || minCode > 8) throw new Error('impossible LZW code size. corrupt file.');  // legal range 2..8; a lie here means a runaway dictionary
+    // stitch the sub-blocks back into one contiguous run of bytes
+    const chunks = []; let total = 0;
+    while (pos < bytes.length) {
+      const n = u8(); if (!n) break;
+      chunks.push(bytes.subarray(pos, Math.min(pos + n, bytes.length)));
+      pos += n; total += n;
+    }
+    const data = new Uint8Array(total); let off = 0;
+    for (const c of chunks) { data.set(c, off); off += c.length; }
+
+    const CLEAR = 1 << minCode, EOI = CLEAR + 1;
+    let dict, next, codeSize;
+    const reset = () => { dict = []; for (let i = 0; i < CLEAR; i++) dict[i] = [i]; next = EOI + 1; codeSize = minCode + 1; };
+    reset();
+
+    const out = new Uint8Array(npix);                 // anything left undecoded stays index 0
+    let filled = 0, prev = null, acc = 0, nbits = 0, dp = 0;
+    while (filled < npix) {                           // every lap eats bits, so this always ends
+      while (nbits < codeSize && dp < data.length) { acc |= data[dp++] << nbits; nbits += 8; }
+      if (nbits < codeSize) break;                    // ran out of file. a partial picture beats no picture.
+      const code = acc & ((1 << codeSize) - 1);
+      acc >>= codeSize; nbits -= codeSize;
+
+      if (code === CLEAR) { reset(); prev = null; continue; }
+      if (code === EOI) break;
+
+      let entry;
+      if (dict[code]) entry = dict[code];
+      else if (code === next && prev) entry = prev.concat(prev[0]);   // the one code the encoder uses before defining it
+      else break;                                     // a code from nowhere. corrupt file. stop politely.
+
+      for (let i = 0; i < entry.length && filled < npix; i++) out[filled++] = entry[i];
+      if (prev && next < 4096) {
+        dict[next++] = prev.concat(entry[0]);
+        if (next === (1 << codeSize) && codeSize < 12) codeSize++;   // one step ahead of the encoder's bump, on purpose
+      }
+      prev = entry;
+    }
+    return out;
+  }
+}
+
+/* ================= GIF89a ENCODER =================
+   borrowed from the gif machine down the hall. same hand-written LZW,
+   same 3-3-2 crunch. the rooms share tools; that's what a fort is. */
+function encodeGIF(frames, delayCs) {
+  const get = i => typeof frames[i] === 'function' ? frames[i]() : frames[i];
+  const first = get(0);
+  const W = first.width, H = first.height;
+  const out = [];
+  const push = (...b) => { for (const x of b) out.push(x & 0xFF); };
+  const push16 = v => { push(v & 0xFF, (v >> 8) & 0xFF); };
+  for (const ch of 'GIF89a') push(ch.charCodeAt(0));
+  push16(W); push16(H);
+  push(0xF7, 0, 0);
+  for (let i = 0; i < 256; i++) {
+    const r = (i >> 5) & 7, g = (i >> 2) & 7, b = i & 3;
+    push(Math.round(r * 255 / 7), Math.round(g * 255 / 7), Math.round(b * 255 / 3));
+  }
+  push(0x21, 0xFF, 0x0B);
+  for (const ch of 'NETSCAPE2.0') push(ch.charCodeAt(0));
+  push(0x03, 0x01); push16(0); push(0x00);
+  for (let fi = 0; fi < frames.length; fi++) {
+    if (out.length > 10.5 * 1024 * 1024) throw new Error('past 10MB mid-stitch. fewer frames. the shelf is only so big.');
+    const f = fi === 0 ? first : get(fi);
+    const N = W * H, idxs = new Uint8Array(N), d = f.data;
+    for (let i = 0; i < N; i++) {
+      const o = i * 4;
+      idxs[i] = (d[o] & 0xE0) | ((d[o + 1] & 0xE0) >> 3) | (d[o + 2] >> 6);
+    }
+    push(0x21, 0xF9, 0x04, 0x04); push16(delayCs); push(0x00, 0x00);
+    push(0x2C); push16(0); push16(0); push16(W); push16(H); push(0x00);
+    push(0x08);
+    lzw(idxs, 8, out);
+    push(0x00);
+  }
+  push(0x3B);
+  return new Uint8Array(out);
+}
+function lzw(pixels, minCode, out) {
+  const CLEAR = 1 << minCode, EOI = CLEAR + 1;
+  let dict = new Map(), next = EOI + 1, codeSize = minCode + 1;
+  let acc = 0, nbits = 0;
+  const block = [];
+  const emitByte = b => {
+    block.push(b);
+    if (block.length === 255) { out.push(255, ...block); block.length = 0; }
+  };
+  const emit = code => {
+    acc |= code << nbits;
+    nbits += codeSize;
+    while (nbits >= 8) { emitByte(acc & 0xFF); acc >>= 8; nbits -= 8; }
+  };
+  const reset = () => { dict = new Map(); next = EOI + 1; codeSize = minCode + 1; };
+  emit(CLEAR);
+  let prefix = pixels[0];
+  for (let i = 1; i < pixels.length; i++) {
+    const k = pixels[i];
+    const key = prefix * 256 + k;
+    if (dict.has(key)) { prefix = dict.get(key); continue; }
+    emit(prefix);
+    if (next < 4096) {
+      dict.set(key, next++);
+      if (next === (1 << codeSize) + 1 && codeSize < 12) codeSize++;
+    } else { emit(CLEAR); reset(); }
+    prefix = k;
+  }
+  emit(prefix);
+  emit(EOI);
+  if (nbits > 0) emitByte(acc & 0xFF);
+  if (block.length) out.push(block.length, ...block);
+}
+
+/* ---------- the re-stitcher: letters on every frame, then a gif again ---------- */
+let movedBlob = null;
+$('movebtn').addEventListener('click', async function () {
+  if (!gifReel) return;
+  this.disabled = true;
+  const label = this.textContent;
+  this.textContent = 'stitching...';
+  // setTimeout, not requestAnimationFrame: rAF never fires in a background tab,
+  // and a kid WILL switch tabs mid-stitch. the stitcher works unwatched.
+  await new Promise(r => setTimeout(r, 0));
+  try {
+    // output stays wall-sized: 480 wide max, same crunch as the gif machine
+    const outW = Math.min(cv.width, 480);
+    const outH = Math.round(cv.height * outW / cv.width);
+    const work = document.createElement('canvas');   // full-size: overlays land exactly as previewed
+    work.width = cv.width; work.height = cv.height;
+    const wctx = work.getContext('2d');
+    const small = document.createElement('canvas');
+    small.width = outW; small.height = outH;
+    const sctx = small.getContext('2d');
+    // which way through time?
+    let picked = gifReel.frames.slice();
+    if (moveDir === 'rev') picked.reverse();
+    if (moveDir === 'boom') picked = picked.concat(picked.slice(1, -1).reverse());
+    // lazy frames: the encoder asks for one at a time, nothing piles up
+    const lazy = picked.map(fr => () => {
+      renderTo(wctx, fr.canvas);
+      sctx.clearRect(0, 0, outW, outH);
+      sctx.drawImage(work, 0, 0, outW, outH);
+      return { data: sctx.getImageData(0, 0, outW, outH).data, width: outW, height: outH };
+    });
+    const delays = gifReel.frames.map(f => f.delayMs).sort((a, b) => a - b);
+    const delayCs = Math.max(2, Math.round(delays[Math.floor(delays.length / 2)] / 10 / moveSpeed));
+    const bytes = encodeGIF(lazy, delayCs);
+    movedBlob = new Blob([bytes], { type: 'image/gif' });
+    $('movepreview').src = URL.createObjectURL(movedBlob);
+    $('moveout').style.display = '';
+    toast('stitched. ' + gifReel.frames.length + ' frames, lettered, moving.');
+  } catch (e) {
+    toast(e.message || 'the stitcher jammed. fewer frames, maybe.');
+  }
+  this.textContent = label;
+  this.disabled = false;
+});
+$('movedl').addEventListener('click', () => {
+  if (!movedBlob) return;
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(movedBlob);
+  a.download = 'kitchen-output.gif';
+  a.click();
+  toast('yours. deploy it anywhere.');
+});
+$('movepost').addEventListener('click', async function () {
+  if (!movedBlob) return;
+  this.disabled = true; this.textContent = 'posting...';
+  const buf = await movedBlob.arrayBuffer();
+  const up = await api('upload', { method: 'POST', body: buf, raw: true });
+  if (up.data && up.data.ok) {
+    const r = await api('post', { method: 'POST', body: { type: 'gif', media_key: up.data.media_key, text: '' } });
+    if (r.data && r.data.ok) toast('on the wall. it moves. people will notice.');
+    else toast(r.data && r.data.error || 'the wall refused.');
+  } else toast(up.data && up.data.error || 'the upload slipped.');
+  this.disabled = false; this.textContent = 'POST TO THE WALL';
 });
 
 /* ---------- export ---------- */
