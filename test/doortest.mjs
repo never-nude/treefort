@@ -52,6 +52,11 @@ function exec(sql, args) {
         const m = membersFor(args[0]).find(m => m.code_hash === args[1]);
         return m ? { handle: m.handle } : null;
       }
+      if (S.startsWith('SELECT handle FROM members WHERE fort_id=? AND is_founder=1')) {
+        const m = membersFor(args[0]).filter(m => m.is_founder === 1)
+          .sort((a, b) => (a.created_at || 0) - (b.created_at || 0))[0];
+        return m ? { handle: m.handle } : null;
+      }
       throw new Error('first? ' + S);
     },
     async all() {
@@ -195,20 +200,34 @@ const env = {
 };
 
 let cookies = {};
-async function call(path, { method = 'GET', body, raw, ip = '1.1.1.1', who = 'anon' } = {}) {
+async function call(path, { method = 'GET', body, raw, ip = '1.1.1.1', who = 'anon', accept } = {}) {
   const headers = {};
-  if (cookies[who]) headers.Cookie = cookies[who];
+  if (cookies[who]) headers.Cookie = cookies[who].value;
   headers['CF-Connecting-IP'] = ip;
+  if (accept) headers.Accept = accept;
   let reqBody;
   if (raw) reqBody = raw;
   else if (body) { reqBody = JSON.stringify(body); headers['Content-Type'] = 'application/json'; }
   const res = await worker.fetch(new Request('https://treefort.lol' + path, { method, headers, body: reqBody }), env);
-  const sc = res.headers.get('Set-Cookie');
-  if (sc) cookies[who] = sc.split(';')[0];
+  // responses may carry several Set-Cookie headers (session + legacy-cookie clear).
+  // the jar is path-aware like a browser: a clear only deletes a cookie set at the
+  // SAME path, so the legacy Path=/ clear cannot delete a Path=/the_lookout session.
+  const setCookies = res.headers.getSetCookie ? res.headers.getSetCookie() : (res.headers.get('Set-Cookie') ? [res.headers.get('Set-Cookie')] : []);
+  for (const sc of setCookies) {
+    const pair = sc.split(';')[0];
+    if (!pair.startsWith('fort_session=')) continue;
+    const cookiePath = (sc.match(/;\s*Path=([^;]+)/i) || [])[1] || '/';
+    const isClear = pair === 'fort_session=' && /Max-Age=0/i.test(sc);
+    if (isClear) {
+      if (cookies[who] && cookies[who].path === cookiePath) delete cookies[who];
+    } else {
+      cookies[who] = { value: pair, path: cookiePath };
+    }
+  }
   let data = null;
   const ct = res.headers.get('Content-Type') || '';
   if (ct.includes('json')) data = await res.json();
-  return { status: res.status, data, res, location: res.headers.get('Location') };
+  return { status: res.status, data, res, location: res.headers.get('Location'), setCookies };
 }
 
 const assert = (c, m) => { if (!c) throw new Error('ASSERT: ' + m); };
@@ -219,7 +238,15 @@ const png = () => { const b = new Uint8Array(64); b.set([0x89, 0x50, 0x4E, 0x47,
   assert(r.status === 302 && r.location === 'https://treefort.lol/the_lookout/', 'root redirects to The Lookout');
 
   r = await call('/paint.html');
-  assert(r.status === 404, 'old root room route does not write to a default fort');
+  assert(r.status === 301 && r.location === 'https://treefort.lol/the_lookout/paint.html',
+    'legacy root room URL walks to The Lookout (old bookmarks keep working)');
+  r = await call('/kitchen');
+  assert(r.status === 301 && r.location === 'https://treefort.lol/the_lookout/kitchen.html',
+    'legacy extensionless room URL redirects too');
+  r = await call('/index.html');
+  assert(r.status === 301 && r.location === 'https://treefort.lol/the_lookout/', 'legacy /index.html goes home');
+  r = await call('/robots.txt');
+  assert(r.status === 200, 'robots.txt tells crawlers to leave the fort alone');
 
   r = await call('/the_lookout/api/state');
   assert(r.status === 404, 'pre-seed The Lookout is not present yet');
@@ -232,8 +259,12 @@ const png = () => { const b = new Uint8Array(64); b.set([0x89, 0x50, 0x4E, 0x47,
   assert(r.status === 400, 'seed rejects identical Lookout codes');
   r = await call('/api/seed', { method: 'POST', body: { token: 'seed-me-once', connor_code: 'FOUNDER1', kushman_code: 'DADCODE1', base_camp_code: 'BASECAMP1' } });
   assert(r.data.ok, 'seed creates The Lookout and Base Camp');
-  r = await call('/api/seed', { method: 'POST', body: { token: 'seed-me-once', connor_code: 'AGAIN123', kushman_code: 'AGAIN456' } });
+  r = await call('/api/seed', { method: 'POST', body: { token: 'seed-me-once', connor_code: 'AGAIN123', kushman_code: 'AGAIN456' }, ip: '1.1.1.2' });
   assert(r.status === 409, 'seed refuses once forts exist');
+  // bootstrap routes are ip-throttled: the first ip already spent 4 of its 5 tries
+  r = await call('/api/seed', { method: 'POST', body: { token: 'wrong', connor_code: 'X', kushman_code: 'Y' } });
+  r = await call('/api/seed', { method: 'POST', body: { token: 'wrong', connor_code: 'X', kushman_code: 'Y' } });
+  assert(r.status === 429, 'bootstrap routes rate-limit per ip, got ' + r.status);
   console.log('seed: OK');
 
   r = await call('/the_lookout/api/state');
@@ -246,9 +277,9 @@ const png = () => { const b = new Uint8Array(64); b.set([0x89, 0x50, 0x4E, 0x47,
   assert(r.status === 308 && r.location === 'https://treefort.lol/the_lookout/api/state', 'fort lookup is case-insensitive with canonical redirect');
   r = await call('/Base_Camp');
   assert(r.status === 308 && r.location === 'https://treefort.lol/base_camp/', 'Base_Camp resolves canonically to base_camp');
-  r = await call('/api/forts/create', { method: 'POST', body: { token: 'seed-me-once', display_name: 'Base Camp', founder_handle: 'KUSHMAN', founder_code: 'SOMECODE' } });
+  r = await call('/api/forts/create', { method: 'POST', body: { token: 'seed-me-once', display_name: 'Base Camp', founder_handle: 'KUSHMAN', founder_code: 'SOMECODE' }, ip: '1.1.1.3' });
   assert(r.status === 409, 'same normalized fort slug cannot be claimed twice');
-  r = await call('/api/forts/create', { method: 'POST', body: { token: 'seed-me-once', display_name: 'Something Else', slug: 'BASE_CAMP', founder_handle: 'KUSHMAN', founder_code: 'SOMECODE' } });
+  r = await call('/api/forts/create', { method: 'POST', body: { token: 'seed-me-once', display_name: 'Something Else', slug: 'BASE_CAMP', founder_handle: 'KUSHMAN', founder_code: 'SOMECODE' }, ip: '1.1.1.4' });
   assert(r.status === 409, 'same slug with different case cannot be claimed twice');
   console.log('fort routing: OK');
 
@@ -265,9 +296,11 @@ const png = () => { const b = new Uint8Array(64); b.set([0x89, 0x50, 0x4E, 0x47,
   console.log('per-fort knocks: OK');
 
   r = await call('/the_lookout/handbook.html', { who: 'lookoutKushman' });
-  assert(r.status === 404, 'handbook hidden from KUSHMAN in The Lookout');
+  assert(r.status === 404, 'handbook hidden from members (KUSHMAN is not a Lookout founder)');
   r = await call('/base_camp/handbook.html', { who: 'baseKushman' });
-  assert(r.status === 404, 'handbook hidden from Base Camp, even for its founder');
+  assert(r.status === 200, 'handbook open to a fort\'s own founder (Base Camp founder reads it too)');
+  r = await call('/the_lookout/handbook.html');
+  assert(r.status === 404, 'handbook hidden with no session at all');
 
   db.members.get(memberKey('the_lookout', 'CONNOR')).is_founder = 0;
   r = await call('/the_lookout/api/knock', { method: 'POST', body: { code: 'FOUNDER1' }, ip: '3.3.3.2', who: 'staleconnor' });
@@ -416,6 +449,45 @@ const png = () => { const b = new Uint8Array(64); b.set([0x89, 0x50, 0x4E, 0x47,
   r = await call('/the_lookout/api/state', { who: 'leaver' });
   assert(r.status === 401, 'after logout the fort session is gone, got ' + r.status);
   console.log('logout: OK');
+
+  // knock and logout both retire the single-fort-era Path=/ cookie
+  r = await call('/the_lookout/api/knock', { method: 'POST', body: { code: 'FOUNDER1' }, ip: '7.7.7.8', who: 'legacyclear' });
+  assert(r.setCookies.length === 2 && r.setCookies.some(c => c.includes('Path=/;') && c.includes('Max-Age=0')),
+    'knock also clears the legacy Path=/ cookie');
+  r = await call('/the_lookout/api/logout', { method: 'POST', who: 'legacyclear' });
+  assert(r.setCookies.length === 2 && r.setCookies.some(c => c.includes('Path=/;') && c.includes('Max-Age=0')),
+    'logout also clears the legacy Path=/ cookie');
+  console.log('legacy cookie clear: OK');
+
+  // changing your knock is a guessing oracle without a limiter
+  r = await call('/the_lookout/api/knock', { method: 'POST', body: { code: 'FOUNDER1' }, ip: '7.7.7.9', who: 'guesser' });
+  assert(r.data.ok, 'guesser knocked in');
+  let hitMycode429 = false;
+  for (let i = 0; i < 7; i++) {
+    r = await call('/the_lookout/api/mycode', { method: 'POST', body: { current_code: 'GUESS' + i, new_code: 'WHATEVER1' }, who: 'guesser' });
+    if (r.status === 429) { hitMycode429 = true; break; }
+  }
+  assert(hitMycode429, 'mycode rate limit stops current-code guessing');
+  console.log('mycode limiter: OK');
+
+  // a browser hitting a bad fort gets a sign on the tree, not raw json
+  r = await call('/tree_mansion/', { accept: 'text/html' });
+  assert(r.status === 404, 'bad fort is 404');
+  const badFortBody = await r.res.text();
+  assert(badFortBody.includes('wrong branch') && badFortBody.toLowerCase().includes('<!doctype html>'),
+    'bad fort page is html with the sign on the tree');
+  r = await call('/tree_mansion/api/state');
+  assert(r.status === 404 && r.data && r.data.error, 'bad fort api path stays json');
+  console.log('friendly 404: OK');
+
+  // a D1 face-plant returns one deadpan sentence, not a stack trace
+  const realPrepare = env.DB.prepare;
+  env.DB.prepare = () => { throw new Error('secret stack detail: the filing cabinet exploded'); };
+  r = await call('/the_lookout/api/state', { who: 'connor' });
+  assert(r.status === 500 && r.data && r.data.error && !JSON.stringify(r.data).includes('filing cabinet exploded'),
+    'internal errors are deadpan and leak nothing, got ' + r.status);
+  env.DB.prepare = realPrepare;
+  console.log('graceful failure: OK');
 
   console.log('\nTHE MULTI-FORT FOUNDATION WORKS. ALL ASSERTIONS PASSED.');
 })().catch(e => { console.error('FAIL:', e.message); process.exit(1); });

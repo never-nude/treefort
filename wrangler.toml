@@ -9,31 +9,18 @@ routes = [
   { pattern = "www.treefort.lol", custom_domain = true }
 ]
 
-# Static files are served through the Worker for fort routing. Root legacy
-# room URLs also hit the Worker, so they cannot bypass the fort slug model.
+# The Worker owns EVERY request. Nothing may reach the asset platform directly:
+# its html_handling redirects (/*.html -> /*, trailing-slash games) were 307-ing
+# fort paths like /the_lookout/paint.html to root paths that don't exist, and a
+# glob list can't be trusted to cover them all. run_worker_first = true means
+# routing has exactly one author (src/worker.js); html_handling = "none" means
+# env.ASSETS.fetch() returns files, never redirects.
 [assets]
 directory = "./public"
 binding = "ASSETS"
-run_worker_first = [
-  "/api/*",
-  "/*/api/*",
-  "/paint",
-  "/paint.html",
-  "/kitchen",
-  "/kitchen.html",
-  "/gifmachine",
-  "/gifmachine.html",
-  "/handbook",
-  "/handbook.html",
-  "/*/paint",
-  "/*/paint.html",
-  "/*/kitchen",
-  "/*/kitchen.html",
-  "/*/gifmachine",
-  "/*/gifmachine.html",
-  "/*/handbook",
-  "/*/handbook.html"
-]
+run_worker_first = true
+html_handling = "none"
+not_found_handling = "none"
 
 [[d1_databases]]
 binding = "DB"

@@ -85,17 +85,46 @@ function sessionCookie(token, fort) {
 function clearSessionCookie(fort) {
   return `fort_session=; Max-Age=0; Path=/${fort.slug}; HttpOnly; Secure; SameSite=Lax`;
 }
+// the single-fort era set its cookie at Path=/ with a 90-day fuse. it outranks
+// nothing, but some clients would keep PRESENTING it first and 401 forever.
+// every knock and climb-down also snuffs it. harmless once, gone after that.
+const LEGACY_ROOT_COOKIE_CLEAR = 'fort_session=; Max-Age=0; Path=/; HttpOnly; Secure; SameSite=Lax';
+function withLegacyCookieClear(res) {
+  res.headers.append('Set-Cookie', LEGACY_ROOT_COOKIE_CLEAR);
+  return res;
+}
 function handleLogout(fort) {
-  return json({ ok: true, note: 'you climbed down. the ladder is still there.' },
-    200, { 'Set-Cookie': clearSessionCookie(fort) });
+  return withLegacyCookieClear(json({ ok: true, note: 'you climbed down. the ladder is still there.' },
+    200, { 'Set-Cookie': clearSessionCookie(fort) }));
 }
 
 /* ---------------- small utils ---------------- */
 function json(data, status = 200, headers = {}) {
   return new Response(JSON.stringify(data), {
     status,
-    headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', ...headers }
+    headers: {
+      'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store',
+      'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'no-referrer', ...headers
+    }
   });
+}
+
+/* security headers for HTML. the CSP allows this site's own inline script/style
+   (every page is one hand-written file — that's the whole architecture) and
+   blocks EVERYTHING external, which turns the "no third-party scripts" house
+   rule from a promise into a law the browser enforces. */
+const HTML_SECURITY_HEADERS = {
+  'Content-Security-Policy': "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'",
+  'X-Frame-Options': 'DENY',
+  'X-Content-Type-Options': 'nosniff',
+  'Referrer-Policy': 'no-referrer'
+};
+function withHtmlHeaders(res) {
+  const ct = res.headers.get('Content-Type') || '';
+  if (!ct.includes('text/html')) return res;
+  const out = new Response(res.body, res);
+  for (const [k, v] of Object.entries(HTML_SECURITY_HEADERS)) out.headers.set(k, v);
+  return out;
 }
 const nope = (msg, status = 400) => json({ ok: false, error: msg }, status);
 
@@ -285,11 +314,11 @@ async function handleKnock(env, request, fort, ip) {
   ).bind(fort.id, name, t, t, t).run();
 
   const token = await makeSession(env, fort, role, name);
-  return json(
+  return withLegacyCookieClear(json(
     { ok: true, role, name, fort_name: fort.display_name, fort_slug: fort.slug, dog_name: fort.dog_name },
     200,
     { 'Set-Cookie': sessionCookie(token, fort) }
-  );
+  ));
 }
 
 async function handleWall(env, request, fort, session) {
@@ -442,6 +471,11 @@ async function handleDictStatus(env, request, fort, session) {
 // change your OWN knock. prove you know your current code, then set a new one.
 // no email, no recovery — if you forget it, a founder resets it for you (below).
 async function handleMyCode(env, request, fort, session) {
+  // a knock-change asks you to prove your CURRENT knock, which makes this route a
+  // guessing oracle for anyone who borrowed a logged-in device. five tries, then tea.
+  if (rateLimited('mycode:' + fort.id + ':' + session.name, 5, 600)) {
+    return nope('too many tries at the locksmith. come back in ten minutes.', 429);
+  }
   const body = await readJson(request);
   if (!body) return nope('json required');
   const cur = cleanCode(body.current_code), next = cleanCode(body.new_code);
@@ -460,6 +494,7 @@ async function handleMyCode(env, request, fort, session) {
 // founder: put a new person on the roster with a starter code (they change it later).
 async function handleMemberAdd(env, request, fort, session) {
   if (session.role !== 'founder') return nope('adding members is founder business.', 403);
+  if (rateLimited('memadd:' + fort.id, 20, 3600)) return nope('the roster ink needs to dry. an hour, tops.', 429);
   const body = await readJson(request);
   if (!body) return nope('json required');
   const handle = cleanName(body.handle);
@@ -476,6 +511,7 @@ async function handleMemberAdd(env, request, fort, session) {
 // founder: reset a member's knock. THIS is the recovery flow — a kid forgot their code.
 async function handleMemberReset(env, request, fort, session) {
   if (session.role !== 'founder') return nope('resetting knocks is founder business.', 403);
+  if (rateLimited('memreset:' + fort.id, 10, 3600)) return nope('that is a lot of lock changes for one hour. breathe.', 429);
   const body = await readJson(request);
   if (!body) return nope('json required');
   const handle = cleanName(body.handle);
@@ -574,11 +610,24 @@ async function handleRoster(env, fort, session) {
   return json({ ok: true, roster: rows });
 }
 
+/* a 404 a kid can read. JSON for machines, a sign on the tree for browsers. */
+function wantsHtml(request) {
+  return (request.headers.get('Accept') || '').includes('text/html');
+}
+function fortNotFound(request) {
+  if (!wantsHtml(request)) return nope('that fort does not exist. check the ladder label.', 404);
+  return new Response(`<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>no fort here</title>
+<style>body{background:#141009;color:#c9bda3;font:16px/1.8 ui-monospace,Menlo,monospace;display:grid;place-items:center;min-height:100vh;margin:0;text-align:center}a{color:#9ee493}p{margin:6px 0}</style></head>
+<body><div><p>you climbed the wrong branch.</p><p>there is no fort at this address. there may never have been.<br>the squirrels are not talking.</p><p><a href="/">back down the tree</a></p></div></body></html>`,
+    { status: 404, headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' } });
+}
+
 async function handleAsset(env, request, fort, path) {
   const assetPath = ROOM_ASSETS.get(path);
   if (assetPath === '/handbook.html') {
+    // the founder's field manual: any founder of THIS fort may read it.
     const session = await readSession(env, request, fort);
-    if (!session || fort.slug !== 'the_lookout' || session.name !== 'CONNOR' || session.role !== 'founder') {
+    if (!session || session.role !== 'founder') {
       return new Response('not found. some boards are not on your map.', {
         status: 404,
         headers: {
@@ -588,36 +637,63 @@ async function handleAsset(env, request, fort, path) {
       });
     }
   }
-  if (assetPath) return env.ASSETS.fetch(assetRequest(request, assetPath));
-  return env.ASSETS.fetch(assetRequest(request, path));
+  const res = await env.ASSETS.fetch(assetRequest(request, assetPath || path));
+  if (res.status === 404) return fortNotFound(request);
+  return withHtmlHeaders(res);
 }
 
 /* ---------------- router ---------------- */
-export default {
-  async fetch(request, env) {
-    const url = new URL(request.url);
-    const path = url.pathname;
 
-    const ip = request.headers.get('CF-Connecting-IP') || '0.0.0.0';
-    const method = request.method;
+/* legacy root URLs from the single-fort era. bookmarks and muscle memory
+   keep working: they walk to Connor's fort, where they always led. */
+const LEGACY_ROOT_REDIRECTS = new Set([
+  '/index.html', '/index',
+  '/paint', '/paint.html', '/kitchen', '/kitchen.html',
+  '/gifmachine', '/gifmachine.html', '/handbook', '/handbook.html'
+]);
 
-    if (path === '/') {
-      url.pathname = `/${DEFAULT_FORT_SLUG}/`;
-      return Response.redirect(url.toString(), 302);
-    }
+async function routeRequest(request, env) {
+  const url = new URL(request.url);
+  const path = url.pathname;
 
-    // global seed/bootstrap routes, before a fort exists
-    if (path === '/api/setup' && method === 'POST') return handleSetup(env, request);
-    if (path === '/api/seed' && method === 'POST') return handleSeed(env, request);
-    if (path === '/api/forts/create' && method === 'POST') return handleFortCreate(env, request);
+  const ip = request.headers.get('CF-Connecting-IP') || '0.0.0.0';
+  const method = request.method;
 
-    const fortCtx = await requireFortFromRequest(env, request);
-    if (!fortCtx) return nope('that fort does not exist. check the ladder label.', 404);
-    if (fortCtx.needsCanonical || (fortCtx.restPath === '/' && !path.endsWith('/'))) {
-      return Response.redirect(canonicalFortUrl(request, fortCtx), 308);
-    }
-    const fort = fortCtx.fort;
-    const route = fortCtx.restPath;
+  if (path === '/') {
+    url.pathname = `/${DEFAULT_FORT_SLUG}/`;
+    return Response.redirect(url.toString(), 302);
+  }
+  if (path === '/robots.txt') {
+    // the fort does not want visitors it didn't invite. this includes robots.
+    return new Response('# the fort is not a website. it is a fort.\nUser-agent: *\nDisallow: /\n',
+      { headers: { 'Content-Type': 'text/plain; charset=utf-8' } });
+  }
+  if (path === '/favicon.ico') {
+    const res = await env.ASSETS.fetch(assetRequest(request, '/favicon.ico'));
+    return res.status === 404 ? new Response(null, { status: 404 }) : res;
+  }
+  if (LEGACY_ROOT_REDIRECTS.has(path)) {
+    url.pathname = path.startsWith('/index') ? `/${DEFAULT_FORT_SLUG}/`
+      : `/${DEFAULT_FORT_SLUG}${path.endsWith('.html') ? path : path + '.html'}`;
+    return Response.redirect(url.toString(), 301);
+  }
+
+  // global seed/bootstrap routes, before a fort exists. token-gated AND
+  // ip-throttled — nobody gets unlimited guesses at an operator secret.
+  if ((path === '/api/setup' || path === '/api/seed' || path === '/api/forts/create') && method === 'POST') {
+    if (rateLimited('bootstrap:' + ip, 5, 600)) return nope('the founding paperwork office is closed for ten minutes.', 429);
+    if (path === '/api/setup') return handleSetup(env, request);
+    if (path === '/api/seed') return handleSeed(env, request);
+    return handleFortCreate(env, request);
+  }
+
+  const fortCtx = await requireFortFromRequest(env, request);
+  if (!fortCtx) return fortNotFound(request);
+  if (fortCtx.needsCanonical || (fortCtx.restPath === '/' && !path.endsWith('/'))) {
+    return Response.redirect(canonicalFortUrl(request, fortCtx), 308);
+  }
+  const fort = fortCtx.fort;
+  const route = fortCtx.restPath;
 
     if (!route.startsWith('/api/')) {
       return handleAsset(env, request, fort, route);
@@ -632,8 +708,12 @@ export default {
     if (!session) return nope('no session. knock first. the door is not decorative.', 401);
 
     if (route === '/api/state' && method === 'GET') {
+      const founder = await env.DB.prepare(
+        'SELECT handle FROM members WHERE fort_id=? AND is_founder=1 ORDER BY created_at ASC LIMIT 1'
+      ).bind(fort.id).first();
       return json({ ok: true, name: session.name, role: session.role,
-        fort_name: fort.display_name, fort_slug: fort.slug, dog_name: fort.dog_name });
+        fort_name: fort.display_name, fort_slug: fort.slug, dog_name: fort.dog_name,
+        founder_name: founder ? founder.handle : null });
     }
     if (route === '/api/wall' && method === 'GET') return handleWall(env, request, fort, session);
     if (route === '/api/post' && method === 'POST') return handlePost(env, request, fort, session);
@@ -652,5 +732,16 @@ export default {
     if (route === '/api/roster' && method === 'GET') return handleRoster(env, fort, session);
 
     return nope('that room does not exist. yet?', 404);
+}
+
+export default {
+  async fetch(request, env) {
+    try {
+      return await routeRequest(request, env);
+    } catch (e) {
+      // D1 hiccup, R2 hiccup, cosmic ray. the kid gets a sentence, not a stack trace.
+      console.error('fort internal error:', e.message);
+      return json({ ok: false, error: 'something fell over inside the fort. the dog is looking into it. try again in a minute.' }, 500);
+    }
   }
 };
