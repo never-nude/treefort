@@ -12,9 +12,12 @@ const db = {
   terms: [],
   visits: new Map(),
   fails: new Map(),
-  members: new Map()
+  members: new Map(),
+  grants: [],
+  agreements: [],
+  reports: []
 };
-let postId = 0, replyId = 0, termId = 0;
+let postId = 0, replyId = 0, termId = 0, grantId = 0, agreementId = 0, reportId = 0;
 
 function memberKey(fortId, handle) { return key2(fortId, handle); }
 function failKey(fortId, ip) { return key2(fortId, ip); }
@@ -57,6 +60,16 @@ function exec(sql, args) {
           .sort((a, b) => (a.created_at || 0) - (b.created_at || 0))[0];
         return m ? { handle: m.handle } : null;
       }
+      if (S.startsWith('SELECT * FROM grants WHERE token_hash=?')) {
+        return db.grants.find(g => g.token_hash === args[0]) || null;
+      }
+      if (S.startsWith('SELECT COUNT(*) AS n FROM grants WHERE granted_by_fort=? AND used_at IS NULL')) {
+        return { n: db.grants.filter(g => g.granted_by_fort === args[0] && g.used_at == null).length };
+      }
+      if (S.startsWith('SELECT id FROM agreements WHERE fort_id=? AND handle=? AND rules_version=?')) {
+        const a = db.agreements.find(a => a.fort_id === args[0] && a.handle === args[1] && a.rules_version === args[2]);
+        return a ? { id: a.id } : null;
+      }
       throw new Error('first? ' + S);
     },
     async all() {
@@ -83,11 +96,25 @@ function exec(sql, args) {
             .sort((a, b) => (b.is_founder - a.is_founder) || a.handle.localeCompare(b.handle))
         };
       }
+      if (S.startsWith('SELECT id, note, created_at, used_at, used_by_fort FROM grants WHERE granted_by_fort=?')) {
+        return { results: db.grants.filter(g => g.granted_by_fort === args[0])
+          .map(g => ({ id: g.id, note: g.note, created_at: g.created_at, used_at: g.used_at, used_by_fort: g.used_by_fort }))
+          .sort((a, b) => b.id - a.id) };
+      }
       throw new Error('all? ' + S);
     },
     async run() {
       if (S.startsWith('INSERT INTO config')) {
         db.config = { id: 1, gen: 1, salt: args[0], fort_hash: args[1], founder_hash: args[2], fort_name: 'TREEFORT', dog_name: 'DALE' };
+        return { meta: {} };
+      }
+      if (S.startsWith('INSERT INTO forts (id, slug, display_name, dog_name, gen, salt, created_at, parent_fort, founded_by_grant, companion_kind)')) {
+        if (db.forts.has(args[0])) throw new Error('UNIQUE constraint failed: forts.slug');
+        db.forts.set(args[0], {
+          id: args[0], slug: args[1], display_name: args[2], dog_name: args[3],
+          gen: 1, salt: args[4], created_at: args[5], renamed_at: null,
+          parent_fort: args[6], founded_by_grant: args[7], companion_kind: args[8], frozen: 0
+        });
         return { meta: {} };
       }
       if (S.startsWith('INSERT INTO forts')) {
@@ -99,9 +126,40 @@ function exec(sql, args) {
           gen: 1,
           salt: args[4],
           created_at: args[5],
-          renamed_at: null
+          renamed_at: null,
+          parent_fort: null, founded_by_grant: null, companion_kind: 'dog', frozen: 0
         });
         return { meta: {} };
+      }
+      if (S.startsWith('INSERT INTO grants')) {
+        const g = { id: ++grantId, token_hash: args[0], granted_by_fort: args[1], granted_by_handle: args[2], note: args[3], created_at: args[4], used_at: null, used_by_fort: null };
+        db.grants.push(g);
+        return { meta: { last_row_id: g.id } };
+      }
+      if (S.startsWith('UPDATE grants SET used_at=?, used_by_fort=? WHERE id=? AND used_at IS NULL')) {
+        const g = db.grants.find(g => g.id === args[2] && g.used_at == null);
+        if (g) { g.used_at = args[0]; g.used_by_fort = args[1]; }
+        return { meta: { changes: g ? 1 : 0 } };
+      }
+      if (S.startsWith('UPDATE grants SET used_at=NULL')) {
+        const g = db.grants.find(g => g.id === args[0]);
+        if (g) { g.used_at = null; g.used_by_fort = null; }
+        return { meta: { changes: g ? 1 : 0 } };
+      }
+      if (S.startsWith('DELETE FROM grants WHERE id=? AND granted_by_fort=? AND used_at IS NULL')) {
+        const i = db.grants.findIndex(g => g.id === args[0] && g.granted_by_fort === args[1] && g.used_at == null);
+        if (i >= 0) db.grants.splice(i, 1);
+        return { meta: { changes: i >= 0 ? 1 : 0 } };
+      }
+      if (S.startsWith('INSERT INTO agreements')) {
+        const a = { id: ++agreementId, fort_id: args[0], handle: args[1], rules_version: args[2], agreed_at: args[3] };
+        db.agreements.push(a);
+        return { meta: { last_row_id: a.id } };
+      }
+      if (S.startsWith('INSERT INTO reports')) {
+        const rp = { id: ++reportId, fort_id: args[0], page: args[1], reason: args[2], contact: args[3], created_at: args[4], ip: args[5] };
+        db.reports.push(rp);
+        return { meta: { last_row_id: rp.id } };
       }
       if (S.startsWith('UPDATE forts SET')) {
         const id = args[args.length - 1];
@@ -235,7 +293,11 @@ const png = () => { const b = new Uint8Array(64); b.set([0x89, 0x50, 0x4E, 0x47,
 
 (async () => {
   let r = await call('/');
-  assert(r.status === 302 && r.location === 'https://treefort.lol/the_lookout/', 'root redirects to The Lookout');
+  assert(r.status === 200, 'root serves the grove, got ' + r.status);
+  r = await call('/plant');
+  assert(r.status === 200, 'the department of new forts is open');
+  r = await call('/rules');
+  assert(r.status === 200, 'the sign is readable without knocking');
 
   r = await call('/paint.html');
   assert(r.status === 301 && r.location === 'https://treefort.lol/the_lookout/paint.html',
@@ -489,5 +551,95 @@ const png = () => { const b = new Uint8Array(64); b.set([0x89, 0x50, 0x4E, 0x47,
   env.DB.prepare = realPrepare;
   console.log('graceful failure: OK');
 
-  console.log('\nTHE MULTI-FORT FOUNDATION WORKS. ALL ASSERTIONS PASSED.');
+  /* ================= PHASE 3: THE TREE GROWS ================= */
+
+  // saplings: founder mints, member cannot, nursery caps at 5
+  r = await call('/the_lookout/api/grants/mint', { method: 'POST', body: { note: 'for dylan' }, who: 'lookoutKushman2' });
+  assert(r.status === 403, 'members cannot mint saplings');
+  r = await call('/the_lookout/api/grants/mint', { method: 'POST', body: { note: 'for dylan' }, who: 'connor' });
+  assert(r.data.ok && /^SAPLING-[A-Z2-9]{4}-[A-Z2-9]{4}$/.test(r.data.token), 'founder mints a sapling: ' + (r.data.token || r.data.error));
+  const sapling1 = r.data.token;
+  for (let i = 0; i < 4; i++) { r = await call('/the_lookout/api/grants/mint', { method: 'POST', body: {}, who: 'connor' }); }
+  r = await call('/the_lookout/api/grants/mint', { method: 'POST', body: {}, who: 'connor' });
+  assert(r.status === 429 && /nursery/.test(r.data.error), 'nursery caps at 5 unused');
+  r = await call('/the_lookout/api/grants', { who: 'connor' });
+  assert(r.data.ok && r.data.grants.length === 5 && !JSON.stringify(r.data).includes('token'), 'grant list shows status, never tokens');
+  const compostId = r.data.grants[0].id;
+  r = await call('/the_lookout/api/grants/revoke', { method: 'POST', body: { id: compostId }, who: 'connor' });
+  assert(r.data.ok, 'composting works');
+  console.log('saplings: OK');
+
+  // founding: bad stick, name check, reserved, the ceremony itself
+  r = await call('/api/found', { method: 'POST', body: { token: 'SAPLING-WRONG-ONES', fort_name: 'North Fort', check: true }, ip: '9.9.9.1' });
+  assert(r.status === 403 && /stick/.test(r.data.error), 'a stick is not a sapling');
+  r = await call('/api/found', { method: 'POST', body: { token: sapling1, fort_name: 'The Lookout', check: true }, ip: '9.9.9.1' });
+  assert(r.status === 409 && r.data.taken && r.data.issued.slug === 'the_lookout_2', 'taken name offers the 2: ' + JSON.stringify(r.data.issued));
+  r = await call('/api/found', { method: 'POST', body: { token: sapling1, fort_name: 'Admin', check: true }, ip: '9.9.9.1' });
+  assert(r.status === 400 && r.data.reserved, 'reserved names are refused, never numbered');
+  r = await call('/api/found', { method: 'POST', body: { token: sapling1, fort_name: 'North Fort', check: true }, ip: '9.9.9.1' });
+  assert(r.data.ok && r.data.free && r.data.slug === 'north_fort', 'free name confirmed');
+  r = await call('/api/found', { method: 'POST', body: { token: sapling1, fort_name: 'North Fort', companion_kind: 'raccoon', companion_name: 'BANDIT', handle: 'DYLAN', code: 'DYLAN123', agree: true }, ip: '9.9.9.1' });
+  assert(r.status === 400 && /write-ins/.test(r.data.error), 'raccoon is not on the ballot');
+  r = await call('/api/found', { method: 'POST', body: { token: sapling1, fort_name: 'North Fort', companion_kind: 'moth', companion_name: 'LAMP', handle: 'DYLAN', code: 'DYLAN123' }, ip: '9.9.9.1' });
+  assert(r.status === 400 && /rules/.test(r.data.error), 'no founding without knocking the sign');
+  r = await call('/api/found', { method: 'POST', body: { token: sapling1, fort_name: 'North Fort', companion_kind: 'moth', companion_name: 'LAMP', handle: 'DYLAN', code: 'DYLAN123', agree: true }, ip: '9.9.9.1', who: 'dylan' });
+  assert(r.data.ok && r.data.slug === 'north_fort', 'the ceremony founds the fort: ' + JSON.stringify(r.data));
+  assert(cookies.dylan && cookies.dylan.path === '/north_fort', 'founder lands inside their new fort');
+  r = await call('/north_fort/api/state', { who: 'dylan' });
+  assert(r.data.ok && r.data.role === 'founder' && r.data.companion_kind === 'moth' && r.data.dog_name === 'LAMP' && r.data.agreed === true,
+    'new fort state: moth named LAMP, rules already knocked: ' + JSON.stringify(r.data));
+  r = await call('/api/found', { method: 'POST', body: { token: sapling1, fort_name: 'South Fort', companion_kind: 'cat', companion_name: 'DUKE', handle: 'DYLAN', code: 'DYLAN123', agree: true }, ip: '9.9.9.2' });
+  assert(r.status === 403 && /already grew/.test(r.data.error), 'one sapling, one fort, forever');
+  const lineage = db.grants.find(g => g.used_by_fort === 'north_fort');
+  assert(lineage && lineage.granted_by_fort === 'the_lookout' && db.forts.get('north_fort').parent_fort === 'the_lookout',
+    'the chain records who vouched');
+  console.log('founding: OK');
+
+  // the rules knock for pre-existing members
+  r = await call('/the_lookout/api/state', { who: 'connor' });
+  assert(r.data.agreed === false, 'old members have not knocked the new sign yet');
+  r = await call('/the_lookout/api/agree', { method: 'POST', who: 'connor' });
+  assert(r.data.ok, 'the sign accepts the knock');
+  r = await call('/the_lookout/api/state', { who: 'connor' });
+  assert(r.data.agreed === true, 'the logbook remembers');
+  console.log('the rules: OK');
+
+  // speak to the management: no session needed, rate limited, stored
+  r = await call('/api/report', { method: 'POST', body: { reason: 'a post on the wall worries me', fort: 'The Lookout', contact: 'a parent, 555-0100' }, ip: '8.8.8.8' });
+  assert(r.data.ok && /not the dog/.test(r.data.note), 'a stranger can speak to the management');
+  assert(db.reports.length === 1 && db.reports[0].fort_id === 'the_lookout', 'the report is on file');
+  await call('/api/report', { method: 'POST', body: { reason: 'two' }, ip: '8.8.8.8' });
+  await call('/api/report', { method: 'POST', body: { reason: 'three' }, ip: '8.8.8.8' });
+  r = await call('/api/report', { method: 'POST', body: { reason: 'four' }, ip: '8.8.8.8' });
+  assert(r.status === 429, 'the mailbox rate-limits per ip');
+  console.log('speak to the management: OK');
+
+  // the seal: freeze covers pages, api, AND media
+  db.forts.get('north_fort').frozen = 1;
+  r = await call('/north_fort/', { who: 'dylan', accept: 'text/html' });
+  assert(r.status === 403, 'sealed fort page is sealed');
+  r = await call('/north_fort/api/wall', { who: 'dylan' });
+  assert(r.status === 403 && r.data.sealed, 'sealed fort api is sealed');
+  r = await call('/north_fort/api/media/m/anything', { who: 'dylan' });
+  assert(r.status === 403, 'sealed fort media is sealed — no side doors');
+  db.forts.get('north_fort').frozen = 0;
+  r = await call('/north_fort/api/state', { who: 'dylan' });
+  assert(r.data.ok, 'unsealing restores everything untouched');
+  console.log('the seal: OK');
+
+  // kicked out of the tree: session dies, code dies, record survives, no re-add
+  r = await call('/the_lookout/api/knock', { method: 'POST', body: { code: 'NEWDAD01' }, ip: '5.5.5.5', who: 'kicked' });
+  assert(r.data.ok && r.data.name === 'KUSHMAN', 'kushman knocks in before the kicking');
+  db.members.get(memberKey('the_lookout', 'KUSHMAN')).revoked = 1;
+  r = await call('/the_lookout/api/state', { who: 'kicked' });
+  assert(r.status === 401, 'revoked = the session means nothing');
+  r = await call('/the_lookout/api/knock', { method: 'POST', body: { code: 'NEWDAD01' }, ip: '5.5.5.6' });
+  assert(r.status === 401, 'revoked = the code means nothing');
+  assert(db.members.get(memberKey('the_lookout', 'KUSHMAN')), 'the record survives the kicking');
+  r = await call('/the_lookout/api/members/add', { method: 'POST', body: { handle: 'KUSHMAN', code: 'SNEAKY99' }, who: 'connor' });
+  assert(r.status === 409 && /stays out/.test(r.data.error), 'a kicked name cannot be quietly re-added');
+  db.members.get(memberKey('the_lookout', 'KUSHMAN')).revoked = 0;
+  console.log('kicked out of the tree: OK');
+
+  console.log('\nTHE MULTI-FORT FOUNDATION WORKS. THE TREE GROWS. ALL ASSERTIONS PASSED.');
 })().catch(e => { console.error('FAIL:', e.message); process.exit(1); });

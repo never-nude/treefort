@@ -13,6 +13,21 @@ const IMG_MAX = 4 * 1024 * 1024;
 const GIF_MAX = 10 * 1024 * 1024;
 const PAGE_SIZE = 20;
 const DEFAULT_FORT_SLUG = 'the_lookout';
+const RULES_VERSION = 1;       // bump this when the sign changes; everyone re-knocks past it once
+const GRANTS_UNUSED_MAX = 5;   // saplings a fort may hold unplanted
+const COMPANION_KINDS = ['dog', 'cat', 'fern', 'pigeon', 'moth'];
+// names the tree keeps for itself. refused at founding — never numbered, never granted.
+const RESERVED_SLUGS = new Set([
+  'api', 'admin', 'administrator', 'login', 'logout', 'signin', 'signup', 'climb_down',
+  'grove', 'the_grove', 'plant', 'sapling', 'saplings', 'rules', 'rule', 'reports',
+  'm', 'media', 'assets', 'static', 'setup', 'seed', 'fort', 'forts', 'treefort', 'www',
+  'index', 'root', 'home', 'help', 'about', 'terms', 'tos', 'legal', 'privacy',
+  'paint', 'kitchen', 'gifmachine', 'handbook', 'door', 'wall', 'dict', 'dictionary',
+  'workshop', 'management', 'staff', 'mod', 'mods', 'dale', 'patricia',
+  'null', 'undefined'
+]);
+// sapling alphabet skips lookalikes (0/O, 1/I/L) and U — readable over a lunch table
+const SAPLING_ALPHABET = 'ABCDEFGHJKMNPQRSTVWXYZ23456789';
 const ROOM_ASSETS = new Map([
   ['/', '/index.html'],
   ['/index.html', '/index.html'],
@@ -74,7 +89,7 @@ async function readSession(env, request, fort) {
   if (parseInt(gen, 10) !== fort.gen) return null;   // the locks changed
   const name = decodeURIComponent(nameEnc);
   const member = await memberByHandle(env, fort.id, name);
-  if (!member) return null;
+  if (!member || member.revoked) return null;   // kicked out of the tree = the cookie means nothing
   return { fort_id: fort.id, fort_slug: fort.slug, role: member.is_founder ? 'founder' : 'member', name, gen: parseInt(gen, 10) };
 }
 function sessionCookie(token, fort) {
@@ -227,6 +242,73 @@ async function codeTakenByOther(env, fortId, h, handle) {
   return row && row.handle !== handle ? row.handle : null;
 }
 
+/* ---------------- saplings + founding ----------------
+   a sapling is a one-use founding code. the founder who mints it is vouching for
+   whoever plants it, and that lineage is permanent record — every fort traces
+   back through grants to a root. */
+function makeSaplingToken() {
+  const a = new Uint8Array(8);
+  crypto.getRandomValues(a);
+  const chars = [...a].map(b => SAPLING_ALPHABET[b % SAPLING_ALPHABET.length]);
+  return 'SAPLING-' + chars.slice(0, 4).join('') + '-' + chars.slice(4).join('');
+}
+function normalizeSapling(raw) {
+  if (typeof raw !== 'string') return null;
+  const t = raw.toUpperCase().replace(/[^A-Z0-9]/g, '');
+  return t.length >= 8 ? t : null;   // 'SAPLINGXXXXXXXX' or bare 'XXXXXXXX' both land here
+}
+async function saplingHash(env, raw) {
+  const t = normalizeSapling(raw);
+  if (!t) return null;
+  // tolerate the word SAPLING being typed or not — hash only the 8 meaningful chars
+  const core = t.startsWith('SAPLING') ? t.slice(7) : t;
+  if (core.length !== 8) return null;
+  return sha256hex(env.SESSION_SECRET + 'sapling:' + core);
+}
+
+/* fort display names: printable ASCII only (kills zero-width/bidi spoofing), 2-18 chars */
+function cleanFortName(raw) {
+  if (typeof raw !== 'string') return null;
+  const name = raw.replace(/[^\x20-\x7E]/g, '').replace(/\s+/g, ' ').trim().slice(0, 18).trim();
+  return name.length >= 2 ? name : null;
+}
+/* the registry: find what this name gets. free -> itself. taken -> lowest free "Name N". */
+async function registryCheck(env, wantedName) {
+  const name = cleanFortName(wantedName);
+  if (!name) return { bad: 'a fort needs a name. 2 to 18 characters. name it like it\'s going on a water tower.' };
+  const baseSlug = normalizeFortSlug(name);
+  if (!baseSlug || !/[a-z]/.test(baseSlug)) return { bad: 'that name is all punctuation. the water tower painters refuse.' };
+  if (RESERVED_SLUGS.has(baseSlug)) return { reserved: true };
+  if (!(await getFortBySlug(env, baseSlug))) return { free: true, name, slug: baseSlug };
+  for (let n = 2; n <= 50; n++) {
+    const slug = `${baseSlug}_${n}`;
+    if (RESERVED_SLUGS.has(slug)) continue;
+    if (!(await getFortBySlug(env, slug))) {
+      return { taken: true, issued: { name: `${name} ${n}`, slug } };
+    }
+  }
+  return { bad: 'the registry ran out of numbers. that name is TOO popular. pick another.' };
+}
+
+/* the management's smoke signals: operator-only email, never kids. fails silently —
+   the fort must never break because the post office is closed. */
+async function tellTheManagement(env, subject, text) {
+  try {
+    if (!env.MAIL || !env.MANAGEMENT_EMAIL) return;
+    const { EmailMessage } = await import('cloudflare:email');
+    const from = 'management@treefort.lol';
+    const raw = [
+      `From: the management <${from}>`, `To: <${env.MANAGEMENT_EMAIL}>`,
+      `Subject: ${subject.replace(/[\r\n]/g, ' ').slice(0, 120)}`,
+      'Content-Type: text/plain; charset=utf-8', '',
+      text.replace(/\r/g, '').slice(0, 2000)
+    ].join('\r\n');
+    await env.MAIL.send(new EmailMessage(from, env.MANAGEMENT_EMAIL, raw));
+  } catch (e) {
+    console.error('smoke signal failed:', e.message);
+  }
+}
+
 /* magic bytes: the only art criticism the fort performs */
 function sniffImage(buf) {
   const b = new Uint8Array(buf.slice(0, 12));
@@ -288,10 +370,11 @@ async function handleKnock(env, request, fort, ip) {
   if (!code) return nope('a knock is one code. that is the whole form.');
 
   // the code alone decides who you are. no name is typed, so no name can be faked.
+  // a revoked member's code is just a wrong code now — the door does not explain itself.
   const h = await hashCode(fort.salt, code);
   const member = await memberByHash(env, fort.id, h);
 
-  if (!member) {
+  if (!member || member.revoked) {
     // wrong knock: count the miss, and never reveal whether any handle exists.
     if (!fail || t - fail.window_start >= KNOCK_WINDOW) {
       await env.DB.prepare(
@@ -313,9 +396,14 @@ async function handleKnock(env, request, fort, ip) {
     'ON CONFLICT(fort_id, name) DO UPDATE SET last_seen=?, knocks=knocks+1'
   ).bind(fort.id, name, t, t, t).run();
 
+  const agreed = await env.DB.prepare(
+    'SELECT id FROM agreements WHERE fort_id=? AND handle=? AND rules_version=?'
+  ).bind(fort.id, name, RULES_VERSION).first();
+
   const token = await makeSession(env, fort, role, name);
   return withLegacyCookieClear(json(
-    { ok: true, role, name, fort_name: fort.display_name, fort_slug: fort.slug, dog_name: fort.dog_name },
+    { ok: true, role, name, fort_name: fort.display_name, fort_slug: fort.slug, dog_name: fort.dog_name,
+      companion_kind: fort.companion_kind || 'dog', agreed: !!agreed },
     200,
     { 'Set-Cookie': sessionCookie(token, fort) }
   ));
@@ -501,7 +589,9 @@ async function handleMemberAdd(env, request, fort, session) {
   const code = cleanCode(body.code);
   if (!handle) return nope('a member needs a handle. letters and numbers.');
   if (code.length < 4) return nope('their starter code needs 4+ characters.');
-  if (await memberByHandle(env, fort.id, handle)) return nope('someone already goes by ' + handle + '. handles are one to a customer.');
+  const existing = await memberByHandle(env, fort.id, handle);
+  if (existing && existing.revoked) return nope('that name was kicked out of the tree. it stays out. (the management can undo this, but you are not the management.)', 409);
+  if (existing) return nope('someone already goes by ' + handle + '. handles are one to a customer.');
   const h = await hashCode(fort.salt, code);
   if (await codeTakenByOther(env, fort.id, h, handle)) return nope('that code already belongs to someone. pick another.');
   await env.DB.prepare('INSERT INTO members (fort_id, handle, code_hash, is_founder, created_at) VALUES (?, ?, ?, 0, ?)').bind(fort.id, handle, h, now()).run();
@@ -642,6 +732,172 @@ async function handleAsset(env, request, fort, path) {
   return withHtmlHeaders(res);
 }
 
+/* ---------------- saplings (founder powers) ---------------- */
+
+async function handleGrantMint(env, request, fort, session) {
+  if (session.role !== 'founder') return nope('saplings grow for founders only.', 403);
+  if (rateLimited('mint:' + fort.id, 10, 3600)) return nope('the nursery needs an hour.', 429);
+  const unused = await env.DB.prepare(
+    'SELECT COUNT(*) AS n FROM grants WHERE granted_by_fort=? AND used_at IS NULL'
+  ).bind(fort.id).first();
+  if (unused && unused.n >= GRANTS_UNUSED_MAX) {
+    return nope('the nursery is full. plant one first, or compost one.', 429);
+  }
+  const body = await readJson(request);
+  const note = cleanText(body && body.note, 60);
+  const token = makeSaplingToken();
+  const h = await saplingHash(env, token);
+  await env.DB.prepare(
+    'INSERT INTO grants (token_hash, granted_by_fort, granted_by_handle, note, created_at) VALUES (?, ?, ?, ?, ?)'
+  ).bind(h, fort.id, session.name, note || null, now()).run();
+  // the token appears exactly once, right here. it is stored nowhere in this form.
+  return json({ ok: true, token, note: 'one sapling. say it to exactly one person. lost saplings can\'t be found — compost and grow another.' });
+}
+
+async function handleGrantList(env, fort, session) {
+  if (session.role !== 'founder') return nope('the nursery ledger is founder business.', 403);
+  const rows = (await env.DB.prepare(
+    'SELECT id, note, created_at, used_at, used_by_fort FROM grants WHERE granted_by_fort=? ORDER BY id DESC'
+  ).bind(fort.id).all()).results || [];
+  return json({ ok: true, grants: rows });
+}
+
+async function handleGrantRevoke(env, request, fort, session) {
+  if (session.role !== 'founder') return nope('composting is founder business.', 403);
+  const body = await readJson(request);
+  const id = parseInt(body && body.id, 10);
+  if (!id) return nope('which sapling?');
+  const r = await env.DB.prepare(
+    'DELETE FROM grants WHERE id=? AND granted_by_fort=? AND used_at IS NULL'
+  ).bind(id, fort.id).run();
+  if (!r.meta || !r.meta.changes) return nope('that sapling is already a fort, or never was yours.', 409);
+  return json({ ok: true, note: 'composted. the nursery has room again.' });
+}
+
+/* ---------------- the department of new forts ---------------- */
+
+async function handleFound(env, request, ip) {
+  if (rateLimited('found:' + ip, 10, 600)) return nope('the department is at lunch. ten minutes.', 429);
+  const body = await readJson(request);
+  if (!body) return nope('json required');
+
+  // the sapling first — nothing else is discussable without one
+  const h = await saplingHash(env, body.token);
+  if (!h) return nope('that is not a sapling. that is a stick. try again.', 403);
+  const grant = await env.DB.prepare('SELECT * FROM grants WHERE token_hash=?').bind(h).first();
+  if (!grant) return nope('that is not a sapling. that is a stick. try again.', 403);
+  if (grant.used_at) return nope('that sapling already grew a fort. saplings only do it once.', 403);
+
+  // the registry
+  const reg = await registryCheck(env, body.fort_name);
+  if (reg.bad) return nope(reg.bad);
+  if (reg.reserved) return json({ ok: false, reserved: true, error: 'that name belongs to the tree. pick another.' }, 400);
+  if (reg.taken && body.check) {
+    const existing = await getFortBySlug(env, normalizeFortSlug(cleanFortName(body.fort_name)));
+    const when = existing ? new Date(existing.created_at * 1000).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }).toLowerCase() : 'a while ago';
+    return json({ ok: false, taken: true, issued: reg.issued,
+      error: `${cleanFortName(body.fort_name).toUpperCase()} already exists. founded ${when} by someone faster.` }, 409);
+  }
+  if (body.check) return json({ ok: true, free: true, name: reg.name, slug: reg.slug });
+  if (reg.taken) {
+    // full submit raced into a collision — hand back the offer instead of failing
+    return json({ ok: false, taken: true, issued: reg.issued, error: 'somebody just took that name. the registry offers you a number.' }, 409);
+  }
+
+  // the rest of FORM 1
+  const kind = COMPANION_KINDS.includes(body.companion_kind) ? body.companion_kind : null;
+  if (!kind) return nope('the fort requires staff. one of the five applicants. no write-ins.');
+  const companionName = cleanName(String(body.companion_name || '').slice(0, 10));
+  if (!companionName) return nope('the staff needs a name. it goes on the paperwork.');
+  const handle = cleanName(body.handle);
+  const code = cleanCode(body.code);
+  if (!handle) return nope('the founder needs a handle. letters and numbers.');
+  if (code.length < 4) return nope('your knock needs 4+ characters. the raccoons insist.');
+  if (body.agree !== true) return nope('the rules are the door. knock the sign.');
+
+  // consume the sapling FIRST, conditionally — one sapling can never grow two forts
+  const consumed = await env.DB.prepare(
+    'UPDATE grants SET used_at=?, used_by_fort=? WHERE id=? AND used_at IS NULL'
+  ).bind(now(), reg.slug, grant.id).run();
+  if (!consumed.meta || !consumed.meta.changes) {
+    return nope('that sapling already grew a fort. saplings only do it once.', 403);
+  }
+
+  const salt = await randomSalt();
+  const t = now();
+  try {
+    await env.DB.prepare(
+      'INSERT INTO forts (id, slug, display_name, dog_name, gen, salt, created_at, parent_fort, founded_by_grant, companion_kind) VALUES (?, ?, ?, ?, 1, ?, ?, ?, ?, ?)'
+    ).bind(reg.slug, reg.slug, reg.name, companionName, salt, t, grant.granted_by_fort, grant.id, kind).run();
+  } catch (e) {
+    // lost a naming race at the last instant — give the sapling back and re-offer
+    await env.DB.prepare('UPDATE grants SET used_at=NULL, used_by_fort=NULL WHERE id=?').bind(grant.id).run();
+    const reg2 = await registryCheck(env, body.fort_name);
+    return json({ ok: false, taken: true, issued: reg2.issued || null,
+      error: 'somebody just took that name. the registry offers you a number.' }, 409);
+  }
+  await env.DB.prepare(
+    'INSERT INTO members (fort_id, handle, code_hash, is_founder, created_at) VALUES (?, ?, ?, 1, ?)'
+  ).bind(reg.slug, handle, await hashCode(salt, code), t).run();
+  await env.DB.prepare(
+    'INSERT INTO agreements (fort_id, handle, rules_version, agreed_at) VALUES (?, ?, ?, ?)'
+  ).bind(reg.slug, handle, RULES_VERSION, t).run();
+
+  await tellTheManagement(env, `new fort: ${reg.name}`,
+    `fort: ${reg.name} (/${reg.slug}/)\nfounder handle: ${handle}\nvouched by: ${grant.granted_by_handle} of ${grant.granted_by_fort}\nsapling note: ${grant.note || '(none)'}`);
+
+  const fort = await getFortBySlug(env, reg.slug);
+  const token = await makeSession(env, fort, 'founder', handle);
+  return withLegacyCookieClear(json(
+    { ok: true, slug: reg.slug, fort_name: reg.name, note: 'FOUNDED. the paperwork is framed. the fort is yours.' },
+    200, { 'Set-Cookie': sessionCookie(token, fort) }
+  ));
+}
+
+/* ---------------- speak to the management ---------------- */
+
+async function handleReport(env, request, ip) {
+  if (rateLimited('report:' + ip, 3, 3600)) {
+    return nope('the management has your earlier notes. it reads at dog speed. try again in an hour.', 429);
+  }
+  const body = await readJson(request);
+  if (!body) return nope('json required');
+  const reason = cleanText(body.reason, 1000);
+  if (!reason) return nope('the management needs to know what is wrong. one sentence will do.');
+  const fortSlug = normalizeFortSlug(String(body.fort || '')) || null;
+  const page = cleanText(body.page, 120) || null;
+  const contact = cleanText(body.contact, 120) || null;
+  await env.DB.prepare(
+    'INSERT INTO reports (fort_id, page, reason, contact, created_at, ip) VALUES (?, ?, ?, ?, ?, ?)'
+  ).bind(fortSlug, page, reason, contact, now(), ip).run();
+  await tellTheManagement(env, 'someone spoke to the management',
+    `fort: ${fortSlug || '(not named)'}\npage: ${page || '(not named)'}\nsays: ${reason}\nreach them: ${contact || '(no contact left)'}`);
+  return json({ ok: true, note: 'the management has been notified. the management is, in this case, not the dog.' });
+}
+
+/* the rules knock, for members who joined before the sign went up (or after it changed) */
+async function handleAgree(env, request, fort, session) {
+  const existing = await env.DB.prepare(
+    'SELECT id FROM agreements WHERE fort_id=? AND handle=? AND rules_version=?'
+  ).bind(fort.id, session.name, RULES_VERSION).first();
+  if (!existing) {
+    await env.DB.prepare(
+      'INSERT INTO agreements (fort_id, handle, rules_version, agreed_at) VALUES (?, ?, ?, ?)'
+    ).bind(fort.id, session.name, RULES_VERSION, now()).run();
+  }
+  return json({ ok: true, note: 'heard you. door\'s open.' });
+}
+
+/* every URL in a sealed fort gets one sentence. firm, not scary, nothing deleted. */
+function sealedResponse(request) {
+  const msg = 'this fort is sealed pending a raccoon council review. nothing is lost. the management will speak when it speaks.';
+  if (!wantsHtml(request)) return json({ ok: false, sealed: true, error: msg }, 403);
+  return new Response(`<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>sealed</title>
+<style>body{background:#141009;color:#c9bda3;font:16px/1.9 ui-monospace,Menlo,monospace;display:grid;place-items:center;min-height:100vh;margin:0;text-align:center;padding:20px}a{color:#9ee493}</style></head>
+<body><div><p>${msg}</p><p><a href="/">back down the tree</a></p></div></body></html>`,
+    { status: 403, headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', ...HTML_SECURITY_HEADERS } });
+}
+
 /* ---------------- router ---------------- */
 
 /* legacy root URLs from the single-fort era. bookmarks and muscle memory
@@ -659,9 +915,20 @@ async function routeRequest(request, env) {
   const ip = request.headers.get('CF-Connecting-IP') || '0.0.0.0';
   const method = request.method;
 
+  // the grove: the front of the tree. denies everything, remembers your ladders.
   if (path === '/') {
-    url.pathname = `/${DEFAULT_FORT_SLUG}/`;
-    return Response.redirect(url.toString(), 302);
+    return withHtmlHeaders(await env.ASSETS.fetch(assetRequest(request, '/grove.html')));
+  }
+  // the department of new forts, and the sign anyone may read
+  if (path === '/plant' || path === '/plant.html') {
+    return withHtmlHeaders(await env.ASSETS.fetch(assetRequest(request, '/plant.html')));
+  }
+  if (path === '/rules' || path === '/rules.html') {
+    return withHtmlHeaders(await env.ASSETS.fetch(assetRequest(request, '/rules.html')));
+  }
+  if (path === '/grove.html') {
+    url.pathname = '/';
+    return Response.redirect(url.toString(), 301);
   }
   if (path === '/robots.txt') {
     // the fort does not want visitors it didn't invite. this includes robots.
@@ -686,6 +953,9 @@ async function routeRequest(request, env) {
     if (path === '/api/seed') return handleSeed(env, request);
     return handleFortCreate(env, request);
   }
+  // the two global doors: founding a fort (sapling required) and the management's mailbox
+  if (path === '/api/found' && method === 'POST') return handleFound(env, request, ip);
+  if (path === '/api/report' && method === 'POST') return handleReport(env, request, ip);
 
   const fortCtx = await requireFortFromRequest(env, request);
   if (!fortCtx) return fortNotFound(request);
@@ -694,6 +964,9 @@ async function routeRequest(request, env) {
   }
   const fort = fortCtx.fort;
   const route = fortCtx.restPath;
+
+    // the seal comes before EVERYTHING — pages, api, media. no side doors.
+    if (fort.frozen) return sealedResponse(request);
 
     if (!route.startsWith('/api/')) {
       return handleAsset(env, request, fort, route);
@@ -711,9 +984,14 @@ async function routeRequest(request, env) {
       const founder = await env.DB.prepare(
         'SELECT handle FROM members WHERE fort_id=? AND is_founder=1 ORDER BY created_at ASC LIMIT 1'
       ).bind(fort.id).first();
+      const agreed = await env.DB.prepare(
+        'SELECT id FROM agreements WHERE fort_id=? AND handle=? AND rules_version=?'
+      ).bind(fort.id, session.name, RULES_VERSION).first();
       return json({ ok: true, name: session.name, role: session.role,
         fort_name: fort.display_name, fort_slug: fort.slug, dog_name: fort.dog_name,
-        founder_name: founder ? founder.handle : null });
+        companion_kind: fort.companion_kind || 'dog',
+        founder_name: founder ? founder.handle : null,
+        rules_version: RULES_VERSION, agreed: !!agreed });
     }
     if (route === '/api/wall' && method === 'GET') return handleWall(env, request, fort, session);
     if (route === '/api/post' && method === 'POST') return handlePost(env, request, fort, session);
@@ -725,6 +1003,10 @@ async function routeRequest(request, env) {
     if (route === '/api/dict' && method === 'POST') return handleDictAdd(env, request, fort, session);
     if (route === '/api/dict/status' && method === 'POST') return handleDictStatus(env, request, fort, session);
     if (route === '/api/mycode' && method === 'POST') return handleMyCode(env, request, fort, session);
+    if (route === '/api/agree' && method === 'POST') return handleAgree(env, request, fort, session);
+    if (route === '/api/grants' && method === 'GET') return handleGrantList(env, fort, session);
+    if (route === '/api/grants/mint' && method === 'POST') return handleGrantMint(env, request, fort, session);
+    if (route === '/api/grants/revoke' && method === 'POST') return handleGrantRevoke(env, request, fort, session);
     if (route === '/api/members' && method === 'GET') return handleMembers(env, fort, session);
     if (route === '/api/members/add' && method === 'POST') return handleMemberAdd(env, request, fort, session);
     if (route === '/api/members/reset' && method === 'POST') return handleMemberReset(env, request, fort, session);

@@ -34,3 +34,15 @@ bucket_name = "fort-media"
 
 # secrets (set via `wrangler secret put`, never committed):
 #   SESSION_SECRET — long random string, signs session cookies
+
+# the management's smoke signals (OPTIONAL — reports/foundings email the operator,
+# never kids). To enable: set up Email Routing on treefort.lol in the Cloudflare
+# dashboard, verify the destination address, then uncomment BOTH blocks and deploy.
+# Without them the fort just logs reports to D1 and stays quiet — nothing breaks.
+#
+# [[send_email]]
+# name = "MAIL"
+# destination_address = "michael.kushman@gmail.com"
+#
+# [vars]
+# MANAGEMENT_EMAIL = "michael.kushman@gmail.com"
