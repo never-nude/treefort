@@ -1134,7 +1134,9 @@ async function loadSaplings() {
   if (!(r.data && r.data.ok)) return;
   $('sapbox').innerHTML = r.data.grants.map(g => g.used_at
     ? esc(g.note || 'unlabeled') + ' &middot; grew into <b>' + esc(g.used_by_fort || '?') + '</b>'
-    : esc(g.note || 'unlabeled') + ' &middot; still a sapling <button class="minibtn sapcompost" data-id="' + g.id + '">compost</button>'
+    : g.composted_at
+      ? esc(g.note || 'unlabeled') + ' &middot; compost'
+      : esc(g.note || 'unlabeled') + ' &middot; still a sapling <button class="minibtn sapcompost" data-id="' + g.id + '">compost</button>'
   ).join('<br>') || 'the nursery is empty.';
 }
 $('sapgrow').addEventListener('click', async () => {
@@ -1151,7 +1153,9 @@ $('sapgrow').addEventListener('click', async () => {
   const r2 = await api('grants');
   if (r2.data && r2.data.ok) ledger.innerHTML = r2.data.grants.map(g => g.used_at
     ? esc(g.note || 'unlabeled') + ' &middot; grew into <b>' + esc(g.used_by_fort || '?') + '</b>'
-    : esc(g.note || 'unlabeled') + ' &middot; still a sapling <button class="minibtn sapcompost" data-id="' + g.id + '">compost</button>'
+    : g.composted_at
+      ? esc(g.note || 'unlabeled') + ' &middot; compost'
+      : esc(g.note || 'unlabeled') + ' &middot; still a sapling <button class="minibtn sapcompost" data-id="' + g.id + '">compost</button>'
   ).join('<br>');
 });
 $('sapbox').addEventListener('click', async e => {

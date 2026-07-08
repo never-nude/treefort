@@ -113,6 +113,7 @@ CREATE TABLE IF NOT EXISTS grants (
   created_at INTEGER NOT NULL,
   used_at INTEGER,
   used_by_fort TEXT,
+  composted_at INTEGER,                    -- dead but dated; the daily clock still counts it
   FOREIGN KEY (granted_by_fort) REFERENCES forts(id)
 );
 

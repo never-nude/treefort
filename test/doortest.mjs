@@ -63,8 +63,8 @@ function exec(sql, args) {
       if (S.startsWith('SELECT * FROM grants WHERE token_hash=?')) {
         return db.grants.find(g => g.token_hash === args[0]) || null;
       }
-      if (S.startsWith('SELECT COUNT(*) AS n FROM grants WHERE granted_by_fort=? AND used_at IS NULL')) {
-        return { n: db.grants.filter(g => g.granted_by_fort === args[0] && g.used_at == null).length };
+      if (S.startsWith('SELECT COUNT(*) AS n FROM grants WHERE granted_by_fort=? AND used_at IS NULL AND composted_at IS NULL')) {
+        return { n: db.grants.filter(g => g.granted_by_fort === args[0] && g.used_at == null && g.composted_at == null).length };
       }
       if (S.startsWith('SELECT MAX(created_at) AS t FROM grants WHERE granted_by_fort=?')) {
         const ts = db.grants.filter(g => g.granted_by_fort === args[0]).map(g => g.created_at);
@@ -100,9 +100,9 @@ function exec(sql, args) {
             .sort((a, b) => (b.is_founder - a.is_founder) || a.handle.localeCompare(b.handle))
         };
       }
-      if (S.startsWith('SELECT id, note, created_at, used_at, used_by_fort FROM grants WHERE granted_by_fort=?')) {
+      if (S.startsWith('SELECT id, note, created_at, used_at, used_by_fort, composted_at FROM grants WHERE granted_by_fort=?')) {
         return { results: db.grants.filter(g => g.granted_by_fort === args[0])
-          .map(g => ({ id: g.id, note: g.note, created_at: g.created_at, used_at: g.used_at, used_by_fort: g.used_by_fort }))
+          .map(g => ({ id: g.id, note: g.note, created_at: g.created_at, used_at: g.used_at, used_by_fort: g.used_by_fort, composted_at: g.composted_at }))
           .sort((a, b) => b.id - a.id) };
       }
       throw new Error('all? ' + S);
@@ -136,12 +136,12 @@ function exec(sql, args) {
         return { meta: {} };
       }
       if (S.startsWith('INSERT INTO grants')) {
-        const g = { id: ++grantId, token_hash: args[0], granted_by_fort: args[1], granted_by_handle: args[2], note: args[3], created_at: args[4], used_at: null, used_by_fort: null };
+        const g = { id: ++grantId, token_hash: args[0], granted_by_fort: args[1], granted_by_handle: args[2], note: args[3], created_at: args[4], used_at: null, used_by_fort: null, composted_at: null };
         db.grants.push(g);
         return { meta: { last_row_id: g.id } };
       }
-      if (S.startsWith('UPDATE grants SET used_at=?, used_by_fort=? WHERE id=? AND used_at IS NULL')) {
-        const g = db.grants.find(g => g.id === args[2] && g.used_at == null);
+      if (S.startsWith('UPDATE grants SET used_at=?, used_by_fort=? WHERE id=? AND used_at IS NULL AND composted_at IS NULL')) {
+        const g = db.grants.find(g => g.id === args[2] && g.used_at == null && g.composted_at == null);
         if (g) { g.used_at = args[0]; g.used_by_fort = args[1]; }
         return { meta: { changes: g ? 1 : 0 } };
       }
@@ -150,10 +150,10 @@ function exec(sql, args) {
         if (g) { g.used_at = null; g.used_by_fort = null; }
         return { meta: { changes: g ? 1 : 0 } };
       }
-      if (S.startsWith('DELETE FROM grants WHERE id=? AND granted_by_fort=? AND used_at IS NULL')) {
-        const i = db.grants.findIndex(g => g.id === args[0] && g.granted_by_fort === args[1] && g.used_at == null);
-        if (i >= 0) db.grants.splice(i, 1);
-        return { meta: { changes: i >= 0 ? 1 : 0 } };
+      if (S.startsWith('UPDATE grants SET composted_at=? WHERE id=? AND granted_by_fort=? AND used_at IS NULL AND composted_at IS NULL')) {
+        const g = db.grants.find(g => g.id === args[1] && g.granted_by_fort === args[2] && g.used_at == null && g.composted_at == null);
+        if (g) g.composted_at = args[0];
+        return { meta: { changes: g ? 1 : 0 } };
       }
       if (S.startsWith('INSERT INTO agreements')) {
         const a = { id: ++agreementId, fort_id: args[0], handle: args[1], rules_version: args[2], agreed_at: args[3] };
@@ -630,6 +630,20 @@ const png = () => { const b = new Uint8Array(64); b.set([0x89, 0x50, 0x4E, 0x47,
   const compostId = r.data.grants[0].id;
   r = await call('/the_lookout/api/grants/revoke', { method: 'POST', body: { id: compostId }, who: 'connor' });
   assert(r.data.ok, 'composting works');
+  // compost frees nursery SPACE, never time: a composted sapling still anchors the day
+  r = await call('/the_lookout/api/grants/mint', { method: 'POST', body: { note: 'churn attempt' }, who: 'connor' });
+  assert(r.data.ok, 'mint allowed after compost freed space (soil is backdated): ' + (r.data.error || 'ok'));
+  const churnToken = r.data.token;
+  r = await call('/the_lookout/api/grants', { who: 'connor' });
+  const churnId = r.data.grants[0].id;
+  r = await call('/the_lookout/api/grants/revoke', { method: 'POST', body: { id: churnId }, who: 'connor' });
+  assert(r.data.ok, 'compost the fresh one');
+  r = await call('/the_lookout/api/grants/mint', { method: 'POST', body: { note: 'the churn' }, who: 'connor' });
+  assert(r.status === 429 && /one sapling a day/.test(r.data.error), 'mint-compost-mint does NOT free the day — the soil keeps the receipt');
+  r = await call('/api/found', { method: 'POST', body: { token: churnToken, fort_name: 'Churn Fort', check: true }, ip: '9.9.9.5' });
+  assert(r.status === 403 && /compost/.test(r.data.error), 'a composted token cannot found anything');
+  r = await call('/the_lookout/api/grants', { who: 'connor' });
+  assert(r.data.grants.some(g => g.composted_at), 'the ledger shows the compost');
   console.log('saplings: OK');
 
   // founding: bad stick, name check, reserved, the ceremony itself

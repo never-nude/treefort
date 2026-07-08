@@ -796,14 +796,14 @@ async function handleAsset(env, request, fort, path) {
 async function handleGrantMint(env, request, fort, session) {
   if (session.role !== 'founder') return nope('saplings grow for founders only.', 403);
   const unused = await env.DB.prepare(
-    'SELECT COUNT(*) AS n FROM grants WHERE granted_by_fort=? AND used_at IS NULL'
+    'SELECT COUNT(*) AS n FROM grants WHERE granted_by_fort=? AND used_at IS NULL AND composted_at IS NULL'
   ).bind(fort.id).first();
   if (unused && unused.n >= GRANTS_UNUSED_MAX) {
     return nope('the nursery is full. plant one first, or compost one.', 429);
   }
   // saplings grow at sapling speed: one per fort per day, counted from the last
-  // one grown (planted or not). composting frees the day again — but it also
-  // kills the composted token, so churning never yields extra live saplings.
+  // one grown — planted, composted, or still waiting. the soil keeps every
+  // receipt, so no amount of mint-compost churn hurries it.
   const last = await env.DB.prepare(
     'SELECT MAX(created_at) AS t FROM grants WHERE granted_by_fort=?'
   ).bind(fort.id).first();
@@ -825,7 +825,7 @@ async function handleGrantMint(env, request, fort, session) {
 async function handleGrantList(env, fort, session) {
   if (session.role !== 'founder') return nope('the nursery ledger is founder business.', 403);
   const rows = (await env.DB.prepare(
-    'SELECT id, note, created_at, used_at, used_by_fort FROM grants WHERE granted_by_fort=? ORDER BY id DESC'
+    'SELECT id, note, created_at, used_at, used_by_fort, composted_at FROM grants WHERE granted_by_fort=? ORDER BY id DESC'
   ).bind(fort.id).all()).results || [];
   return json({ ok: true, grants: rows });
 }
@@ -835,11 +835,13 @@ async function handleGrantRevoke(env, request, fort, session) {
   const body = await readJson(request);
   const id = parseInt(body && body.id, 10);
   if (!id) return nope('which sapling?');
+  // composting kills the sapling but keeps its date in the ledger — nursery
+  // SPACE frees up, the one-a-day clock does not. no mint-compost-mint games.
   const r = await env.DB.prepare(
-    'DELETE FROM grants WHERE id=? AND granted_by_fort=? AND used_at IS NULL'
-  ).bind(id, fort.id).run();
-  if (!r.meta || !r.meta.changes) return nope('that sapling is already a fort, or never was yours.', 409);
-  return json({ ok: true, note: 'composted. the nursery has room again.' });
+    'UPDATE grants SET composted_at=? WHERE id=? AND granted_by_fort=? AND used_at IS NULL AND composted_at IS NULL'
+  ).bind(now(), id, fort.id).run();
+  if (!r.meta || !r.meta.changes) return nope('that sapling is already a fort, already compost, or never was yours.', 409);
+  return json({ ok: true, note: 'composted. the nursery has room again. the soil keeps the receipt.' });
 }
 
 /* ---------------- the department of new forts ---------------- */
@@ -855,6 +857,7 @@ async function handleFound(env, request, ip) {
   const grant = await env.DB.prepare('SELECT * FROM grants WHERE token_hash=?').bind(h).first();
   if (!grant) return nope('that is not a sapling. that is a stick. try again.', 403);
   if (grant.used_at) return nope('that sapling already grew a fort. saplings only do it once.', 403);
+  if (grant.composted_at) return nope('that sapling went to compost. ask for a fresh one.', 403);
 
   // the registry
   const reg = await registryCheck(env, body.fort_name);
@@ -885,7 +888,7 @@ async function handleFound(env, request, ip) {
 
   // consume the sapling FIRST, conditionally — one sapling can never grow two forts
   const consumed = await env.DB.prepare(
-    'UPDATE grants SET used_at=?, used_by_fort=? WHERE id=? AND used_at IS NULL'
+    'UPDATE grants SET used_at=?, used_by_fort=? WHERE id=? AND used_at IS NULL AND composted_at IS NULL'
   ).bind(now(), reg.slug, grant.id).run();
   if (!consumed.meta || !consumed.meta.changes) {
     return nope('that sapling already grew a fort. saplings only do it once.', 403);

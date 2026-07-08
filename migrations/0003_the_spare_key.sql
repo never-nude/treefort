@@ -16,3 +16,7 @@ ALTER TABLE members ADD COLUMN spare_issued_at INTEGER;      -- NULL = the fort 
 -- when a knock changes (self-change or spare use), every session issued before
 -- that moment dies — a thief's stolen session does not outlive the re-keying.
 ALTER TABLE members ADD COLUMN code_changed_at INTEGER;
+
+-- composted saplings stay in the ledger, dead but dated: the one-a-day clock
+-- counts every sapling ever grown, so composting frees nursery SPACE, never time.
+ALTER TABLE grants ADD COLUMN composted_at INTEGER;
