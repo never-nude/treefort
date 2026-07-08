@@ -1181,25 +1181,30 @@ $('rosterbtn').addEventListener('click', async () => {
     esc(v.name) + ' &middot; first knocked ' + fortTime(v.first_seen) + ' &middot; last seen ' + fortTime(v.last_seen) + ' &middot; ' + v.knocks + ' knocks'
   ).join('<br>') || 'nobody yet. eerie.';
 });
+/* dress the fort to match STATE — sign, staff, footer, paperwork, overlays.
+   runs after EVERY way in: a fresh knock, a restored session, a spare key. */
+function applyState() {
+  document.querySelector('#sign h1').textContent = STATE.fort_name;
+  document.title = STATE.fort_name.toLowerCase() + '.lol';
+  const staff = myStaff();
+  $('feedbtn').textContent = staff.snack(STATE.dog_name);
+  $('doglabel').textContent = STATE.dog_name;
+  $('staffname').textContent = STATE.dog_name;
+  $('staffkind').textContent = STATE.companion_kind || 'dog';
+  $('mgmtline').textContent = staff.mgmt;
+  if (STATE.founder_name) $('founderline').textContent = STATE.founder_name;
+  $('cfg_fort_carved').textContent = STATE.fort_name;
+  $('cfg_staff_carved').textContent = STATE.dog_name + ' (' + (STATE.companion_kind || 'dog') + ')';
+  if (STATE.role === 'founder') { $('founderpanel').classList.add('show'); loadSaplings(); }
+  syncFounderRooms();
+  plantLadder();
+  maybeShowRules();
+}
 async function refreshState() {
   const r = await api('state');
   if (r.data && r.data.ok) {
     STATE = r.data;
-    document.querySelector('#sign h1').textContent = STATE.fort_name;
-    document.title = STATE.fort_name.toLowerCase() + '.lol';
-    const staff = myStaff();
-    $('feedbtn').textContent = staff.snack(STATE.dog_name);
-    $('doglabel').textContent = STATE.dog_name;
-    $('staffname').textContent = STATE.dog_name;
-    $('staffkind').textContent = STATE.companion_kind || 'dog';
-    $('mgmtline').textContent = staff.mgmt;
-    if (STATE.founder_name) $('founderline').textContent = STATE.founder_name;
-    $('cfg_fort_carved').textContent = STATE.fort_name;
-    $('cfg_staff_carved').textContent = STATE.dog_name + ' (' + (STATE.companion_kind || 'dog') + ')';
-    if (STATE.role === 'founder') { $('founderpanel').classList.add('show'); loadSaplings(); }
-    syncFounderRooms();
-    plantLadder();
-    maybeShowRules();
+    applyState();
   }
 }
 
@@ -1495,6 +1500,7 @@ async function runDoor() {
   const st = await api('state');
   if (st.status === 200 && st.data && st.data.ok) {
     STATE = st.data;
+    applyState();   // the sign, the staff, the paperwork — dressed before the curtain lifts
     addLine('sys', 'TREEFORT SECURITY SYSTEM v7.3');
     await sleep(450);
     addLine('sys', 'scanning... ', '');

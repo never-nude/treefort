@@ -308,7 +308,7 @@ $('fromwall').addEventListener('click', async () => {
   grid.innerHTML = '<span class="lbl">rummaging through the wall...</span>';
   const r = await api('wall');
   if (!(r.data && r.data.ok)) { grid.innerHTML = '<span class="lbl">the wall is unreachable. suspicious.</span>'; return; }
-  const media = r.data.posts.filter(p => !p.deleted && p.media_key && p.type !== 'gif');
+  const media = r.data.posts.filter(p => !p.deleted && p.media_key);
   grid.innerHTML = media.length ? '' : '<span class="lbl">no art on the wall yet. be the first. no pressure. (pressure.)</span>';
   media.forEach(p => {
     const img = document.createElement('img');
@@ -316,7 +316,13 @@ $('fromwall').addEventListener('click', async () => {
     img.title = 'by ' + p.author;
     img.addEventListener('click', () => {
       const big = new Image();
-      big.onload = () => { setBase(big); box.classList.remove('show'); toast('remixing ' + p.author + '\'s post. an honor, really.'); };
+      big.onload = () => {
+        setBase(big); box.classList.remove('show');
+        // an animated gif lands as its first frame — the canvas is a still-life kind of place
+        toast(p.type === 'gif'
+          ? 'remixing ' + p.author + '\'s gif — first frame only. the other frames are on break.'
+          : 'remixing ' + p.author + '\'s post. an honor, really.');
+      };
       big.src = img.src;
     });
     grid.appendChild(img);
