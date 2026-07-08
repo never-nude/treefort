@@ -237,9 +237,9 @@
     <h2>TODAY'S FORT BULLETIN</h2>
     <div id="boarddate"></div>
     <div id="cards">
-      <div class="note"><h3>HOROSCOPE</h3><div id="horo"></div></div>
+      <div class="note"><h3>GAMER HOROSCOPE</h3><div id="horo"></div></div>
       <div class="note"><h3>TODAY'S MISSION</h3><div id="mission"></div></div>
-      <div class="note"><h3>TRUE ANIMAL FACT</h3><div id="fact"></div></div>
+      <div class="note"><h3>TRUE ANIMAL FACT</h3><div id="fact"></div><div class="subsay"><span id="doglabel">DALE</span>'s take: <b id="subtake"></b></div></div>
     </div>
   </section>
 
@@ -320,7 +320,7 @@
   <footer>
     FORT ATTENDANCE: <span id="streakline"></span><br>
     SECRETS FOUND: <span id="secretcount">0/3</span> &middot; there are secrets in this fort. more than advertised.<br>
-    founded by CONNOR &middot; staff: <span id="staffname">DALE</span> (dog) &middot; management is a dog<br>
+    founded by <span id="founderline">CONNOR</span> &middot; staff: <span id="staffname">DALE</span> (dog) &middot; management is a dog<br>
     a treefort.lol production &middot; no ads, no accounts, no algorithms, no narcs
   </footer>
 </div>
@@ -343,12 +343,17 @@
 
    the wall and the dictionary live on a server now. open your
    browser's devtools, watch the network tab, and you'll see the
-   fort speaking json to /api/. that's the whole protocol. it is
-   not complicated. nothing real is.
+   fort speaking json to /the_lookout/api/. that's the whole
+   protocol. it is not complicated. nothing real is.
 
-   the lookout, the locked door, and the oracle were decommissioned
-   by dad in july 2026. their remains are archived in the git
-   history. DALE is fine about it. (he is not fine about it.)
+   yes — /the_lookout/. the tree grew. there can be other forts on
+   other branches now, each with its own name, door, wall, and dog
+   situation. yours was here first. yours is THE LOOKOUT.
+
+   (the original lookout — the room — was decommissioned by dad in
+   july 2026, along with the locked door and the oracle. their
+   remains are archived in the git history. then the whole fort
+   took the name. DALE says this was his idea. it was not.)
 
    secret count: the footer advertises 3. the truth is 5. the sky
    knows one. the dog knows one. the dictionary, the paint room,
@@ -529,12 +534,16 @@ const DART_SVG = `<svg width="90" height="110" viewBox="0 0 90 110" xmlns="http:
 </svg>`;
 /* ================= CORE ================= */
 const $ = id => document.getElementById(id);
-const store = {
-  get(k, d) { try { const v = localStorage.getItem('tf_' + k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
-  set(k, v) { try { localStorage.setItem('tf_' + k, JSON.stringify(v)); } catch (e) {} }
-};
 let STATE = { name: null, role: null, fort_name: 'TREEFORT', dog_name: 'DALE' };
 const FORT_BASE = '/' + (location.pathname.split('/').filter(Boolean)[0] || 'the_lookout');
+// per-device state is also per-FORT: your attendance at Base Camp is not your
+// attendance at The Lookout. the original fort keeps its old bare keys so
+// nobody's attendance or found secrets reset when the tree grew more forts.
+const STORE_PREFIX = FORT_BASE === '/the_lookout' ? 'tf_' : 'tf_' + FORT_BASE.slice(1) + '_';
+const store = {
+  get(k, d) { try { const v = localStorage.getItem(STORE_PREFIX + k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem(STORE_PREFIX + k, JSON.stringify(v)); } catch (e) {} }
+};
 const apiUrl = path => FORT_BASE + '/api/' + path;
 const mediaUrl = key => FORT_BASE + '/api/media/' + key;
 
@@ -782,6 +791,7 @@ function fillBulletin() {
   $('mission').textContent = pickDaily(MISSIONS);
   const fact = pickDaily(FACTS);
   $('fact').textContent = fact.f;
+  $('subtake').textContent = fact.s;
 }
 let moonClicks = 0, moonTimer = null;
 $('moon').addEventListener('click', () => {
@@ -889,10 +899,13 @@ async function refreshState() {
     document.querySelector('#sign h1').textContent = STATE.fort_name;
     document.title = STATE.fort_name.toLowerCase() + '.lol';
     $('feedbtn').textContent = 'GIVE ' + STATE.dog_name + ' A SNACK';
+    $('doglabel').textContent = STATE.dog_name;
     $('staffname').textContent = STATE.dog_name;
+    if (STATE.founder_name) $('founderline').textContent = STATE.founder_name;
     $('cfg_fort').value = STATE.fort_name;
     $('cfg_dog').value = STATE.dog_name;
     if (STATE.role === 'founder') $('founderpanel').classList.add('show');
+    syncFounderRooms();
   }
 }
 /* ================= THE WALL ================= */
@@ -1094,7 +1107,7 @@ let fortOpen = false;
 function openFort() {
   if (fortOpen) return;
   fortOpen = true;
-  syncConnorRooms();
+  syncFounderRooms();
   $('door').style.display = 'none';
   $('fort').style.display = 'block';
   const dayN = updateAttendance();
@@ -1117,8 +1130,9 @@ function openFort() {
   setTimeout(() => dogSay(DOG_LINES[Math.floor(Math.random() * DOG_LINES.length)]), 900);
 }
 
-function syncConnorRooms() {
-  $('handbookroom').style.display = STATE.name === 'CONNOR' && STATE.role === 'founder' ? '' : 'none';
+// the founder's field manual shows for whoever holds THIS fort's founder key
+function syncFounderRooms() {
+  $('handbookroom').style.display = STATE.role === 'founder' ? '' : 'none';
 }
 
 async function doorFail(msg, cooldown) {
