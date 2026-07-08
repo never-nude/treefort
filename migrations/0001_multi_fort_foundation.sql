@@ -1,19 +1,34 @@
--- Milestone 1: move the existing single-fort data model under The Lookout
--- and create Base Camp with KUSHMAN as founder.
+-- ONE-SHOT LEGACY UPGRADE: move the single-fort production data model under
+-- The Lookout and create Base Camp with KUSHMAN as founder.
+--
+-- HOW TO RUN (this is NOT a `wrangler d1 migrations` file — run it exactly once,
+-- by hand, against a legacy database; see DEPLOY.md "the great re-forting"):
+--
+--     wrangler d1 export fort --remote --output backup-preforts.sql   # first. always.
+--     wrangler d1 execute fort --remote --file migrations/0001_multi_fort_foundation.sql
+--
+-- D1 runs the whole file as one implicitly-atomic batch, which is why there is
+-- deliberately NO explicit BEGIN/COMMIT here — remote D1 rejects them ("cannot
+-- start a transaction within a transaction") and would refuse the entire file.
+-- No PRAGMA foreign_keys either (unsupported); statement order keeps every FK
+-- valid at each step (forts exists before anything references it).
 --
 -- Assumptions for the live migration:
--- - The current production database is the pre-multi-fort schema from schema.sql.
+-- - The current production database is the pre-multi-fort (v2.1) schema: a config
+--   row with THE salt, plus members/posts/replies/terms/visits/knock_fails.
+--   Running this on a fresh empty database is wrong and will fail on the first
+--   ALTER — fresh installs use schema.sql + POST /api/seed instead.
 -- - Existing members/posts/replies/terms/visits/knock_fails all belong to Connor's
 --   fort and are copied to fort_id='the_lookout'.
--- - KUSHMAN already exists in the old members table; his existing code hash is reused
---   for Base Camp during migration because D1 SQL does not know plaintext knocks. If
---   Base Camp needs a different starter knock, update only (base_camp, KUSHMAN) after
---   migration with a deployment-only hash computed from Base Camp's salt.
+-- - Both forts get the legacy config salt ON PURPOSE: KUSHMAN's Base Camp founder
+--   row reuses his existing code hash (SQL cannot rehash a code it never sees),
+--   and a hash is only portable between forts if the salt is too. Forts created
+--   after this migration get their own random salts (see createFort in worker.js).
+-- - KUSHMAN must exist in the legacy members table; if he doesn't, the Base Camp
+--   founder INSERT aborts on the NOT NULL code_hash constraint and — because the
+--   batch is atomic — the WHOLE migration rolls back. That is intentional: Base
+--   Camp must not exist without its founder.
 -- - Legacy tables are renamed, not dropped, so old data remains available for audit.
-
-PRAGMA foreign_keys = off;
-
-BEGIN TRANSACTION;
 
 CREATE TABLE IF NOT EXISTS forts (
   id TEXT PRIMARY KEY,
@@ -26,6 +41,9 @@ CREATE TABLE IF NOT EXISTS forts (
   renamed_at INTEGER
 );
 
+-- No COALESCE(random) fallback on the salt: if config is missing this yields NULL,
+-- the NOT NULL constraint aborts, and the atomic batch rolls back everything.
+-- Better a loud refusal than two forts with silently forked salts.
 INSERT INTO forts (id, slug, display_name, dog_name, gen, salt, created_at)
 SELECT
   'the_lookout',
@@ -33,7 +51,7 @@ SELECT
   'The Lookout',
   COALESCE((SELECT dog_name FROM config WHERE id = 1), 'DALE'),
   COALESCE((SELECT gen FROM config WHERE id = 1), 1),
-  COALESCE((SELECT salt FROM config WHERE id = 1), lower(hex(randomblob(16)))),
+  (SELECT salt FROM config WHERE id = 1),
   CAST(strftime('%s', 'now') AS INTEGER)
 WHERE NOT EXISTS (SELECT 1 FROM forts WHERE id = 'the_lookout');
 
@@ -44,7 +62,7 @@ SELECT
   'Base Camp',
   'DALE',
   1,
-  COALESCE((SELECT salt FROM config WHERE id = 1), lower(hex(randomblob(16)))),
+  (SELECT salt FROM config WHERE id = 1),
   CAST(strftime('%s', 'now') AS INTEGER)
 WHERE NOT EXISTS (SELECT 1 FROM forts WHERE id = 'base_camp');
 
@@ -166,7 +184,3 @@ CREATE TABLE knock_fails (
 INSERT INTO knock_fails (fort_id, ip, fails, window_start)
 SELECT 'the_lookout', ip, fails, window_start
 FROM knock_fails_legacy_single_fort;
-
-COMMIT;
-
-PRAGMA foreign_keys = on;
