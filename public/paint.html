@@ -455,7 +455,6 @@ $('addframe').addEventListener('click', () => {
   thumbs.splice(cur + 1, 0, thumbs[cur]);
   cur++;
   loadFrame(cur, renderStrip);
-  if (frames.length === 13) toast('13 frames. the forbidden frame count. (it\'s fine. probably.)');
   if (frames.length === 50) toast('50 frames. halfway to the whole reel. the art room believes in you.');
 });
 $('delframe').addEventListener('click', () => {
