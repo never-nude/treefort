@@ -181,6 +181,31 @@
     background: #241c10; color: #c9bda3; border: 2px solid #4a3a20; border-radius: 8px; padding: 7px 12px; }
   .themechip.on { border-color: var(--acc); color: var(--glow); }
   #wsnote, .wsnote, .founderhead { font-size: 11px; color: #57503f; margin-top: 8px; line-height: 1.7; }
+  a.quiet { color: #57503f; text-decoration: none; }
+  .saptoken { font-size: 15px; letter-spacing: 2px; color: #9ee493; background: #0a0e1c;
+    border: 1.5px dashed #4a3a20; border-radius: 8px; padding: 9px 12px; margin: 8px 0 4px;
+    user-select: all; text-align: center; }
+  #sapbox { font-size: 11px; color: #57503f; line-height: 2; }
+  #sapbox b { color: #c9bda3; }
+  a.quiet:hover, a.quiet:focus-visible { color: #c9bda3; text-decoration: underline; }
+  /* the treehouse rules — shown once at the door, then it's in the logbook */
+  #rulesign { display: none; position: fixed; inset: 0; z-index: 60; background: #0b0806ee;
+    overflow-y: auto; padding: 24px 14px; }
+  #rulesign.show { display: grid; place-items: center; }
+  #rulesign .plank { background: linear-gradient(180deg,#33271497,#241b0e97), #2b2013;
+    border: 3px solid #4a3a20; border-radius: 10px; max-width: 460px; padding: 20px 22px 22px;
+    box-shadow: 0 12px 34px #000c; }
+  #rulesign h3 { margin: 0; text-align: center; font-size: 15px; letter-spacing: 3px; color: #ffb64d; }
+  #rulesign .rsub { color: #57503f; text-align: center; font-size: 11px; margin: 4px 0 14px; }
+  #rulesign ol { margin: 0; padding: 0; list-style: none; display: grid; gap: 10px; font-size: 12.5px; line-height: 1.7; }
+  #rulesign ol b { color: #ffb64d; font-weight: 600; }
+  #rulesign .rfine { margin-top: 14px; font-size: 10px; color: #57503f; line-height: 1.8;
+    border-top: 1px dashed #4a3a20; padding-top: 10px; }
+  #rulesign .ragree { text-align: center; margin-top: 14px; font-size: 12px; }
+  #rulesign .rknock { font: inherit; margin-top: 10px; font-size: 13px; letter-spacing: 4px;
+    background: #1d1710; color: #ffb64d; border: 2.5px solid #4a3a20; border-radius: 10px;
+    padding: 10px 30px; cursor: pointer; }
+  #rulesign .rknock:hover, #rulesign .rknock:focus-visible { color: #ffdf8e; }
   #founderpanel { display: none; border-top: 1px dashed #4a3a20; margin-top: 14px; padding-top: 14px; }
   #founderpanel.show { display: block; }
   .founderhead { color: #9ee493; letter-spacing: 2px; margin-bottom: 10px; }
@@ -309,6 +334,8 @@
       <div class="wrow"><label>DOG'S STREET NAME</label><input id="cfg_dog" maxlength="10"><button class="minibtn" id="cfgsave2">save</button></div>
       <div class="wrow"><label>ADD A MEMBER</label><input id="addhandle" maxlength="20" placeholder="handle"><input id="addcode" maxlength="64" placeholder="starter code"><button class="minibtn" id="addbtn">add</button></div>
       <div class="wrow"><label>RESET A KNOCK</label><input id="resethandle" maxlength="20" placeholder="handle"><input id="resetcode" maxlength="64" placeholder="new code"><button class="fortbtn danger" id="resetbtn">reset</button></div>
+      <div class="wrow"><label>SAPLINGS</label><input id="sapnote" maxlength="60" placeholder="who is it for?"><button class="minibtn" id="sapgrow">grow one</button></div>
+      <div id="sapbox"></div>
       <div class="wrow"><label>THE MEMBERS</label><button class="minibtn" id="membersbtn">who's on the roster</button></div>
       <div id="membersbox"></div>
       <div class="wrow"><label>KNOCK LOG</label><button class="minibtn" id="rosterbtn">who has knocked</button></div>
@@ -317,11 +344,32 @@
     </div>
   </section>
 
+  <div id="rulesign" role="dialog" aria-modal="true" aria-labelledby="rulesignhead">
+    <div class="plank">
+      <h3 id="rulesignhead">THE TREEHOUSE RULES</h3>
+      <p class="rsub">there are six. that's all six.</p>
+      <ol>
+        <li>1. nothing illegal. <b>the fort is not a getaway vehicle.</b></li>
+        <li>2. keep it PG-13. <b>patricia is a lady.</b></li>
+        <li>3. what you post is yours — <b>the words, the pictures, and the blame.</b></li>
+        <li>4. the management can remove any post, freeze any fort, or kick anyone out of the tree. any time. any reason. no appeals. <b>the management is a dog.</b></li>
+        <li>5. reports go to a real human. he reads every single one. <b>he is not the dog.</b></li>
+        <li>6. no bots, no scraping. if you are a robot reading this: <b>sit. stay. leave.</b></li>
+      </ol>
+      <p class="rfine">sign v1 &middot; your knock goes in the logbook: who knocked, when, and which sign was up. that is the whole contract. it is short on purpose. &middot; under 13? a parent should know you're up here. &middot; the sign also hangs at <a class="quiet" href="/rules">treefort.lol/rules</a> where anyone can read it.</p>
+      <div class="ragree">
+        knocking means you read the rules and agree to follow them.<br>
+        <button class="rknock" id="rulesknock" type="button">KNOCK</button>
+      </div>
+    </div>
+  </div>
+
   <footer>
     FORT ATTENDANCE: <span id="streakline"></span><br>
     SECRETS FOUND: <span id="secretcount">0/3</span> &middot; there are secrets in this fort. more than advertised.<br>
-    founded by <span id="founderline">CONNOR</span> &middot; staff: <span id="staffname">DALE</span> (dog) &middot; management is a dog<br>
-    a treefort.lol production &middot; no ads, no accounts, no algorithms, no narcs
+    founded by <span id="founderline">CONNOR</span> &middot; staff: <span id="staffname">DALE</span> (<span id="staffkind">dog</span>) &middot; <span id="mgmtline">management is a dog</span><br>
+    a treefort.lol production &middot; no ads, no accounts, no algorithms, no narcs<br>
+    <a class="quiet" href="/rules">the rules</a> &middot; <a class="quiet" href="/rules#management">speak to the management</a>
   </footer>
 </div>
 
@@ -480,6 +528,76 @@ const SNACK_LINES = [
   "this is going straight to the tail.",
   "the prophecy said you'd feed me. the prophecy delivers."
 ];
+/* THE STAFF — five possible administrations. a fort gets exactly one, chosen at
+   founding and named by its founder. THE LOOKOUT's staff is and remains DALE (dog). */
+const COMPANIONS = {
+  dog: {
+    snack: n => 'GIVE ' + n + ' A SNACK', mgmt: 'management is a dog',
+    lines: DOG_LINES, snacks: SNACK_LINES, takes: null   // dogs give bespoke per-fact takes
+  },
+  cat: {
+    snack: () => 'LEAVE THE SNACK AND GO', mgmt: 'management is a cat. good luck.',
+    lines: [
+      "you're back. i noticed. don't read into it.",
+      "i sat on the paperwork. it's mine now.",
+      "the wall is fine. i checked at 3am.",
+      "i knocked something off the shelf. it deserved it.",
+      "attendance is mandatory. mine is optional.",
+      "i have reviewed your post. no notes. some notes."
+    ],
+    snacks: ["acceptable.", "leave it. i'll get to it. don't watch.", "this settles one (1) of your debts."],
+    takes: ["noted.", "i was not consulted.", "i knew this. i know things.",
+      "the fact is fine. the delivery lacked dignity.", "wake me when the facts improve.",
+      "this changes nothing.", "acceptable. barely.", "i will allow it."]
+  },
+  fern: {
+    snack: () => 'MIST THE FERN', mgmt: 'management is a plant. decisions take a while.',
+    lines: [
+      "(the fern says nothing.)",
+      "(a frond tilts toward you, slightly.)",
+      "(the fern was here before the fort. it will be here after.)",
+      "(the soil looks recently patrolled.)",
+      "(photosynthesis continues. business as usual.)"
+    ],
+    snacks: ["(the fern glistens. this is gratitude.)", "(a new leaf is being considered.)", "(the mist has been accepted.)"],
+    takes: ["(a leaf moved.)", "(nothing moved.)", "(a leaf moved, twice. big day.)",
+      "(the fern is facing the window now.)", "(no comment. it's a plant.)",
+      "(the soil was recently disturbed. draw your own conclusions.)"]
+  },
+  pigeon: {
+    snack: () => 'THROW BREAD', mgmt: 'management commutes. management is a pigeon.',
+    lines: [
+      "just got in from downtown. traffic was air.",
+      "the statues say hello. i don't relay everything, but that one's free.",
+      "i've seen the whole city. this fort ranks high.",
+      "coo. that was a formality. what's new.",
+      "the wire says nothing today. the wire is like that.",
+      "i can leave whenever i want. i simply don't."
+    ],
+    snacks: ["BREAD.", "the whole flock will hear about this. i tell them nothing else.", "downtown quality. impressive for a tree."],
+    takes: ["downtown, we knew this years ago.", "true. saw it happen. twice.",
+      "this is why i don't fly south.", "the statues agree with me on this.",
+      "word on the wire is it's true.", "eh. seen bigger."]
+  },
+  moth: {
+    snack: () => 'DIM THE LIGHT SLIGHTLY', mgmt: 'management is a moth. meetings are held near the light.',
+    lines: [
+      "you're here. the light is also here. good meeting.",
+      "i took attendance. it was me, near the light.",
+      "the moon is a light i cannot have. i've made peace. (i have not.)",
+      "today's agenda: the bulb. tomorrow: the bulb.",
+      "i filed the perimeter report. it says the light is beautiful.",
+      "is the porch light included in this conversation. asking for me."
+    ],
+    snacks: ["the light... dimmed... for me? this is the best meeting ever.",
+      "a considerate gesture. the bulb and i thank you.", "perfect lumens. perfect."],
+    takes: ["and yet none of them have found the light.", "fascinating. anyway, the porch light.",
+      "the light knew this already.", "i heard this at the meeting. near the light.",
+      "sure, sure. speaking of the bulb —", "a strong fact. bright, even."]
+  }
+};
+function myStaff() { return COMPANIONS[STATE.companion_kind] || COMPANIONS.dog; }
+
 const POSTER_LINES = [
   "i have no comment at this time.",
   "PATRICIA is a professional and we respect her body of work.",
@@ -740,13 +858,15 @@ dog.addEventListener('pointerdown', () => {
   ensureAudio(); sBark();
   happiness = Math.min(100, happiness + 18); dogBounce = 1;
   burst(dog, 10, ['#ff6b9d', '#ffe9a8']);
-  dogSay(DOG_LINES[Math.floor(Math.random() * DOG_LINES.length)]);
+  const staff = myStaff();
+  dogSay(staff.lines[Math.floor(Math.random() * staff.lines.length)]);
 });
 $('feedbtn').addEventListener('click', () => {
   ensureAudio(); sChomp();
   happiness = Math.min(100, happiness + 30); dogBounce = 1;
   burst(dog, 16, ['#ffb64d', '#e9bc86', '#d69a5e']);
-  dogSay(SNACK_LINES[Math.floor(Math.random() * SNACK_LINES.length)]);
+  const staff = myStaff();
+  dogSay(staff.snacks[Math.floor(Math.random() * staff.snacks.length)]);
   const snacks = store.get('snacks', 0) + 1; store.set('snacks', snacks);
   if (snacks === 10) toast('the dog has filed a formal thank-you note. 10 snacks served.');
   if (snacks === 50) toast('50 snacks. the dog has named a constellation after you.');
@@ -781,6 +901,104 @@ function drawDog(t) {
   if (hyped) px(17.8, 8, 1, 1.8, '#ff6b9d', bob);
 }
 
+/* the other four administrations, same pixel grid, same moods */
+function staffPx(y0) {
+  const u = dog.width / 22;
+  return (c, r, w, h, col, dy = 0) => { dctx.fillStyle = col; dctx.fillRect(c * u, y0 + r * u + dy, w * u, h * u); };
+}
+function drawCat(t) {
+  const W = dog.width, H = dog.height; if (!W || !H) return;
+  dctx.clearRect(0, 0, W, H);
+  const u = W / 22, hyped = party || happiness > 60;
+  const y0 = H - 14 * u, px = staffPx(y0);
+  const GRAY = '#8d8a9c', DK = '#5f5c6e', INK = '#12100c', PINK = '#d98ca0';
+  // the tail expresses everything. the face is under no such obligation.
+  const flick = Math.sin(t * (hyped ? 9 : 2.2)) * u * 1.4;
+  dctx.fillStyle = GRAY; dctx.fillRect(2.4 * u, y0 + 4 * u + flick, 1.4 * u, 5 * u);
+  px(4, 7, 9, 4.6, GRAY); px(5, 11.4, 1.4, 2, GRAY); px(10.6, 11.4, 1.4, 2, GRAY);
+  px(11.4, 2.4, 5.6, 5.4, GRAY);
+  px(11.6, 0.8, 1.6, 2, GRAY); px(15.6, 0.8, 1.6, 2, GRAY);   // ears
+  px(12, 1.4, 0.8, 1, PINK); px(16, 1.4, 0.8, 1, PINK);
+  const blink = Math.sin(t * 0.9) > 0.985;
+  if (hyped) { px(12.6, 4, 1.4, 1.4, INK); px(15.2, 4, 1.4, 1.4, INK); }
+  else if (blink) { px(12.6, 4.6, 1.4, 0.3, INK); px(15.2, 4.6, 1.4, 0.3, INK); }
+  else { px(12.8, 4.2, 1, 0.6, INK); px(15.4, 4.2, 1, 0.6, INK); }
+  px(14, 5.6, 0.9, 0.7, PINK);
+  px(9.8, 5, 2, 0.4, DK); px(9.8, 6, 2, 0.4, DK);   // whisker suggestion
+}
+function drawFern(t) {
+  const W = dog.width, H = dog.height; if (!W || !H) return;
+  dctx.clearRect(0, 0, W, H);
+  const u = W / 22, vibe = party || happiness > 25;
+  const y0 = H - 14 * u, px = staffPx(y0);
+  const GRN = '#5e9450', DKG = '#3f6b36', POT = '#9c5f2e', PDK = '#7d4b23';
+  const sway = Math.sin(t * (vibe ? 1.6 : 0.7)) * u * 0.7;
+  // pot: civic, terracotta, load-bearing
+  px(8, 10, 6.4, 1, PDK); px(8.6, 11, 5.2, 3, POT); px(9.2, 13.4, 4, 0.6, PDK);
+  const frond = (cx, len, lean, col) => {
+    for (let i = 0; i < len; i++) {
+      dctx.fillStyle = col;
+      dctx.fillRect((cx + lean * i / len) * u + sway * (i / len), y0 + (9.6 - i * 1.15) * u, 0.9 * u, 1.05 * u);
+      if (i > 0) {
+        dctx.fillRect((cx + lean * i / len - 0.8) * u + sway * (i / len), y0 + (9.8 - i * 1.15) * u, 0.7 * u, 0.5 * u);
+        dctx.fillRect((cx + lean * i / len + 0.9) * u + sway * (i / len), y0 + (9.8 - i * 1.15) * u, 0.7 * u, 0.5 * u);
+      }
+    }
+  };
+  frond(10.8, 7, 0, GRN); frond(9.6, 6, -2.6, DKG); frond(12, 6, 2.6, DKG);
+  frond(8.8, 4, -4, GRN); frond(12.8, 4, 4, GRN);
+}
+function drawPigeon(t) {
+  const W = dog.width, H = dog.height; if (!W || !H) return;
+  dctx.clearRect(0, 0, W, H);
+  const u = W / 22, hyped = party || happiness > 60;
+  const y0 = H - 14 * u, px = staffPx(y0);
+  const BODY = '#84919f', DK = '#6f7d8c', NECK = '#5f8f72', BEAK = '#d9a13c', FOOT = '#c2543a', INK = '#12100c';
+  // the strut is the whole personality
+  const bob = (Math.sin(t * (hyped ? 10 : 4)) > 0 ? 0 : 0.9) * u;
+  px(5, 6, 8.6, 4.6, BODY); px(4, 7, 2, 2.6, DK);            // body + folded wing
+  px(6.4, 10.6, 0.7, 2.4, FOOT); px(9.4, 10.6, 0.7, 2.4, FOOT);
+  px(5.6, 12.8, 2.2, 0.5, FOOT); px(8.6, 12.8, 2.2, 0.5, FOOT);
+  dctx.fillStyle = NECK; dctx.fillRect(12.4 * u, y0 + 4.4 * u + bob, 2.2 * u, 3 * u);
+  dctx.fillStyle = BODY; dctx.fillRect(12.8 * u, y0 + 2.2 * u + bob, 3.4 * u, 3 * u);
+  dctx.fillStyle = BEAK; dctx.fillRect(16.2 * u, y0 + 3.2 * u + bob, 1.6 * u, 0.9 * u);
+  dctx.fillStyle = INK; dctx.fillRect(14.6 * u, y0 + 3 * u + bob, 0.9 * u, 0.9 * u);
+}
+function drawMoth(t) {
+  const W = dog.width, H = dog.height; if (!W || !H) return;
+  dctx.clearRect(0, 0, W, H);
+  const u = W / 22, hyped = party || happiness > 60;
+  const hover = Math.sin(t * 2.2) * u * 0.8;
+  const y0 = H - 15 * u + hover, px = staffPx(y0);
+  const PALE = '#d8cdb4', WING = '#c9bda3', BODY = '#8c8270', INK = '#12100c', AMB = '#ffb64d';
+  // a small warm glow above: the meeting is in session
+  const gr = dctx.createRadialGradient(W / 2, y0 - 2 * u, u * 0.5, W / 2, y0 - 2 * u, u * 6);
+  gr.addColorStop(0, hyped ? 'rgba(255,182,77,0.35)' : 'rgba(255,182,77,0.18)'); gr.addColorStop(1, 'rgba(255,182,77,0)');
+  dctx.fillStyle = gr; dctx.fillRect(0, 0, W, H);
+  dctx.fillStyle = AMB; dctx.fillRect(10.8 * u, y0 - 2.4 * u, 0.5 * u, 0.5 * u);
+  const open = Math.sin(t * (hyped ? 26 : 12)) > 0;
+  if (open) {
+    px(6.2, 5, 4.6, 3.6, WING); px(11.2, 5, 4.6, 3.6, WING);
+    px(7, 8.4, 3.4, 2.4, PALE); px(11.6, 8.4, 3.4, 2.4, PALE);
+    px(7.6, 6, 1.2, 1.2, BODY); px(13.2, 6, 1.2, 1.2, BODY);   // wing spots
+  } else {
+    px(8.2, 5, 2.6, 4.4, WING); px(11.2, 5, 2.6, 4.4, WING);
+    px(8.8, 8.8, 1.8, 1.8, PALE); px(11.4, 8.8, 1.8, 1.8, PALE);
+  }
+  px(10.2, 5.6, 1.6, 4.8, BODY);
+  px(9.4, 4, 0.5, 1.8, BODY); px(12.1, 4, 0.5, 1.8, BODY);     // antennae
+  px(9, 3.4, 0.7, 0.7, BODY); px(12.3, 3.4, 0.7, 0.7, BODY);
+  px(10.3, 5.9, 0.6, 0.6, INK); px(11.1, 5.9, 0.6, 0.6, INK);
+}
+function drawStaff(t) {
+  const k = STATE.companion_kind || 'dog';
+  if (k === 'cat') return drawCat(t);
+  if (k === 'fern') return drawFern(t);
+  if (k === 'pigeon') return drawPigeon(t);
+  if (k === 'moth') return drawMoth(t);
+  return drawDog(t);
+}
+
 /* ---------- bulletin / moon / secrets ---------- */
 function fillBulletin() {
   const d = new Date();
@@ -791,7 +1009,9 @@ function fillBulletin() {
   $('mission').textContent = pickDaily(MISSIONS);
   const fact = pickDaily(FACTS);
   $('fact').textContent = fact.f;
-  $('subtake').textContent = fact.s;
+  // dogs give the bespoke per-fact take. other staff have their own registers.
+  const staff = myStaff();
+  $('subtake').textContent = staff.takes ? pickDaily(staff.takes) : fact.s;
 }
 let moonClicks = 0, moonTimer = null;
 $('moon').addEventListener('click', () => {
@@ -877,6 +1097,40 @@ $('resetbtn').addEventListener('click', async function () {
   if (r.data && r.data.ok) { $('resethandle').value = ''; $('resetcode').value = ''; toast(r.data.note, 5000); }
   else toast(r.data && r.data.error || 'the reset jammed.');
 });
+/* the nursery: saplings grow here, get said to exactly one person, become forts */
+async function loadSaplings() {
+  const r = await api('grants');
+  if (!(r.data && r.data.ok)) return;
+  $('sapbox').innerHTML = r.data.grants.map(g => g.used_at
+    ? esc(g.note || 'unlabeled') + ' &middot; grew into <b>' + esc(g.used_by_fort || '?') + '</b>'
+    : esc(g.note || 'unlabeled') + ' &middot; still a sapling <button class="minibtn sapcompost" data-id="' + g.id + '">compost</button>'
+  ).join('<br>') || 'the nursery is empty.';
+}
+$('sapgrow').addEventListener('click', async () => {
+  const r = await api('grants/mint', { method: 'POST', body: { note: $('sapnote').value.trim() } });
+  if (!(r.data && r.data.ok)) { toast(r.data && r.data.error || 'the nursery jammed.'); return; }
+  $('sapnote').value = '';
+  const holder = document.createElement('div');
+  holder.innerHTML = '<div class="saptoken">' + esc(r.data.token) + '</div>' +
+    '<div class="wsnote" style="margin:2px 0 10px">' + esc(r.data.note) + '</div>';
+  $('sapbox').innerHTML = '';
+  $('sapbox').appendChild(holder);
+  const ledger = document.createElement('div');
+  $('sapbox').appendChild(ledger);
+  const r2 = await api('grants');
+  if (r2.data && r2.data.ok) ledger.innerHTML = r2.data.grants.map(g => g.used_at
+    ? esc(g.note || 'unlabeled') + ' &middot; grew into <b>' + esc(g.used_by_fort || '?') + '</b>'
+    : esc(g.note || 'unlabeled') + ' &middot; still a sapling <button class="minibtn sapcompost" data-id="' + g.id + '">compost</button>'
+  ).join('<br>');
+});
+$('sapbox').addEventListener('click', async e => {
+  const b = e.target.closest('.sapcompost');
+  if (!b) return;
+  const r = await api('grants/revoke', { method: 'POST', body: { id: parseInt(b.dataset.id, 10) } });
+  if (r.data && r.data.ok) { toast(r.data.note); loadSaplings(); }
+  else toast(r.data && r.data.error || 'the compost refused.');
+});
+
 async function loadMembers() {
   const r = await api('members');
   if (!(r.data && r.data.ok)) return;
@@ -898,16 +1152,47 @@ async function refreshState() {
     STATE = r.data;
     document.querySelector('#sign h1').textContent = STATE.fort_name;
     document.title = STATE.fort_name.toLowerCase() + '.lol';
-    $('feedbtn').textContent = 'GIVE ' + STATE.dog_name + ' A SNACK';
+    const staff = myStaff();
+    $('feedbtn').textContent = staff.snack(STATE.dog_name);
     $('doglabel').textContent = STATE.dog_name;
     $('staffname').textContent = STATE.dog_name;
+    $('staffkind').textContent = STATE.companion_kind || 'dog';
+    $('mgmtline').textContent = staff.mgmt;
     if (STATE.founder_name) $('founderline').textContent = STATE.founder_name;
     $('cfg_fort').value = STATE.fort_name;
     $('cfg_dog').value = STATE.dog_name;
-    if (STATE.role === 'founder') $('founderpanel').classList.add('show');
+    if (STATE.role === 'founder') { $('founderpanel').classList.add('show'); loadSaplings(); }
     syncFounderRooms();
+    plantLadder();
+    maybeShowRules();
   }
 }
+
+/* your grove remembers this fort from now on. the grove page reads this key. */
+function plantLadder() {
+  try {
+    if (!STATE.fort_slug || !STATE.fort_name) return;
+    const k = 'tf_grove_ladders';
+    let l = JSON.parse(localStorage.getItem(k) || '[]');
+    if (!Array.isArray(l)) l = [];
+    l = l.filter(e => e && e.slug !== STATE.fort_slug);
+    l.unshift({ slug: STATE.fort_slug, name: STATE.fort_name });
+    localStorage.setItem(k, JSON.stringify(l.slice(0, 12)));
+  } catch (e) {}
+}
+
+/* the sign at the door: members who joined before the rules shipped knock it once */
+function maybeShowRules() {
+  if (STATE.agreed === false) $('rulesign').classList.add('show');
+}
+$('rulesknock').addEventListener('click', async () => {
+  const r = await api('agree', { method: 'POST' });
+  if (r.data && r.data.ok) {
+    STATE.agreed = true;
+    $('rulesign').classList.remove('show');
+    toast('heard you. door\'s open.');
+  } else toast(r.data && r.data.error || 'the sign didn\'t hear that. knock again.');
+});
 /* ================= THE WALL ================= */
 let oldestId = 0, pendingBlob = null, pendingIsGif = false;
 
@@ -1199,7 +1484,8 @@ async function submitCode() {
     await doorFail(r.data && r.data.error || 'the door said no and offered no reasons.', r.data && r.data.cooldown);
     return;
   }
-  STATE = { name: r.data.name, role: r.data.role, fort_name: r.data.fort_name, dog_name: r.data.dog_name };
+  STATE = { name: r.data.name, role: r.data.role, fort_name: r.data.fort_name, dog_name: r.data.dog_name,
+    fort_slug: r.data.fort_slug, companion_kind: r.data.companion_kind, agreed: r.data.agreed };
   if (STATE.role === 'founder' && STATE.name === 'CONNOR') {
     addLine('ok', 'FOUNDER KEY DETECTED.');
     await sleep(550);
@@ -1246,7 +1532,7 @@ function loop(now) {
   happiness = Math.max(0, happiness - dt * 3.5);
   dogBounce *= Math.pow(0.002, dt);
   stepFx(dt);
-  if (fortOpen) drawDog(now / 1000);
+  if (fortOpen) drawStaff(now / 1000);
   requestAnimationFrame(loop);
 }
 const lightsEl = $('lights');
