@@ -237,6 +237,18 @@
       <input id="codefield" maxlength="64" autocomplete="off" spellcheck="false" placeholder="your knock" type="password">
       <button id="codego">KNOCK</button>
     </div>
+    <!-- the demo fort's door leaks its own knock, redacted, behind the crossed-out
+         eye. shows only when the fort is the demo — real doors confirm nothing. -->
+    <div id="demoknock" style="display:none;margin-top:12px;font-size:12px;letter-spacing:1px;color:#8d8371">
+      the knock is <span id="dkcode" title="redacted by the management" style="background:#8d8371;color:transparent;border-radius:2px;padding:1px 4px;letter-spacing:2px;user-select:none">JUSTLOOKING</span>
+      <button id="dkpeek" type="button" aria-label="reveal the knock" title="the management looks away" style="background:none;border:0;padding:2px;cursor:pointer;color:#8d8371;vertical-align:middle">
+        <svg viewBox="0 0 20 12" aria-hidden="true" style="width:18px;height:11px;display:block">
+          <ellipse cx="10" cy="6" rx="8" ry="5" fill="none" stroke="currentColor" stroke-width="1.4"/>
+          <circle cx="10" cy="6" r="2" fill="currentColor"/>
+          <line id="dkline" x1="0" y1="6" x2="20" y2="6" stroke="currentColor" stroke-width="1.6"/>
+        </svg>
+      </button>
+    </div>
     <a href="#" id="sparelink" class="quiet" style="display:none;font-size:11px;margin-top:10px">lost your knock?</a>
     <div id="sparerow" style="display:none;margin-top:10px">
       <div class="doorrow show" style="margin-bottom:8px">
@@ -1771,6 +1783,20 @@ addEventListener('pointerdown', ensureAudio, { once: true });
 resizeFx();
 runDoor();
 requestAnimationFrame(loop);
+
+/* the demo door leaks its own knock — redacted until the eye with the line
+   through it is clicked. real fort doors confirm nothing, ever. */
+if (location.pathname.split('/')[1] === 'demo') {
+  $('demoknock').style.display = 'block';
+  $('dkpeek').addEventListener('click', () => {
+    const seen = $('dkcode').style.color === 'transparent';
+    $('dkcode').style.color = seen ? '#9ee493' : 'transparent';
+    $('dkcode').style.background = seen ? 'transparent' : '#8d8371';
+    $('dkcode').style.userSelect = seen ? 'text' : 'none';
+    $('dkline').style.display = seen ? 'none' : '';
+    $('dkpeek').setAttribute('aria-label', seen ? 'redact the knock' : 'reveal the knock');
+  });
+}
 </script>
 </body>
 </html>
