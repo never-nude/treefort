@@ -8,10 +8,10 @@
 
    what it makes:
      - the fort:      the_model_home ("The Model Home"), staff pigeon BRENDA
-     - two members:   CURATOR (founder; knock printed ONCE below)
-                      GUEST   (shared demo identity; its code is random and
-                               thrown away — nobody knocks as GUEST, the
-                               /demo door mints their session directly)
+     - two members:   CURATOR (founder; knock printed ONCE below, private)
+                      GUEST   (shared demo identity; knock is JUSTLOOKING,
+                               public by design — same door /demo opens.
+                               an entry screen may print it)
      - furniture:     posts, self-replies, dictionary terms, one cursed
                       prophecy, and five GIFs (paint, kitchen, gif machine)
    re-running it re-furnishes from scratch (deletes ONLY the_model_home rows). */
@@ -198,7 +198,10 @@ function memeFine() {
 /* ================= identities ================= */
 const salt = randomSalt();
 const curatorCode = friendlyCode();
-const guestCode = randomBytes(24).toString('hex');   // printed nowhere. knocks never.
+// GUEST's knock is public BY DESIGN — an entry screen may print it. knocking as
+// GUEST opens exactly the same door /demo opens for free, nothing more. the
+// CURATOR knock is the founder key and goes on no screen anywhere, ever.
+const guestCode = 'JUSTLOOKING';
 const curatorHash = hashCode(salt, curatorCode);
 const guestHash = hashCode(salt, guestCode);
 const NOW = Math.floor(Date.now() / 1000);
@@ -307,6 +310,6 @@ for (const [key, buf] of MEDIA) {
 console.log(`
 the model home is furnished.
   fort:     /the_model_home/   (guests arrive via /demo)
-  CURATOR's knock (shown once, write it on paper): ${curatorCode}
-  GUEST's code: random, discarded. nobody knocks as GUEST — /demo mints the session.
+  CURATOR's knock (shown once, write it on paper, PRIVATE): ${curatorCode}
+  GUEST's knock (public by design — fine to print on an entry screen): ${guestCode}
 `);
