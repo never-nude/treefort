@@ -22,6 +22,11 @@ run_worker_first = true
 html_handling = "none"
 not_found_handling = "none"
 
+# the 3 AM broom: sweeps everything GUEST made in the model home. 07:00 UTC =
+# 3 AM eastern in summer, 2 AM in winter. the broom does not own a calendar.
+[triggers]
+crons = ["0 7 * * *"]
+
 [[d1_databases]]
 binding = "DB"
 database_name = "fort"

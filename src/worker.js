@@ -13,6 +13,15 @@ const IMG_MAX = 4 * 1024 * 1024;
 const GIF_MAX = 10 * 1024 * 1024;
 const PAGE_SIZE = 20;
 const DEFAULT_FORT_SLUG = 'the_lookout';
+/* the model home: one fort furnished for strangers. GUEST is a shared identity
+   with a narrower hallway; CURATOR owns the furniture. everything GUEST makes
+   is swept at 3 AM by the scheduled broom below. */
+const DEMO_FORT_ID = 'the_model_home';
+const DEMO_GUEST = 'GUEST';
+const DEMO_MEDIA_PREFIX = 'm/demo';    // every guest upload lives under this key prefix; the wipe is a prefix delete
+const DEMO_IMG_MAX = 2 * 1024 * 1024;  // guests get a smaller shelf
+const DEMO_GIF_MAX = 4 * 1024 * 1024;
+const DEMO_SHELF_MAX = 300;            // total guest objects before the shelf refuses
 const RULES_VERSION = 1;       // bump this when the sign changes; everyone re-knocks past it once
 const GRANTS_UNUSED_MAX = 5;   // saplings a fort may hold unplanted
 const COMPANION_KINDS = ['dog', 'cat', 'fern', 'pigeon', 'moth'];
@@ -23,7 +32,7 @@ const RESERVED_SLUGS = new Set([
   'm', 'media', 'assets', 'static', 'setup', 'seed', 'fort', 'forts', 'treefort', 'www',
   'index', 'root', 'home', 'help', 'about', 'terms', 'tos', 'legal', 'privacy',
   'paint', 'kitchen', 'gifmachine', 'handbook', 'door', 'wall', 'dict', 'dictionary',
-  'workshop', 'management', 'staff', 'mod', 'mods', 'dale', 'patricia',
+  'workshop', 'management', 'staff', 'mod', 'mods', 'dale', 'patricia', 'demo',
   'null', 'undefined'
 ]);
 // sapling alphabet skips lookalikes (0/O, 1/I/L) and U — readable over a lunch table
@@ -343,6 +352,55 @@ function sniffImage(buf) {
   return null;
 }
 
+/* ---------------- the model home (demo fort) ---------------- */
+function isDemoFort(fort) { return fort.id === DEMO_FORT_ID; }
+function isDemoGuest(fort, session) { return isDemoFort(fort) && session.name === DEMO_GUEST; }
+
+/* the 3 AM broom. deletes exactly what GUEST made in the model home — the
+   author column IS the ownership tag, so the wipe is three one-line deletes
+   plus a key-prefix sweep. CURATOR's furniture is never touched. */
+async function wipeTheGuestRoom(env) {
+  const posts = await env.DB.prepare('DELETE FROM posts WHERE fort_id=? AND author=?').bind(DEMO_FORT_ID, DEMO_GUEST).run();
+  const replies = await env.DB.prepare('DELETE FROM replies WHERE fort_id=? AND author=?').bind(DEMO_FORT_ID, DEMO_GUEST).run();
+  const terms = await env.DB.prepare('DELETE FROM terms WHERE fort_id=? AND author=?').bind(DEMO_FORT_ID, DEMO_GUEST).run();
+  let objects = 0, cursor;
+  do {
+    const page = await env.MEDIA.list({ prefix: DEMO_MEDIA_PREFIX, cursor });
+    if (page.objects.length) {
+      await env.MEDIA.delete(page.objects.map(o => o.key));
+      objects += page.objects.length;
+    }
+    cursor = page.truncated ? page.cursor : null;
+  } while (cursor);
+  console.log('model home swept:',
+    (posts.meta?.changes || 0), 'posts,', (replies.meta?.changes || 0), 'replies,',
+    (terms.meta?.changes || 0), 'terms,', objects, 'objects. the furniture stays.');
+}
+
+/* GET /demo — the open house. no knock, no form: a signed session for the
+   shared GUEST identity, scoped (in the token AND the cookie path) to the
+   model home only. readSession refuses this token at every other fort. */
+async function handleDemoDoor(env, request, ip) {
+  if (rateLimited('demo:' + ip, 30, 600)) return nope('the model home is at capacity. ten minutes.', 429);
+  const fort = await getFortBySlug(env, DEMO_FORT_ID);
+  if (!fort || fort.frozen) return fortNotFound(request);
+  const guest = await memberByHandle(env, fort.id, DEMO_GUEST);
+  if (!guest || guest.revoked) return fortNotFound(request);
+  const t = now();
+  await env.DB.prepare(
+    'INSERT INTO visits (fort_id, name, first_seen, last_seen, knocks) VALUES (?, ?, ?, ?, 1) ' +
+    'ON CONFLICT(fort_id, name) DO UPDATE SET last_seen=?, knocks=knocks+1'
+  ).bind(fort.id, DEMO_GUEST, t, t, t).run();
+  const token = await makeSession(env, fort, 'member', DEMO_GUEST);
+  const dest = new URL(request.url);
+  dest.pathname = `/${fort.slug}/`;
+  dest.search = '';
+  return withLegacyCookieClear(new Response(null, {
+    status: 302,
+    headers: { 'Location': dest.toString(), 'Set-Cookie': sessionCookie(token, fort), 'Cache-Control': 'no-store' }
+  }));
+}
+
 /* best-effort per-isolate rate limit (five kids, not the mongol horde) */
 const buckets = new Map();
 function rateLimited(key, limit, windowSec) {
@@ -530,13 +588,21 @@ async function handleDelete(env, request, fort, session) {
 
 async function handleUpload(env, request, fort, session) {
   if (rateLimited('upload:' + fort.id + ':' + session.name, 10, 60)) return nope('the darkroom is busy. one minute.', 429);
+  const demoGuest = isDemoGuest(fort, session);
+  if (demoGuest) {
+    // the model home's shelf is finite on purpose. it empties at 3 AM.
+    const shelf = await env.MEDIA.list({ prefix: DEMO_MEDIA_PREFIX, limit: DEMO_SHELF_MAX });
+    if (shelf.objects.length >= DEMO_SHELF_MAX) {
+      return nope('the demo shelf is full. the 3 AM sweep will make room. it always does.', 429);
+    }
+  }
   const buf = await request.arrayBuffer();
   const type = sniffImage(buf);
   if (!type) return nope('that is not an image the fort recognizes. png, jpeg, gif, webp.', 415);
-  const cap = type === 'image/gif' ? GIF_MAX : IMG_MAX;
+  const cap = type === 'image/gif' ? (demoGuest ? DEMO_GIF_MAX : GIF_MAX) : (demoGuest ? DEMO_IMG_MAX : IMG_MAX);
   if (buf.byteLength > cap) return nope('too big. the fort has one shelf.', 413);
   if (buf.byteLength < 24) return nope('too small to be real.', 400);
-  const key = randKey('m/');
+  const key = randKey(demoGuest ? DEMO_MEDIA_PREFIX : 'm/');
   await env.MEDIA.put(key, buf, {
     httpMetadata: { contentType: type },
     customMetadata: { fort_id: fort.id, uploaded_by: session.name }
@@ -802,6 +868,8 @@ async function handleAsset(env, request, fort, path) {
 
 async function handleGrantMint(env, request, fort, session) {
   if (session.role !== 'founder') return nope('saplings grow for founders only.', 403);
+  // the model home grows nothing. it is furniture. not even the curator plants here.
+  if (isDemoFort(fort)) return nope('nothing grows from the model home. the nursery is for residents.', 403);
   // a newborn fort can't grow saplings for its first day — otherwise one kid
   // daisy-chains fort -> sapling -> fort -> sapling all afternoon. the roots
   // (parent_fort IS NULL) were here before saplings existed and don't wait.
@@ -1039,6 +1107,8 @@ async function routeRequest(request, env) {
     if (path === '/api/seed') return handleSeed(env, request);
     return handleFortCreate(env, request);
   }
+  // the open house: one link, no knock, straight into the model home (and only there)
+  if (path === '/demo' || path === '/demo/') return handleDemoDoor(env, request, ip);
   // the two global doors: founding a fort (sapling required) and the management's mailbox
   if (path === '/api/found' && method === 'POST') return handleFound(env, request, ip);
   if (path === '/api/report' && method === 'POST') return handleReport(env, request, ip);
@@ -1067,6 +1137,23 @@ async function routeRequest(request, env) {
     // everything below the door requires a living session
     const session = await readSession(env, request, fort);
     if (!session) return nope('no session. knock first. the door is not decorative.', 401);
+
+    // the model home's GUEST walks a narrower hallway. most of these doors are
+    // founder-locked already — this list is the explicit, auditable line: a
+    // guest touches rooms and posts, never keys, rosters, or locks.
+    if (isDemoGuest(fort, session)) {
+      const DEMO_LOCKED = ['/api/mycode', '/api/spare/cut', '/api/grants', '/api/grants/mint',
+        '/api/grants/revoke', '/api/members', '/api/members/add', '/api/members/reset',
+        '/api/roster', '/api/dict/status'];
+      if (DEMO_LOCKED.includes(route)) {
+        return nope('the model home has model locks. guests use the rooms, not the keys.', 403);
+      }
+      // guests share one name, so the wall's name-keyed limits would pool every
+      // visitor into one bucket. guests get per-visitor (ip) limits instead.
+      if (route === '/api/post' && rateLimited('demopost:' + ip, 6, 60)) return nope('the wall needs a second. it is an old wall.', 429);
+      if (route === '/api/reply' && rateLimited('demoreply:' + ip, 10, 60)) return nope('easy. the riff will keep.', 429);
+      if (route === '/api/upload' && rateLimited('demoupload:' + ip, 8, 600)) return nope('the darkroom is busy. one minute.', 429);
+    }
 
     if (route === '/api/state' && method === 'GET') {
       const founder = await env.DB.prepare(
@@ -1119,5 +1206,9 @@ export default {
       console.error('fort internal error:', e.message);
       return json({ ok: false, error: 'something fell over inside the fort. the dog is looking into it. try again in a minute.' }, 500);
     }
+  },
+  // 3 AM eastern (7:00 UTC in summer; the broom does not observe daylight saving)
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil(wipeTheGuestRoom(env));
   }
 };
