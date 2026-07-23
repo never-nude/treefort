@@ -54,6 +54,9 @@
 </style>
 </head>
 <body>
+<!-- the model home wears a sign so nobody signs a lease. visible only inside /the_model_home/ -->
+<div id="modelhomesign" style="display:none;position:fixed;bottom:0;left:0;right:0;z-index:99;background:#1d1508;color:#c9bda3;border-top:1px solid #3a2f18;font:11px/1.6 ui-monospace,Menlo,monospace;text-align:center;padding:5px 10px">this is a demo fort. everything you make disappears at 3 AM. <span style="color:#9ee493">the prophecy is always right.</span></div>
+<script>if(location.pathname.split('/')[1]==='the_model_home')document.getElementById('modelhomesign').style.display='block';</script>
 <div id="app">
   <div class="topbar">
     <a href="index.html">&larr; back to the fort</a>
