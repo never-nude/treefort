@@ -4,3 +4,4 @@ node_modules/
 backup-*.sql
 .DS_Store
 backup-media-prereset/
+scripts/.seed-out/
