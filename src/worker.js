@@ -13,10 +13,11 @@ const IMG_MAX = 4 * 1024 * 1024;
 const GIF_MAX = 10 * 1024 * 1024;
 const PAGE_SIZE = 20;
 const DEFAULT_FORT_SLUG = 'the_lookout';
-/* the model home: one fort furnished for strangers. GUEST is a shared identity
-   with a narrower hallway; CURATOR owns the furniture. everything GUEST makes
-   is swept at 3 AM by the scheduled broom below. */
-const DEMO_FORT_ID = 'the_model_home';
+/* the demo fort: one fort furnished for strangers, slug 'demo' — so /demo/ IS
+   the fort and bare /demo is the open-house door that mints a GUEST session.
+   GUEST is a shared identity with a narrower hallway; CURATOR and the seeded
+   roster own the furniture. everything GUEST makes is swept at 3 AM. */
+const DEMO_FORT_ID = 'demo';
 const DEMO_GUEST = 'GUEST';
 const DEMO_MEDIA_PREFIX = 'm/demo';    // every guest upload lives under this key prefix; the wipe is a prefix delete
 const DEMO_IMG_MAX = 2 * 1024 * 1024;  // guests get a smaller shelf
@@ -381,7 +382,7 @@ async function wipeTheGuestRoom(env) {
    shared GUEST identity, scoped (in the token AND the cookie path) to the
    model home only. readSession refuses this token at every other fort. */
 async function handleDemoDoor(env, request, ip) {
-  if (rateLimited('demo:' + ip, 30, 600)) return nope('the model home is at capacity. ten minutes.', 429);
+  if (rateLimited('demo:' + ip, 30, 600)) return nope('the demo is at capacity. ten minutes.', 429);
   const fort = await getFortBySlug(env, DEMO_FORT_ID);
   if (!fort || fort.frozen) return fortNotFound(request);
   const guest = await memberByHandle(env, fort.id, DEMO_GUEST);
@@ -868,8 +869,8 @@ async function handleAsset(env, request, fort, path) {
 
 async function handleGrantMint(env, request, fort, session) {
   if (session.role !== 'founder') return nope('saplings grow for founders only.', 403);
-  // the model home grows nothing. it is furniture. not even the curator plants here.
-  if (isDemoFort(fort)) return nope('nothing grows from the model home. the nursery is for residents.', 403);
+  // the demo grows nothing. it is furniture. not even the curator plants here.
+  if (isDemoFort(fort)) return nope('nothing grows from the demo. the nursery is for residents.', 403);
   // a newborn fort can't grow saplings for its first day — otherwise one kid
   // daisy-chains fort -> sapling -> fort -> sapling all afternoon. the roots
   // (parent_fort IS NULL) were here before saplings existed and don't wait.
@@ -1107,8 +1108,9 @@ async function routeRequest(request, env) {
     if (path === '/api/seed') return handleSeed(env, request);
     return handleFortCreate(env, request);
   }
-  // the open house: one link, no knock, straight into the model home (and only there)
-  if (path === '/demo' || path === '/demo/') return handleDemoDoor(env, request, ip);
+  // the open house: bare /demo (no slash) mints the guest session and walks you
+  // in. /demo/ with the slash is the fort itself and falls through to routing.
+  if (path === '/demo') return handleDemoDoor(env, request, ip);
   // the two global doors: founding a fort (sapling required) and the management's mailbox
   if (path === '/api/found' && method === 'POST') return handleFound(env, request, ip);
   if (path === '/api/report' && method === 'POST') return handleReport(env, request, ip);
@@ -1146,7 +1148,7 @@ async function routeRequest(request, env) {
         '/api/grants/revoke', '/api/members', '/api/members/add', '/api/members/reset',
         '/api/roster', '/api/dict/status'];
       if (DEMO_LOCKED.includes(route)) {
-        return nope('the model home has model locks. guests use the rooms, not the keys.', 403);
+        return nope('the demo has model locks. guests use the rooms, not the keys.', 403);
       }
       // guests share one name, so the wall's name-keyed limits would pool every
       // visitor into one bucket. guests get per-visitor (ip) limits instead.

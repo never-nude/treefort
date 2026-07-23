@@ -174,6 +174,20 @@
   #mgmt { color: #8d8371; opacity: .75; }
   #mgmt:hover { color: #ffcf87; opacity: 1; }
 
+  /* the open house: one unlocked fort, its knock printed and immediately
+     redacted. the eye has a line through it until somebody clicks. */
+  #openhouse { display: inline-flex; align-items: center; gap: 7px;
+    font-size: 11px; letter-spacing: 1px; color: #8d8371; }
+  #openhouse a { color: #ffcf87; }
+  #openhouse a:hover { color: #ffe4b8; }
+  #knockcode { background: #8d8371; color: transparent; border-radius: 2px;
+    padding: 1px 4px; letter-spacing: 2px; user-select: none; }
+  #knockcode.seen { background: transparent; color: #9ee493; user-select: text; }
+  #peek { background: none; border: 0; padding: 2px; cursor: pointer;
+    color: #8d8371; display: inline-flex; align-items: center; }
+  #peek:hover { color: #ffcf87; }
+  #peek svg { width: 18px; height: 11px; }
+
   @media (prefers-reduced-motion: reduce) {
     .fly, .stars.tw, #sprout, .fly::after { animation: none; }
     .rope { animation: none; }
@@ -227,6 +241,17 @@
       <rect x="0" y="1" width="2.5" height="2" fill="#9ee493"/>
       <rect x="3.5" y="0" width="2.5" height="2" fill="#9ee493"/>
     </svg>i have a sapling</a>
+    <div id="openhouse">
+      <a href="/demo">one fort is unlocked. walk in</a>
+      <span id="knockline">or knock: <span id="knockcode" title="redacted by the management">JUSTLOOKING</span></span>
+      <button id="peek" type="button" aria-label="reveal the knock" title="the management looks away">
+        <svg viewBox="0 0 20 12" aria-hidden="true">
+          <ellipse cx="10" cy="6" rx="8" ry="5" fill="none" stroke="currentColor" stroke-width="1.4"/>
+          <circle cx="10" cy="6" r="2" fill="currentColor"/>
+          <line id="peekline" x1="0" y1="6" x2="20" y2="6" stroke="currentColor" stroke-width="1.6"/>
+        </svg>
+      </button>
+    </div>
     <a id="mgmt" href="/rules#management" title="the management is a dog.">speak to the management</a>
   </div>
 
@@ -457,6 +482,15 @@ addEventListener('keydown', e => {
 });
 
 renderLadders();
+
+/* ---------- the eye with the line through it ---------- */
+/* click: the line lifts, the knock becomes knowable. click again: redacted.
+   the management looks away for exactly as long as you ask it to. */
+$('peek').addEventListener('click', () => {
+  const seen = $('knockcode').classList.toggle('seen');
+  $('peekline').style.display = seen ? 'none' : '';
+  $('peek').setAttribute('aria-label', seen ? 'redact the knock' : 'reveal the knock');
+});
 </script>
 </body>
 </html>

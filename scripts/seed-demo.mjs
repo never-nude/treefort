@@ -1,20 +1,22 @@
-/* seed-demo.mjs — furnishes the model home.
+/* seed-demo.mjs — furnishes the demo fort.
    node scripts/seed-demo.mjs local    -> seeds wrangler's local D1/R2 (for testing)
    node scripts/seed-demo.mjs remote   -> seeds production (run once, after review)
 
    zero dependencies, like everything else here. the GIFs are hand-rolled
    GIF89a — pixels pushed one at a time through an uncompressed LZW stream,
-   which is exactly the energy the model home deserves.
+   which is exactly the energy the demo deserves.
 
    what it makes:
-     - the fort:      the_model_home ("The Model Home"), staff pigeon BRENDA
-     - two members:   CURATOR (founder; knock printed ONCE below, private)
-                      GUEST   (shared demo identity; knock is JUSTLOOKING,
-                               public by design — same door /demo opens.
-                               an entry screen may print it)
-     - furniture:     posts, self-replies, dictionary terms, one cursed
-                      prophecy, and five GIFs (paint, kitchen, gif machine)
-   re-running it re-furnishes from scratch (deletes ONLY the_model_home rows). */
+     - the fort:      'demo' (display name DEMO), staff pigeon BRENDA
+     - the roster:    CURATOR (founder) plus five residents; each knock is
+                      printed ONCE below, private — they exist so the operator
+                      can log in as anyone and keep the simulation alive
+     - GUEST:         the shared demo identity; knock is JUSTLOOKING, public
+                      by design — same door /demo opens for free
+     - furniture:     a month of posts and bickering reply threads from the
+                      whole roster, dictionary terms, one cursed prophecy,
+                      and ten GIFs (paint, kitchen, gif machine)
+   re-running it re-furnishes from scratch (deletes ONLY fort_id='demo'). */
 
 import { createHash, randomBytes } from 'crypto';
 import { execFileSync } from 'child_process';
@@ -195,15 +197,95 @@ function memeFine() {
   return gif(180, 120, [c.px]);
 }
 
+// PAINT №3 — DENNIS's horse, from memory
+function paintHorse() {
+  const c = canvas(120, 90, 12);
+  rect(c, 0, 74, 120, 16, 14);                         // ground (assumed)
+  rect(c, 30, 34, 50, 22, 3);                          // the body of the horse
+  rect(c, 74, 20, 16, 20, 3); rect(c, 86, 24, 8, 6, 10); // head; muzzle
+  rect(c, 84, 26, 3, 3, 13);                           // eye (haunted)
+  rect(c, 70, 14, 4, 8, 10); rect(c, 78, 12, 4, 8, 10); // ears? antennae? unclear
+  for (const x of [32, 42, 52, 62, 70, 76]) rect(c, x, 56, 5, 18, 3); // six legs. memory said six.
+  rect(c, 24, 36, 6, 14, 10);                          // tail (front-adjacent)
+  return gif(120, 90, [c.px]);
+}
+
+// GIF MACHINE — the hot dog, spinning (the prophecy's own format)
+function gifHotdog() {
+  const frames = [];
+  for (let f = 0; f < 4; f++) {
+    const c = canvas(90, 90);
+    if (f % 2 === 0) {
+      const vert = f === 2;
+      if (vert) { rect(c, 33, 15, 24, 60, 4); rect(c, 39, 20, 12, 50, 7); }
+      else { rect(c, 15, 33, 60, 24, 4); rect(c, 20, 39, 50, 12, 7); }
+    } else {
+      const flip = f === 3;
+      for (let i = 0; i < 7; i++) {
+        const x = flip ? 60 - i * 7 : 18 + i * 7;
+        rect(c, x, 18 + i * 8, 18, 14, 4);
+        rect(c, x + 4, 21 + i * 8, 10, 8, 7);
+      }
+    }
+    frames.push(c.px);
+  }
+  return gif(90, 90, frames, 20);
+}
+
+// KITCHEN №3 — MOTHLORD corrects the record
+function memeMoth() {
+  const c = canvas(180, 120, 13);
+  rect(c, 62, 52, 24, 18, 8); rect(c, 94, 52, 24, 18, 8);  // wings
+  rect(c, 84, 48, 12, 30, 10);                              // body
+  rect(c, 82, 40, 4, 8, 9); rect(c, 94, 40, 4, 8, 9);       // antennae
+  centered(c, 'A MOTH IS NOT', 10, 2, 12);
+  centered(c, 'A GOTH BUTTERFLY', 98, 2, 12);
+  return gif(180, 120, [c.px]);
+}
+
+// PAINT №4 — the survey map. the scale is emotional.
+function paintMap() {
+  const c = canvas(160, 120, 1);
+  rect(c, 4, 4, 152, 112, 10); rect(c, 8, 8, 144, 104, 1);  // the property line
+  rect(c, 14, 14, 132, 26, 4); text(c, 'THE WALL', 48, 22, 2, 11);
+  rect(c, 14, 46, 62, 60, 2); text(c, 'KITCHEN', 18, 70, 2, 11);
+  rect(c, 82, 46, 64, 34, 15); text(c, 'PAINT', 94, 58, 2, 11);
+  rect(c, 82, 86, 64, 20, 9); text(c, 'ORB ROOM', 86, 92, 2, 11);
+  return gif(160, 120, [c.px]);
+}
+
+// GIF MACHINE — the orb. it pulses. that is its job.
+function gifOrb() {
+  const frames = [];
+  for (let f = 0; f < 3; f++) {
+    const c = canvas(90, 90);
+    const r = 16 + f * 6;
+    rect(c, 45 - r, 45 - r, r * 2, r * 2, 5);
+    rect(c, 45 - r + 6, 45 - r + 6, r * 2 - 12, r * 2 - 12, 15);
+    rect(c, 41, 41, 8, 8, 12);
+    frames.push(c.px);
+  }
+  return gif(90, 90, frames, 30);
+}
+
 /* ================= identities ================= */
 const salt = randomSalt();
-const curatorCode = friendlyCode();
-// GUEST's knock is public BY DESIGN — an entry screen may print it. knocking as
-// GUEST opens exactly the same door /demo opens for free, nothing more. the
-// CURATOR knock is the founder key and goes on no screen anywhere, ever.
+// GUEST's knock is public BY DESIGN — the homepage prints it (redacted, behind
+// the crossed-out eye). knocking as GUEST opens exactly the same door /demo
+// opens for free, nothing more. every OTHER knock below is private: the
+// roster's codes exist so the operator can log in as any resident and keep
+// the simulation alive. they go on no screen anywhere, ever.
 const guestCode = 'JUSTLOOKING';
-const curatorHash = hashCode(salt, curatorCode);
-const guestHash = hashCode(salt, guestCode);
+// the residents. a fort is its roster; the demo gets a fictitious one.
+const ROSTER = [
+  { handle: 'CURATOR', founder: 1 },
+  { handle: 'BAGEL', founder: 0 },
+  { handle: 'DENNIS', founder: 0 },
+  { handle: 'SWAMP WITCH', founder: 0 },
+  { handle: 'MOTHLORD', founder: 0 },
+  { handle: 'GLUE STICK', founder: 0 }
+];
+for (const m of ROSTER) m.code = friendlyCode();
 const NOW = Math.floor(Date.now() / 1000);
 const DAY = 86400;
 const q = s => "'" + String(s).replace(/'/g, "''") + "'";
@@ -212,83 +294,130 @@ const q = s => "'" + String(s).replace(/'/g, "''") + "'";
 const MEDIA = [
   ['m/homepaint1', paintSunset()],
   ['m/homepaint2', paintBrenda()],
+  ['m/homepaint3', paintHorse()],
+  ['m/homepaint4', paintMap()],
   ['m/homegif1', gifCampfire()],
+  ['m/homegif2', gifHotdog()],
+  ['m/homegif3', gifOrb()],
   ['m/homememe1', memePigeon()],
-  ['m/homememe2', memeFine()]
+  ['m/homememe2', memeFine()],
+  ['m/homememe3', memeMoth()]
 ];
 
 /* ================= the wall =================
-   oldest first; ids ascend so the wall (id DESC) reads newest at top.
-   authorship IS the wipe boundary: everything here is CURATOR, forever. */
+   oldest first; ids ascend so the wall (id DESC) reads newest at top. every
+   seeded author is a roster resident — authorship IS the wipe boundary, and
+   the broom only knows the name GUEST. */
 const POSTS = [
-  { type: 'text', days: 21, text:
-    "welcome to the model home. every fort on this tree is private except this one, which we keep furnished and show to strangers. you are the stranger. touch anything. the couch is load-bearing." },
-  { type: 'painting', days: 19, media: 'm/homepaint1', text:
-    "painted the sunset from memory. memory made the sun green. i stand by memory." },
-  { type: 'text', days: 17, text:
-    "HOUSE RULES OF THE MODEL HOME: 1. there is no rule one. 2. the dishwasher is decorative. 3. BRENDA outranks you. 4. whatever you make here stops having happened at 3 AM. this is a mercy." },
-  { type: 'gif', days: 14, media: 'm/homegif1', text:
-    "fed three frames into the gif machine. it returned a campfire that never goes out and never warms anything. the machine does not explain itself." },
-  { type: 'meme', days: 12, media: 'm/homememe1', text:
+  { a: 'CURATOR', type: 'text', days: 34, text:
+    "welcome to DEMO. every fort on this tree is private except this one, which we keep furnished and show to strangers. you are the stranger. touch anything. the couch is load-bearing." },
+  { a: 'BAGEL', type: 'text', days: 33, text: "FIRST",
+    replies: [
+      { a: 'CURATOR', text: "this is not that kind of website." },
+      { a: 'BAGEL', text: "SECOND" }
+    ] },
+  { a: 'GLUE STICK', type: 'painting', days: 31, media: 'm/homepaint2', text:
+    "portrait of BRENDA. she declined to sit still, so this is her essence rather than her likeness.",
+    replies: [
+      { a: 'BAGEL', text: "the essence is looking at me" },
+      { a: 'CURATOR', text: "the essence has been certified. see the dictionary." }
+    ] },
+  { a: 'CURATOR', type: 'text', days: 29, text:
+    "HOUSE RULES OF DEMO: 1. there is no rule one. 2. the dishwasher is decorative. 3. BRENDA outranks you. 4. whatever you make here stops having happened at 3 AM. this is a mercy." },
+  { a: 'DENNIS', type: 'text', days: 27, text:
+    "does anyone else hear the dishwasher at night. it is decorative. it should not be able to make sounds.",
+    replies: [
+      { a: 'SWAMP WITCH', text: "it is not the dishwasher." },
+      { a: 'DENNIS', text: "that is worse. why would you tell me that." }
+    ] },
+  { a: 'DENNIS', type: 'painting', days: 25, media: 'm/homepaint3', text:
+    "drew a horse from memory. i have seen many horses. none of that helped.",
+    replies: [
+      { a: 'GLUE STICK', text: "the legs are load-bearing. all six." }
+    ] },
+  { a: 'MOTHLORD', type: 'text', days: 22, text:
+    "PETITION: the porch light stays ON after midnight. signatures below.",
+    replies: [
+      { a: 'BAGEL', text: "signed" },
+      { a: 'SWAMP WITCH', text: "signed, with conditions" },
+      { a: 'CURATOR', text: "the porch light is decorative. petition filed." }
+    ] },
+  { a: 'BAGEL', type: 'meme', days: 20, media: 'm/homememe1', text:
     "made this in the kitchen. it is about BRENDA. she has not commented, which is the point of the meme." },
-  { type: 'text', days: 10, text:
-    "CURSED PROPHECY No. 7: a visitor will arrive claiming to be JUST LOOKING. within the hour they will make a gif of a spinning hot dog. they will show no one. they will think about it for days. the prophecy is always right.",
+  { a: 'SWAMP WITCH', type: 'text', days: 18, text:
+    "weather report: the fog knows. that's it. that's the report.",
+    replies: [ { a: 'DENNIS', text: "knows WHAT" } ] },
+  { a: 'CURATOR', type: 'painting', days: 16, media: 'm/homepaint4', text:
+    "surveyed the property. the map is to scale. the scale is emotional." },
+  { a: 'CURATOR', type: 'text', days: 14, text:
+    "CURSED PROPHECY No. 7: a visitor will arrive claiming to be JUST LOOKING. within the hour they will make a gif of a spinning hot dog. they will show no one. they will think about it for days. the prophecy is always right." },
+  { a: 'BAGEL', type: 'gif', days: 13, media: 'm/homegif2', text:
+    "I MADE THE HOT DOG. THE PROPHECY DIDN'T EVEN ASK ME TO. IT JUST KNEW.",
     replies: [
-      "update: it happened. it was not even the same visitor. the prophecy counts it.",
-      "the prophecy has never missed. the prophecy does not know what a miss is."
+      { a: 'CURATOR', text: "the prophecy counts it. the prophecy counts everything." },
+      { a: 'SWAMP WITCH', text: "it never misses. it does not know what a miss is." }
     ] },
-  { type: 'painting', days: 7, media: 'm/homepaint2', text:
-    "portrait of BRENDA. she declined to sit still, so this is her essence rather than her likeness. the essence has been certified." },
-  { type: 'text', days: 5, text:
-    "i have argued both sides of every argument on this wall and i have never once lost.",
-    replies: [
-      "counterpoint: you have never won either.",
-      "the management asks you both to keep it down. the management is also me. it is quiet here at night."
-    ] },
-  { type: 'meme', days: 3, media: 'm/homememe2', text:
-    "kitchen output, batch two. the fires are decorative, like the dishwasher. everything here is fine enough." },
-  { type: 'text', days: 1, text:
-    "GUEST BOOK: if you can read this, you are the guest. the wall is yours — write on it, paint on it, cook something in the kitchen. at 3 AM the broom comes for everything you made, and the model home forgets you fondly." }
+  { a: 'DENNIS', type: 'gif', days: 11, media: 'm/homegif1', text:
+    "fed three frames into the gif machine. it returned a campfire that never goes out and never warms anything. the machine does not explain itself." },
+  { a: 'GLUE STICK', type: 'gif', days: 8, media: 'm/homegif3', text:
+    "i have made the orb. do not ask what it is for. it pulses. that is its job.",
+    replies: [ { a: 'MOTHLORD', text: "the moths have noticed. they are in talks." } ] },
+  { a: 'SWAMP WITCH', type: 'meme', days: 6, media: 'm/homememe2', text:
+    "kitchen output. the fires are decorative, like the dishwasher. everything here is fine enough." },
+  { a: 'MOTHLORD', type: 'meme', days: 5, media: 'm/homememe3', text:
+    "correcting a common error.",
+    replies: [ { a: 'DENNIS', text: "this is not an error anyone was making" } ] },
+  { a: 'CURATOR', type: 'painting', days: 4, media: 'm/homepaint1', text:
+    "painted the sunset from memory. memory made the sun green. i stand by memory.",
+    replies: [ { a: 'DENNIS', text: "same thing happened with my horse" } ] },
+  { a: 'CURATOR', type: 'text', days: 1, text:
+    "GUEST BOOK: if you can read this, you are the guest. the wall is yours — write on it, paint on it, cook something in the kitchen. at 3 AM the broom comes for everything you made, and the demo forgets you fondly." }
 ];
 
 const TERMS = [
-  { term: 'LOAD-BEARING', def: 'adjective. do not touch it. everything in the model home is load-bearing, including the jokes.', ex: 'the couch is load-bearing.', status: 'CERTIFIED', days: 20 },
-  { term: 'MODEL HOME', def: 'a house pretending to be lived in. the pretending is the living.', ex: '', status: 'CERTIFIED', days: 18 },
-  { term: 'BRENDA', def: 'staff. species: pigeon. duties: judgment.', ex: 'BRENDA has seen your gif and formed a view.', status: 'CERTIFIED', days: 16 },
-  { term: '3 AM', def: 'when the broom comes. not a metaphor. also a metaphor.', ex: "see you at 3 AM. you won't.", status: '', days: 2 }
+  { a: 'CURATOR', term: 'LOAD-BEARING', def: 'adjective. do not touch it. everything in the demo is load-bearing, including the jokes.', ex: 'the couch is load-bearing.', status: 'CERTIFIED', days: 30 },
+  { a: 'CURATOR', term: 'DEMO', def: 'a fort pretending to be lived in. the pretending is the living.', ex: '', status: 'CERTIFIED', days: 28 },
+  { a: 'BAGEL', term: 'BRENDA', def: 'staff. species: pigeon. duties: judgment.', ex: 'BRENDA has seen your gif and formed a view.', status: 'CERTIFIED', days: 24 },
+  { a: 'SWAMP WITCH', term: 'SIGNED WITH CONDITIONS', def: 'how the swamp witch agrees to anything.', ex: 'the conditions are not disclosed.', status: '', days: 21 },
+  { a: 'GLUE STICK', term: 'THE ORB', def: 'we do not ask what it is for.', ex: 'the orb pulses. that is its job.', status: 'ON LIFE SUPPORT', days: 7 },
+  { a: 'MOTHLORD', term: 'GOTH BUTTERFLY', def: 'retired term for moth. the moths held a vote.', ex: '', status: 'DECEASED', days: 5, died: 5 },
+  { a: 'SWAMP WITCH', term: '3 AM', def: 'when the broom comes. not a metaphor. also a metaphor.', ex: "see you at 3 AM. you won't.", status: '', days: 2 }
 ];
 
 /* ================= SQL ================= */
-let sql = `-- seed-demo: the model home, furnished. generated ${new Date().toISOString()}
--- touches ONLY fort_id='the_model_home'. re-runnable.
-DELETE FROM replies WHERE fort_id='the_model_home';
-DELETE FROM posts WHERE fort_id='the_model_home';
-DELETE FROM terms WHERE fort_id='the_model_home';
-DELETE FROM agreements WHERE fort_id='the_model_home';
-DELETE FROM visits WHERE fort_id='the_model_home';
-DELETE FROM knock_fails WHERE fort_id='the_model_home';
-DELETE FROM members WHERE fort_id='the_model_home';
-DELETE FROM forts WHERE id='the_model_home';
+const T0 = NOW - 45 * DAY;   // the founding. paperwork predates everybody.
+let sql = `-- seed-demo: the demo fort, furnished. generated ${new Date().toISOString()}
+-- touches ONLY fort_id='demo'. re-runnable.
+DELETE FROM replies WHERE fort_id='demo';
+DELETE FROM posts WHERE fort_id='demo';
+DELETE FROM terms WHERE fort_id='demo';
+DELETE FROM agreements WHERE fort_id='demo';
+DELETE FROM visits WHERE fort_id='demo';
+DELETE FROM knock_fails WHERE fort_id='demo';
+DELETE FROM members WHERE fort_id='demo';
+DELETE FROM forts WHERE id='demo';
 INSERT INTO forts (id, slug, display_name, dog_name, gen, salt, created_at, companion_kind)
-  VALUES ('the_model_home', 'the_model_home', 'The Model Home', 'BRENDA', 1, ${q(salt)}, ${NOW - 30 * DAY}, 'pigeon');
-INSERT INTO members (fort_id, handle, code_hash, is_founder, created_at)
-  VALUES ('the_model_home', 'CURATOR', ${q(curatorHash)}, 1, ${NOW - 30 * DAY});
--- GUEST "already has" a spare key (hash of random junk, printed nowhere):
--- guests can't cut spares, so the fort must never nag them to. paperwork.
-INSERT INTO members (fort_id, handle, code_hash, is_founder, created_at, spare_hash, spare_issued_at)
-  VALUES ('the_model_home', 'GUEST', ${q(guestHash)}, 0, ${NOW - 30 * DAY}, ${q(sha256hex(randomBytes(24).toString('hex')))}, ${NOW - 30 * DAY});
-INSERT INTO agreements (fort_id, handle, rules_version, agreed_at) VALUES ('the_model_home', 'CURATOR', 1, ${NOW - 30 * DAY});
-INSERT INTO agreements (fort_id, handle, rules_version, agreed_at) VALUES ('the_model_home', 'GUEST', 1, ${NOW - 30 * DAY});
+  VALUES ('demo', 'demo', 'DEMO', 'BRENDA', 1, ${q(salt)}, ${T0}, 'pigeon');
+`;
+for (const m of ROSTER) {
+  sql += `INSERT INTO members (fort_id, handle, code_hash, is_founder, created_at) VALUES ('demo', ${q(m.handle)}, ${q(hashCode(salt, m.code))}, ${m.founder}, ${T0});\n`;
+  sql += `INSERT INTO agreements (fort_id, handle, rules_version, agreed_at) VALUES ('demo', ${q(m.handle)}, 1, ${T0});\n`;
+}
+// GUEST "already has" a spare key (hash of random junk, printed nowhere):
+// guests can't cut spares, so the fort must never nag them to. paperwork.
+sql += `INSERT INTO members (fort_id, handle, code_hash, is_founder, created_at, spare_hash, spare_issued_at)
+  VALUES ('demo', 'GUEST', ${q(hashCode(salt, guestCode))}, 0, ${T0}, ${q(sha256hex(randomBytes(24).toString('hex')))}, ${T0});
+INSERT INTO agreements (fort_id, handle, rules_version, agreed_at) VALUES ('demo', 'GUEST', 1, ${T0});
 `;
 for (const p of POSTS) {
   const t = NOW - p.days * DAY;   // one post per day-offset, so `created` is a unique handle for replies below
-  sql += `INSERT INTO posts (fort_id, author, type, text, media_key, created, deleted) VALUES ('the_model_home', 'CURATOR', ${q(p.type)}, ${q(p.text)}, ${p.media ? q(p.media) : 'NULL'}, ${t}, 0);\n`;
+  sql += `INSERT INTO posts (fort_id, author, type, text, media_key, created, deleted) VALUES ('demo', ${q(p.a)}, ${q(p.type)}, ${q(p.text)}, ${p.media ? q(p.media) : 'NULL'}, ${t}, 0);\n`;
   for (const [i, r] of (p.replies || []).entries()) {
-    sql += `INSERT INTO replies (fort_id, post_id, author, text, created) VALUES ('the_model_home', (SELECT id FROM posts WHERE fort_id='the_model_home' AND created=${t}), 'CURATOR', ${q(r)}, ${t + (i + 1) * 3600});\n`;
+    sql += `INSERT INTO replies (fort_id, post_id, author, text, created) VALUES ('demo', (SELECT id FROM posts WHERE fort_id='demo' AND created=${t}), ${q(r.a)}, ${q(r.text)}, ${t + (i + 1) * 3600});\n`;
   }
 }
 for (const tm of TERMS) {
-  sql += `INSERT INTO terms (fort_id, term, def, example, author, status, created) VALUES ('the_model_home', ${q(tm.term)}, ${q(tm.def)}, ${tm.ex ? q(tm.ex) : 'NULL'}, 'CURATOR', ${q(tm.status)}, ${NOW - tm.days * DAY});\n`;
+  sql += `INSERT INTO terms (fort_id, term, def, example, author, status, created, died) VALUES ('demo', ${q(tm.term)}, ${q(tm.def)}, ${tm.ex ? q(tm.ex) : 'NULL'}, ${q(tm.a)}, ${q(tm.status)}, ${NOW - tm.days * DAY}, ${tm.died ? NOW - tm.died * DAY : 'NULL'});\n`;
 }
 
 const sqlPath = join(OUT, 'seed.sql');
@@ -308,8 +437,10 @@ for (const [key, buf] of MEDIA) {
   run(['r2', 'object', 'put', `fort-media/${key}`, flag, '--file', p, '--content-type', 'image/gif']);
 }
 console.log(`
-the model home is furnished.
-  fort:     /the_model_home/   (guests arrive via /demo)
-  CURATOR's knock (shown once, write it on paper, PRIVATE): ${curatorCode}
-  GUEST's knock (public by design — fine to print on an entry screen): ${guestCode}
-`);
+the demo fort is furnished.
+  fort:  /demo/   (bare /demo mints a guest session and walks you in)
+  GUEST's knock (public by design — the homepage prints it redacted): ${guestCode}
+
+  the roster's knocks — PRIVATE, shown once, for keeping the simulation alive:`);
+for (const m of ROSTER) console.log(`    ${m.handle.padEnd(12)} ${m.code}${m.founder ? '   (founder)' : ''}`);
+console.log('');

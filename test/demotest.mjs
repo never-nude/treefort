@@ -93,19 +93,19 @@ const sha = async s => {
   return [...new Uint8Array(d)].map(b => b.toString(16).padStart(2, '0')).join('');
 };
 db.forts.set('the_lookout', { id: 'the_lookout', slug: 'the_lookout', display_name: 'The Lookout', dog_name: 'DALE', gen: 1, salt: 'realsalt', frozen: 0 });
-db.forts.set('the_model_home', { id: 'the_model_home', slug: 'the_model_home', display_name: 'The Model Home', dog_name: 'BRENDA', gen: 1, salt: 'demosalt', frozen: 0, companion_kind: 'pigeon' });
+db.forts.set('demo', { id: 'demo', slug: 'demo', display_name: 'DEMO', dog_name: 'BRENDA', gen: 1, salt: 'demosalt', frozen: 0, companion_kind: 'pigeon' });
 db.members.push(
   { fort_id: 'the_lookout', handle: 'CONNOR', code_hash: await sha('realsalt' + 'REALKNOCK'), is_founder: 1, revoked: 0 },
-  { fort_id: 'the_model_home', handle: 'CURATOR', code_hash: await sha('demosalt' + 'HOME-CURATORKNOCK'), is_founder: 1, revoked: 0 },
-  { fort_id: 'the_model_home', handle: 'GUEST', code_hash: await sha('demosalt' + 'UNKNOWABLE'), is_founder: 0, revoked: 0 }
+  { fort_id: 'demo', handle: 'CURATOR', code_hash: await sha('demosalt' + 'HOME-CURATORKNOCK'), is_founder: 1, revoked: 0 },
+  { fort_id: 'demo', handle: 'GUEST', code_hash: await sha('demosalt' + 'UNKNOWABLE'), is_founder: 0, revoked: 0 }
 );
-db.agreements.push({ fort_id: 'the_model_home', handle: 'GUEST', rules_version: 1 });
+db.agreements.push({ fort_id: 'demo', handle: 'GUEST', rules_version: 1 });
 // a real fort's secret: one post with media, in the lookout only
 r2.set('m/realpic1', { buf: 'REAL SECRET PIXELS', ct: 'image/png', customMetadata: { fort_id: 'the_lookout' } });
 db.posts.push({ id: ++postId, fort_id: 'the_lookout', author: 'CONNOR', type: 'image', text: 'private', media_key: 'm/realpic1', created: 1, deleted: 0 });
 // curator furniture that must survive the wipe
 r2.set('m/homepaint1', { buf: 'CURATOR ART', ct: 'image/gif', customMetadata: {} });
-db.posts.push({ id: ++postId, fort_id: 'the_model_home', author: 'CURATOR', type: 'painting', text: 'the sunset', media_key: 'm/homepaint1', created: 2, deleted: 0 });
+db.posts.push({ id: ++postId, fort_id: 'demo', author: 'CURATOR', type: 'painting', text: 'the sunset', media_key: 'm/homepaint1', created: 2, deleted: 0 });
 
 /* ---- harness ---- */
 const BASE = 'https://treefort.lol';
@@ -123,17 +123,17 @@ const req = (path, { method = 'GET', cookie, body } = {}) =>
 
 console.log('\n1. the open house door (/demo)');
 const door = await req('/demo');
-check('GET /demo redirects into the model home', door.status === 302 && door.headers.get('Location').endsWith('/the_model_home/'));
+check('GET /demo redirects into the model home', door.status === 302 && door.headers.get('Location').endsWith('/demo/'));
 const setCookie = door.headers.get('Set-Cookie') || '';
-check('cookie is scoped Path=/the_model_home', setCookie.includes('Path=/the_model_home'));
+check('cookie is scoped Path=/demo', setCookie.includes('Path=/demo'));
 const demoToken = (setCookie.match(/fort_session=([^;]+)/) || [])[1];
 check('a session token was minted', !!demoToken);
-check('token embeds the demo fort id, no other', demoToken.split('.')[1] === 'the_model_home');
+check('token embeds the demo fort id, no other', demoToken.split('.')[1] === 'demo');
 
 console.log('\n2. the demo session works — but only at home');
-const state = await (await req('/the_model_home/api/state', { cookie: demoToken })).json();
+const state = await (await req('/demo/api/state', { cookie: demoToken })).json();
 check('guest state in the model home: ok', state.ok === true && state.name === 'GUEST' && state.role === 'member');
-const guestPost = await (await req('/the_model_home/api/post', { method: 'POST', cookie: demoToken, body: { type: 'text', text: 'a guest was here' } })).json();
+const guestPost = await (await req('/demo/api/post', { method: 'POST', cookie: demoToken, body: { type: 'text', text: 'a guest was here' } })).json();
 check('guest can post in the model home', guestPost.ok === true);
 
 console.log('\n3. the same cookie, forced at a REAL fort (hostile client ignores cookie Path)');
@@ -158,52 +158,52 @@ const bodyOnly = swapped.split('.').slice(0, -1).join('.');
 const resigned = bodyOnly + '.' + createHmac('sha256', 'guessed-secret').update(bodyOnly).digest('hex');
 check('fort id swapped, re-signed with guessed secret -> 401', (await req('/the_lookout/api/state', { cookie: resigned })).status === 401);
 const roleUp = [parts[0], parts[1], parts[2], 'founder', ...parts.slice(4)].join('.');
-check('role escalated to founder, signature kept -> 401', (await req('/the_model_home/api/state', { cookie: roleUp })).status === 401);
+check('role escalated to founder, signature kept -> 401', (await req('/demo/api/state', { cookie: roleUp })).status === 401);
 
 console.log('\n5. cross-fort media through the demo fort');
-const media = await req('/the_model_home/api/media/m/realpic1', { cookie: demoToken });
+const media = await req('/demo/api/media/m/realpic1', { cookie: demoToken });
 check("a real fort's media key via the model home -> 404", media.status === 404, 'got ' + media.status);
 
 console.log('\n6. the narrower hallway (guest inside the model home)');
 for (const [method, path] of [
-  ['POST', '/the_model_home/api/mycode'], ['POST', '/the_model_home/api/spare/cut'],
-  ['GET', '/the_model_home/api/grants'], ['POST', '/the_model_home/api/grants/mint'],
-  ['POST', '/the_model_home/api/grants/revoke'], ['GET', '/the_model_home/api/members'],
-  ['POST', '/the_model_home/api/members/add'], ['GET', '/the_model_home/api/roster'],
-  ['POST', '/the_model_home/api/dict/status']
+  ['POST', '/demo/api/mycode'], ['POST', '/demo/api/spare/cut'],
+  ['GET', '/demo/api/grants'], ['POST', '/demo/api/grants/mint'],
+  ['POST', '/demo/api/grants/revoke'], ['GET', '/demo/api/members'],
+  ['POST', '/demo/api/members/add'], ['GET', '/demo/api/roster'],
+  ['POST', '/demo/api/dict/status']
 ]) {
   const r = await req(path, { method, cookie: demoToken, body: method === 'POST' ? {} : undefined });
   check(`guest ${method} ${path} -> 403`, r.status === 403, 'got ' + r.status);
 }
 
 console.log('\n7. nothing grows from the model home (even for the curator)');
-const knock = await req('/the_model_home/api/knock', { method: 'POST', body: { code: 'HOME-CURATORKNOCK' } });
+const knock = await req('/demo/api/knock', { method: 'POST', body: { code: 'HOME-CURATORKNOCK' } });
 const curatorToken = ((knock.headers.get('Set-Cookie') || '').match(/fort_session=([^;]+)/) || [])[1];
 check('curator can knock (founder, real member)', (await knock.json()).ok === true);
-const mint = await req('/the_model_home/api/grants/mint', { method: 'POST', cookie: curatorToken, body: {} });
+const mint = await req('/demo/api/grants/mint', { method: 'POST', cookie: curatorToken, body: {} });
 check('curator sapling mint in the model home -> 403', mint.status === 403, 'got ' + mint.status);
 
 console.log('\n8. a REAL session, forced at the model home (the boundary works both ways)');
 const realKnock = await req('/the_lookout/api/knock', { method: 'POST', body: { code: 'REALKNOCK' } });
 const realToken = ((realKnock.headers.get('Set-Cookie') || '').match(/fort_session=([^;]+)/) || [])[1];
 check('real member can knock at the lookout', (await realKnock.json()).ok === true);
-check('lookout session at the model home -> 401', (await req('/the_model_home/api/state', { cookie: realToken })).status === 401);
+check('lookout session at the model home -> 401', (await req('/demo/api/state', { cookie: realToken })).status === 401);
 
 console.log('\n9. guest uploads live on the demo shelf');
 const png = Buffer.concat([Buffer.from([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]), Buffer.alloc(64, 7)]);
-const upload = await (await worker.fetch(new Request(BASE + '/the_model_home/api/upload', {
+const upload = await (await worker.fetch(new Request(BASE + '/demo/api/upload', {
   method: 'POST', headers: { 'Cookie': 'fort_session=' + demoToken, 'CF-Connecting-IP': '9.9.9.9' }, body: png
 }), env)).json();
 check('guest upload ok, key has the m/demo prefix', upload.ok === true && upload.media_key.startsWith('m/demo'), JSON.stringify(upload));
 
 console.log('\n10. the 3 AM broom');
-await req('/the_model_home/api/reply', { method: 'POST', cookie: demoToken, body: { post_id: 2, text: 'guest reply on curator post' } });
+await req('/demo/api/reply', { method: 'POST', cookie: demoToken, body: { post_id: 2, text: 'guest reply on curator post' } });
 await worker.scheduled({}, env, { waitUntil: p => p });
 await new Promise(r => setTimeout(r, 50));
-check('guest posts are gone', !db.posts.some(p => p.fort_id === 'the_model_home' && p.author === 'GUEST'));
-check('guest replies are gone', !db.replies.some(r => r.fort_id === 'the_model_home' && r.author === 'GUEST'));
+check('guest posts are gone', !db.posts.some(p => p.fort_id === 'demo' && p.author === 'GUEST'));
+check('guest replies are gone', !db.replies.some(r => r.fort_id === 'demo' && r.author === 'GUEST'));
 check('guest media is gone', ![...r2.keys()].some(k => k.startsWith('m/demo')));
-check('curator furniture survives', db.posts.some(p => p.fort_id === 'the_model_home' && p.author === 'CURATOR') && r2.has('m/homepaint1'));
+check('curator furniture survives', db.posts.some(p => p.fort_id === 'demo' && p.author === 'CURATOR') && r2.has('m/homepaint1'));
 check("the real fort's post and media are untouched", db.posts.some(p => p.fort_id === 'the_lookout') && r2.has('m/realpic1'));
 
 console.log(`\n${passed} passed, ${failed} failed.`);
