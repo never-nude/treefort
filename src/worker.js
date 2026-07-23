@@ -1087,7 +1087,17 @@ async function routeRequest(request, env) {
   }
   if (path === '/robots.txt') {
     // the fort does not want visitors it didn't invite. this includes robots.
-    return new Response('# the fort is not a website. it is a fort.\nUser-agent: *\nDisallow: /\n',
+    // exception: link-preview couriers may look at the calling card, so that a
+    // texted or posted link shows the door instead of a gray square.
+    return new Response(
+      '# the fort is not a website. it is a fort.\n' +
+      '# couriers delivering the calling card may approach.\n' +
+      'User-agent: LinkedInBot\nAllow: /\n\n' +
+      'User-agent: Twitterbot\nAllow: /\n\n' +
+      'User-agent: facebookexternalhit\nAllow: /\n\n' +
+      'User-agent: Slackbot\nAllow: /\n\n' +
+      'User-agent: Discordbot\nAllow: /\n\n' +
+      'User-agent: *\nDisallow: /\n',
       { headers: { 'Content-Type': 'text/plain; charset=utf-8' } });
   }
   if (path === '/favicon.ico') {
