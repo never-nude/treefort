@@ -1632,6 +1632,7 @@ async function doorFail(msg, cooldown) {
   const n = (doorFail.n = (doorFail.n || 0) + 1);
   addLine('bad', n <= 1 ? msg : WRONG_CODE_LINES[Math.min(n - 1, WRONG_CODE_LINES.length - 1)]);
   $('coderow').classList.add('show');
+  showDemoKnock();
   $('codefield').value = ''; $('codefield').focus();
 }
 
@@ -1670,8 +1671,14 @@ async function runDoor() {
   await sleep(350);
   addLine('big', 'STATE THE CODE:');
   $('coderow').classList.add('show');
+  showDemoKnock();
   $('sparelink').style.display = '';
   $('codefield').focus();
+}
+
+/* only the demo's door has a leak. everyone else's door stays a door. */
+function showDemoKnock() {
+  if (location.pathname.split('/')[1] === 'demo') $('demoknock').style.display = 'block';
 }
 
 async function submitCode() {
@@ -1785,9 +1792,10 @@ runDoor();
 requestAnimationFrame(loop);
 
 /* the demo door leaks its own knock — redacted until the eye with the line
-   through it is clicked. real fort doors confirm nothing, ever. */
+   through it is clicked. real fort doors confirm nothing, ever. the hint
+   surfaces only when the code row does (see showDemoKnock in the door flow) —
+   a guest mid-boot with a living session shouldn't see door furniture. */
 if (location.pathname.split('/')[1] === 'demo') {
-  $('demoknock').style.display = 'block';
   $('dkpeek').addEventListener('click', () => {
     const seen = $('dkcode').style.color === 'transparent';
     $('dkcode').style.color = seen ? '#9ee493' : 'transparent';
