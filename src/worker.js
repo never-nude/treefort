@@ -1094,6 +1094,11 @@ async function routeRequest(request, env) {
     const res = await env.ASSETS.fetch(assetRequest(request, '/favicon.ico'));
     return res.status === 404 ? new Response(null, { status: 404 }) : res;
   }
+  if (path === '/og-card.png') {
+    // the one picture the fort shows the outside world: the demo, nobody's secrets
+    const res = await env.ASSETS.fetch(assetRequest(request, '/og-card.png'));
+    return res.status === 404 ? new Response(null, { status: 404 }) : res;
+  }
   if (LEGACY_ROOT_REDIRECTS.has(path)) {
     url.pathname = path.startsWith('/index') ? `/${DEFAULT_FORT_SLUG}/`
       : `/${DEFAULT_FORT_SLUG}${path.endsWith('.html') ? path : path + '.html'}`;
