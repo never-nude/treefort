@@ -1,0 +1,764 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MEME KITCHEN</title>
+<style>
+  * { box-sizing: border-box; }
+  :root { --acc: #ffb64d; --glow: #ffe9a8; }
+  html, body { margin: 0; min-height: 100%; background: #14100b; color: #efe6d5;
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
+  body { background: repeating-linear-gradient(90deg, #171209 0px, #1a140c 70px, #14100b 71px, #171209 140px); }
+  #app { max-width: 980px; margin: 0 auto; padding: 14px 14px 50px; }
+  .topbar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+  .topbar a { color: #8d8371; text-decoration: none; font-size: 12px; letter-spacing: 1px; }
+  .topbar a:hover { color: var(--glow); }
+  h1 { font-size: 18px; letter-spacing: 3px; color: var(--glow); margin: 0; }
+  h1 small { font-size: 10px; color: #8d8371; letter-spacing: 2px; }
+  #stage { display: flex; gap: 14px; align-items: flex-start; flex-wrap: wrap; }
+  #cwrap { position: relative; border: 3px solid #4a3a20; border-radius: 4px; background: #0c0a07;
+    box-shadow: 0 8px 20px #000a; touch-action: none; line-height: 0; }
+  #cv { max-width: 100%; height: auto; display: block; cursor: grab; }
+  #side { display: flex; flex-direction: column; gap: 10px; min-width: 220px; flex: 1; max-width: 300px; }
+  input[type=text], input[type=search] { font: inherit; font-size: 13px; background: #14100b; color: #efe6d5;
+    border: 1px solid #4a3a20; border-radius: 8px; padding: 10px 12px; outline: none; width: 100%; }
+  input[type=text]:focus { border-color: var(--acc); }
+  .fortbtn { font: inherit; font-size: 11px; font-weight: 700; letter-spacing: 1px;
+    background: #241c10; color: #ffcf87; cursor: pointer; border: 1px solid #4a3a20;
+    border-radius: 8px; padding: 9px 12px; }
+  .fortbtn:hover { border-color: var(--acc); }
+  .lbl { font-size: 10px; letter-spacing: 2px; color: #8d8371; margin-top: 4px; }
+  .ctrl { font-size: 11px; color: #8d8371; display: flex; align-items: center; gap: 8px; }
+  .ctrl input[type=range] { flex: 1; accent-color: var(--acc); }
+  .ctrl input[type=color] { width: 32px; height: 24px; border: none; background: none; padding: 0; cursor: pointer; }
+  .toolrow { display: flex; gap: 6px; flex-wrap: wrap; }
+  .tool { width: 38px; height: 38px; font-size: 15px; cursor: pointer; border-radius: 8px;
+    background: #241c10; color: #ffcf87; border: 2px solid #4a3a20; }
+  .tool.on { border-color: var(--acc); background: #33270f; }
+  .tool.spd, .tool.dir { width: auto; padding: 0 10px; font-size: 11px; letter-spacing: 1px; white-space: nowrap; }
+  #floaters .frow { display: flex; gap: 6px; margin-top: 6px; align-items: center; }
+  #floaters input { flex: 1; }
+  #wallpick { display: none; margin-top: 12px; background: #1d1710; border: 2px solid #4a3a20;
+    border-radius: 12px; padding: 12px; }
+  #wallpick.show { display: block; }
+  #wallgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 8px; }
+  #wallgrid img { width: 100%; aspect-ratio: 4/3; object-fit: cover; border-radius: 6px;
+    border: 2px solid #4a3a20; cursor: pointer; }
+  #wallgrid img:hover { border-color: var(--acc); }
+  #toast { position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%) translateY(90px);
+    background: #241c10; border: 1px solid var(--acc); color: var(--glow); border-radius: 10px;
+    padding: 11px 18px; font-size: 13px; font-weight: 700;
+    transition: transform .35s cubic-bezier(.2,1.4,.4,1); z-index: 95; }
+  #toast.show { transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="topbar">
+    <a href="index.html">&larr; back to the fort</a>
+    <h1>MEME KITCHEN <small>impact font is a food group.</small></h1>
+  </div>
+
+  <div id="stage">
+    <div id="cwrap"><canvas id="cv" width="800" height="600"></canvas></div>
+
+    <div id="side">
+      <div class="toolrow">
+        <button class="fortbtn" id="loadbtn">LOAD PHOTO</button>
+        <input type="file" id="loadfile" accept="image/*" hidden>
+        <button class="fortbtn" id="fromwall">GRAB FROM WALL</button>
+      </div>
+
+      <div class="lbl">TOP TEXT</div>
+      <input type="text" id="toptext" maxlength="80" placeholder="WHEN THE">
+      <div class="lbl">BOTTOM TEXT</div>
+      <input type="text" id="bottomtext" maxlength="80" placeholder="HITS DIFFERENT">
+
+      <div class="lbl">FLOATING TEXT (drag them on the canvas)</div>
+      <div id="floaters"></div>
+      <button class="fortbtn" id="addfloat">+ ADD FLOATING TEXT</button>
+
+      <div class="lbl">DRAW LAYER</div>
+      <div class="toolrow">
+        <button class="tool" data-t="none" title="drag text">&#10021;</button>
+        <button class="tool on" data-t="brush" title="brush">&#128396;</button>
+        <button class="tool" data-t="spray" title="spray">&#10057;</button>
+        <button class="tool" data-t="eraser" title="erase drawings">&#9633;</button>
+      </div>
+      <div class="ctrl">COLOR <input type="color" id="drawcolor" value="#ff2d2d"> SIZE
+        <input type="range" id="drawsize" min="2" max="30" value="6"></div>
+
+      <button class="fortbtn" id="postbtn">POST TO THE WALL</button>
+      <button class="fortbtn" id="dlbtn">DOWNLOAD PNG</button>
+      <button class="fortbtn" id="framebtn">ADD AS GIF FRAME &rarr;</button>
+      <div class="lbl" id="framecount"></div>
+
+      <!-- appears only when the loaded thing MOVES. letters go on every frame. -->
+      <button class="fortbtn" id="movebtn" style="display:none"></button>
+      <div id="movetweaks" style="display:none">
+        <div class="lbl">SPEED</div>
+        <div class="toolrow">
+          <button class="tool spd" data-v="0.5" title="half speed">slug</button>
+          <button class="tool spd on" data-v="1" title="as filmed">normal</button>
+          <button class="tool spd" data-v="2" title="double speed">espresso</button>
+        </div>
+        <div class="lbl">DIRECTION</div>
+        <div class="toolrow">
+          <button class="tool dir on" data-v="fwd" title="as filmed">forwards</button>
+          <button class="tool dir" data-v="rev" title="time regrets everything">backwards</button>
+          <button class="tool dir" data-v="boom" title="forwards, then it thinks better of it">there and back</button>
+        </div>
+      </div>
+      <div id="moveout" style="display:none">
+        <div class="lbl">IT MOVES AGAIN</div>
+        <img id="movepreview" alt="your gif, re-lettered" style="max-width:100%;border:2px solid #4a3a20;border-radius:8px;display:block;margin:6px 0">
+        <button class="fortbtn" id="movepost">POST TO THE WALL</button>
+        <button class="fortbtn" id="movedl">DOWNLOAD GIF</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="wallpick">
+    <div class="lbl" style="margin-bottom:8px">RECENT WALL ART — click to remix. remixing is a form of respect.</div>
+    <div id="wallgrid"></div>
+  </div>
+</div>
+<div id="toast"></div>
+
+<script>
+'use strict';
+/* the kitchen. where images become memes and nothing is sacred.
+
+   new since july 2026: the moving pictures department. a gif off the wall
+   (or from your pocket) gets taken apart frame by frame — there's a whole
+   hand-written gif DECODER below, the twin of the gif machine's encoder;
+   read them side by side and you'll know how every gif ever made works —
+   then your letters go on every frame and MAKE IT MOVE AGAIN stitches it
+   back together. speed knob. backwards. there and back. nothing is sacred,
+   especially not the direction of time. — the management */
+
+const $ = id => document.getElementById(id);
+const store = {
+  get(k, d) { try { const v = localStorage.getItem('tf_' + k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem('tf_' + k, JSON.stringify(v)); } catch (e) {} }
+};
+let toastTimer;
+const FORT_BASE = '/' + (location.pathname.split('/').filter(Boolean)[0] || 'the_lookout');
+const apiUrl = path => FORT_BASE + '/api/' + path;
+const mediaUrl = key => FORT_BASE + '/api/media/' + key;
+function toast(m, ms = 3000) { const t = $('toast'); t.textContent = m; t.classList.add('show');
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), ms); }
+function foundSecret(id, msg) {
+  const s = store.get('secrets', []);
+  if (s.includes(id)) return;
+  s.push(id); store.set('secrets', s);
+  toast('SECRET FOUND: ' + msg, 5200);
+}
+async function api(path, opts = {}) {
+  const init = { method: opts.method || 'GET' };
+  if (opts.raw) init.body = opts.body;
+  else if (opts.body !== undefined) { init.body = JSON.stringify(opts.body); init.headers = { 'Content-Type': 'application/json' }; }
+  const res = await fetch(apiUrl(path), init);
+  let data = null; try { data = await res.json(); } catch (e) {}
+  if (res.status === 401) location.href = 'index.html';
+  return { status: res.status, data };
+}
+api('state');
+
+function idb() { return new Promise((res, rej) => {
+  const q = indexedDB.open('fortkit', 1);
+  q.onupgradeneeded = () => q.result.createObjectStore('kv');
+  q.onsuccess = () => res(q.result); q.onerror = () => rej(q.error); }); }
+async function idbGet(k) { const d = await idb(); return new Promise((res, rej) => {
+  const r = d.transaction('kv', 'readonly').objectStore('kv').get(k);
+  r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); }); }
+async function idbSet(k, v) { const d = await idb(); return new Promise((res, rej) => {
+  const t = d.transaction('kv', 'readwrite'); t.objectStore('kv').put(v, k);
+  t.oncomplete = res; t.onerror = () => rej(t.error); }); }
+
+/* ---------- state ---------- */
+const cv = $('cv'), ctx = cv.getContext('2d');
+let baseImg = null;                    // Image
+const drawLayer = document.createElement('canvas');
+const dctx = drawLayer.getContext('2d');
+let floaters = [];                     // {text, x, y, size}
+let tool = 'brush', drawColor = '#ff2d2d', drawSize = 6;
+const IMPACT = 'Impact, Haettenschweiler, "Arial Narrow Bold", "Arial Black", sans-serif';
+
+function setBase(img) {
+  baseImg = img;
+  const MAX = 1000;
+  let w = img.naturalWidth || img.width, h = img.naturalHeight || img.height;
+  const k = Math.min(1, MAX / Math.max(w, h));
+  cv.width = Math.round(w * k); cv.height = Math.round(h * k);
+  drawLayer.width = cv.width; drawLayer.height = cv.height;
+  dctx.clearRect(0, 0, cv.width, cv.height);
+  render();
+}
+function drawMemeText(c, text, y, sizePx, baseline) {
+  if (!text) return;
+  c.save();
+  c.font = '900 ' + sizePx + 'px ' + IMPACT;
+  c.textAlign = 'center'; c.textBaseline = baseline;
+  c.fillStyle = '#ffffff';
+  c.strokeStyle = '#000000';
+  c.lineWidth = Math.max(2, sizePx / 9);
+  c.lineJoin = 'round';
+  const x = cv.width / 2;
+  c.strokeText(text.toUpperCase(), x, y);
+  c.fillText(text.toUpperCase(), x, y);
+  c.restore();
+}
+/* paint one finished meme: a base (image or frame canvas), the drawings, the
+   letters. render() feeds the visible canvas; the gif re-stitcher feeds frames. */
+function renderTo(c, base) {
+  c.clearRect(0, 0, cv.width, cv.height);
+  if (base) c.drawImage(base, 0, 0, cv.width, cv.height);
+  else {
+    c.fillStyle = '#e8e2d4'; c.fillRect(0, 0, cv.width, cv.height);
+    c.fillStyle = '#8d8371'; c.font = '20px ui-monospace, monospace'; c.textAlign = 'center';
+    c.fillText('load a photo. or grab one from the wall.', cv.width / 2, cv.height / 2);
+  }
+  c.drawImage(drawLayer, 0, 0);
+  const big = Math.round(cv.width / 9);
+  drawMemeText(c, $('toptext').value, Math.round(big * 0.25), big, 'top');
+  drawMemeText(c, $('bottomtext').value, cv.height - Math.round(big * 0.25), big, 'bottom');
+  for (const f of floaters) {
+    c.save();
+    c.font = '900 ' + f.size + 'px ' + IMPACT;
+    c.textAlign = 'center'; c.textBaseline = 'middle';
+    c.fillStyle = '#ffffff'; c.strokeStyle = '#000'; c.lineWidth = Math.max(2, f.size / 9); c.lineJoin = 'round';
+    c.strokeText(f.text.toUpperCase(), f.x, f.y);
+    c.fillText(f.text.toUpperCase(), f.x, f.y);
+    c.restore();
+  }
+}
+function render() { renderTo(ctx, baseImg); }
+$('toptext').addEventListener('input', render);
+$('bottomtext').addEventListener('input', render);
+
+/* ---------- floating text ---------- */
+function renderFloaters() {
+  const box = $('floaters');
+  box.innerHTML = '';
+  floaters.forEach((f, i) => {
+    const row = document.createElement('div');
+    row.className = 'frow';
+    row.innerHTML = '<input type="text" maxlength="60" value="' + f.text.replace(/"/g, '&quot;') + '">'
+      + '<input type="range" min="14" max="90" value="' + f.size + '" style="width:70px;accent-color:var(--acc)">'
+      + '<button class="tool" title="delete">&times;</button>';
+    const [txt, rng, del] = row.children;
+    txt.addEventListener('input', () => { f.text = txt.value; render(); });
+    rng.addEventListener('input', () => { f.size = +rng.value; render(); });
+    del.addEventListener('click', () => { floaters.splice(i, 1); renderFloaters(); render(); });
+    box.appendChild(row);
+  });
+}
+$('addfloat').addEventListener('click', () => {
+  floaters.push({ text: 'EDIT ME', x: cv.width / 2, y: cv.height / 2, size: Math.round(cv.width / 14) });
+  renderFloaters(); render();
+});
+
+/* ---------- pointer: drag text or draw ---------- */
+function pos(e) {
+  const r = cv.getBoundingClientRect();
+  return { x: (e.clientX - r.left) * cv.width / r.width, y: (e.clientY - r.top) * cv.height / r.height };
+}
+let dragging = null, drawing = false, last = null, sprayTimer = null;
+function hitFloater(p) {
+  for (let i = floaters.length - 1; i >= 0; i--) {
+    const f = floaters[i];
+    ctx.font = '900 ' + f.size + 'px ' + IMPACT;
+    const w = ctx.measureText(f.text.toUpperCase()).width;
+    if (Math.abs(p.x - f.x) < w / 2 + 10 && Math.abs(p.y - f.y) < f.size * 0.7) return f;
+  }
+  return null;
+}
+function strokeDraw(a, b) {
+  dctx.save();
+  if (tool === 'eraser') dctx.globalCompositeOperation = 'destination-out';
+  dctx.strokeStyle = drawColor; dctx.fillStyle = drawColor;
+  dctx.lineWidth = drawSize; dctx.lineCap = 'round';
+  dctx.beginPath(); dctx.moveTo(a.x, a.y); dctx.lineTo(b.x, b.y); dctx.stroke();
+  dctx.restore();
+}
+function sprayDraw(p) {
+  dctx.save(); dctx.fillStyle = drawColor;
+  for (let i = 0; i < drawSize * 3; i++) {
+    const a = Math.random() * Math.PI * 2, r = Math.random() * drawSize * 2;
+    dctx.fillRect(p.x + Math.cos(a) * r, p.y + Math.sin(a) * r, 1.4, 1.4);
+  }
+  dctx.restore();
+}
+cv.addEventListener('pointerdown', e => {
+  e.preventDefault();
+  const p = pos(e);
+  const f = hitFloater(p);
+  if (f && (tool === 'none' || !e.shiftKey && tool === 'none')) { dragging = f; return; }
+  if (tool === 'none') { dragging = f; return; }
+  if (f && tool !== 'eraser') { dragging = f; return; }   // text drag wins over paint when you grab a word
+  drawing = true; last = p;
+  if (tool === 'spray') { sprayDraw(p); sprayTimer = setInterval(() => last && sprayDraw(last), 40); }
+  else strokeDraw(p, p);
+  render();
+});
+addEventListener('pointermove', e => {
+  if (dragging) { const p = pos(e); dragging.x = p.x; dragging.y = p.y; render(); return; }
+  if (!drawing) return;
+  const p = pos(e);
+  if (tool === 'spray') last = p;
+  else { strokeDraw(last, p); last = p; }
+  render();
+});
+addEventListener('pointerup', () => {
+  dragging = null; drawing = false;
+  clearInterval(sprayTimer); sprayTimer = null;
+});
+document.querySelectorAll('.tool[data-t]').forEach(b => b.addEventListener('click', () => {
+  tool = b.dataset.t;
+  document.querySelectorAll('.tool[data-t]').forEach(t => t.classList.remove('on'));
+  b.classList.add('on');
+}));
+$('drawcolor').addEventListener('input', e => drawColor = e.target.value);
+$('drawsize').addEventListener('input', e => drawSize = +e.target.value);
+
+/* ---------- the moving pictures department ----------
+   when a gif comes off the wall (or in from a file), we take it apart, let you
+   letter it, and stitch it back together. the reel holds the original frames. */
+let gifReel = null;   // { frames: [{canvas, delayMs}], srcW, srcH } — null = still life
+function clearReel() {
+  gifReel = null;
+  $('movebtn').style.display = 'none';
+  $('movetweaks').style.display = 'none';
+  $('moveout').style.display = 'none';
+}
+/* the two knobs on the projector: how fast, and which way through time */
+let moveSpeed = 1, moveDir = 'fwd';
+document.querySelectorAll('.spd').forEach(b => b.addEventListener('click', () => {
+  moveSpeed = +b.dataset.v;
+  document.querySelectorAll('.spd').forEach(x => x.classList.toggle('on', x === b));
+}));
+document.querySelectorAll('.dir').forEach(b => b.addEventListener('click', () => {
+  moveDir = b.dataset.v;
+  document.querySelectorAll('.dir').forEach(x => x.classList.toggle('on', x === b));
+}));
+function frameToCanvas(frame, w, h) {
+  const c = document.createElement('canvas');
+  c.width = w; c.height = h;
+  c.getContext('2d').putImageData(new ImageData(frame.data, w, h), 0, 0);
+  return c;
+}
+/* try to read bytes as a MOVING gif. returns true if the reel is loaded. */
+function tryLoadReel(bytes) {
+  try {
+    const g = decodeGIF(bytes);
+    if (!g.frames || g.frames.length < 2) return false;
+    const frames = g.frames.map(f => ({ canvas: frameToCanvas(f, g.width, g.height), delayMs: f.delayMs }));
+    gifReel = { frames, srcW: g.width, srcH: g.height };
+    setBase(frames[0].canvas);
+    $('movebtn').style.display = '';
+    $('movebtn').textContent = 'MAKE IT MOVE AGAIN (' + frames.length + ' frames)';
+    $('movetweaks').style.display = '';
+    $('moveout').style.display = 'none';
+    return true;
+  } catch (e) {
+    return false;   // the projector refused. the still life path takes it from here.
+  }
+}
+
+/* ---------- sources ---------- */
+$('loadbtn').addEventListener('click', () => $('loadfile').click());
+$('loadfile').addEventListener('change', async e => {
+  const f = e.target.files[0];
+  if (!f) return;
+  e.target.value = '';
+  clearReel();
+  if (f.type === 'image/gif') {
+    const bytes = new Uint8Array(await f.arrayBuffer());
+    if (tryLoadReel(bytes)) { toast('this one moves. ' + gifReel.frames.length + ' frames on the counter.'); return; }
+  }
+  const img = new Image();
+  const url = URL.createObjectURL(f);
+  img.onload = () => { URL.revokeObjectURL(url); setBase(img); };   // canvas re-encode on export strips metadata
+  img.onerror = () => toast('that is not an image.');
+  img.src = url;
+});
+$('fromwall').addEventListener('click', async () => {
+  const box = $('wallpick');
+  box.classList.toggle('show');
+  if (!box.classList.contains('show')) return;
+  const grid = $('wallgrid');
+  grid.innerHTML = '<span class="lbl">rummaging through the wall...</span>';
+  const r = await api('wall');
+  if (!(r.data && r.data.ok)) { grid.innerHTML = '<span class="lbl">the wall is unreachable. suspicious.</span>'; return; }
+  const media = r.data.posts.filter(p => !p.deleted && p.media_key);
+  grid.innerHTML = media.length ? '' : '<span class="lbl">no art on the wall yet. be the first. no pressure. (pressure.)</span>';
+  media.forEach(p => {
+    const img = document.createElement('img');
+    img.src = mediaUrl(p.media_key);
+    img.title = 'by ' + p.author;
+    img.addEventListener('click', async () => {
+      clearReel();
+      if (p.type === 'gif') {
+        // gifs come off the wall in one piece and get taken apart on the counter
+        try {
+          const bytes = new Uint8Array(await (await fetch(mediaUrl(p.media_key))).arrayBuffer());
+          if (tryLoadReel(bytes)) {
+            box.classList.remove('show');
+            toast('remixing ' + p.author + '\'s gif. ' + gifReel.frames.length + ' frames, all yours.');
+            return;
+          }
+        } catch (e) { /* the still life path takes it from here */ }
+      }
+      const big = new Image();
+      big.onload = () => {
+        setBase(big); box.classList.remove('show');
+        toast(p.type === 'gif'
+          ? 'remixing ' + p.author + '\'s gif — first frame only. the projector refused the rest.'
+          : 'remixing ' + p.author + '\'s post. an honor, really.');
+      };
+      big.src = img.src;
+    });
+    grid.appendChild(img);
+  });
+});
+
+/* ================= GIF89a DECODER ================= */
+/* the encoder's mirror twin. hand it the bytes of a .gif
+   (Uint8Array or ArrayBuffer) and it hands back
+     { width, height, frames: [{ data, delayMs }] }
+   data: full-canvas RGBA Uint8ClampedArray, already composited —
+   frame 30 is the whole picture at frame 30, not the postage-stamp
+   sub-rectangle the file happened to store. delayMs is per frame.
+   built-in caps: 150 frames, 4 megapixels. a corrupt file gets you
+   a partial movie or a polite Error, never an infinite loop. */
+function decodeGIF(bytes) {
+  if (bytes instanceof ArrayBuffer) bytes = new Uint8Array(bytes);
+  const refuse = () => { throw new Error('that is not a gif. the projector refuses.'); };
+  if (!bytes || !bytes.subarray || bytes.length < 13) refuse();
+
+  let pos = 0;
+  const u8 = () => bytes[pos++] & 0xFF;               // reads past the end come back 0. calm.
+  const u16 = () => u8() | (u8() << 8);               // little-endian, same as the encoder writes
+
+  // header — GIF87a and GIF89a are both welcome. nothing else is.
+  const sig = String.fromCharCode(...bytes.subarray(0, 6)); pos = 6;
+  if (sig !== 'GIF89a' && sig !== 'GIF87a') refuse();
+
+  // logical screen descriptor
+  const width = u16(), height = u16();
+  if (!width || !height) refuse();
+  if (width * height > 4_000_000) throw new Error('over 4 megapixels. the projector is a small machine.');
+  const lsdPacked = u8(); u8(); u8();                 // packed, background index, aspect (those two: read and released)
+  const colorTable = n => { const t = bytes.subarray(pos, pos + n * 3); pos += n * 3; return t; };
+  const globalTable = (lsdPacked & 0x80) ? colorTable(2 << (lsdPacked & 7)) : null;
+
+  const canvas = new Uint8ClampedArray(width * height * 4);   // starts all-transparent
+  const frames = [];
+
+  // graphic control state: an extension sets these, the next image spends them
+  let delayCs = 0, transparent = -1, disposal = 0;
+
+  const skipSubBlocks = () => {                       // sub-block chains end on a 0-length block
+    while (pos < bytes.length) { const n = u8(); if (!n) break; pos += n; }
+  };
+
+  while (pos < bytes.length && frames.length < 150) { // 150 frames and the reel is full
+    const block = u8();
+    if (block === 0x3B) break;                        // trailer. roll credits.
+
+    if (block === 0x21) {                             // extension
+      if (u8() === 0xF9) {                            // graphic control — the one we actually read
+        u8();                                         // block size, always 4
+        const p = u8();
+        disposal = (p >> 2) & 7;
+        delayCs = u16();
+        const ti = u8();
+        transparent = (p & 1) ? ti : -1;
+        u8();                                         // terminator
+      } else skipSubBlocks();                         // app / comment / plain-text: skipped without judgment
+      continue;
+    }
+
+    if (block !== 0x2C) break;                        // unknown block type — keep what we have, go home
+
+    // ---- image descriptor ----
+    const left = u16(), top = u16(), w = u16(), h = u16();
+    const ip = u8();
+    const localTable = (ip & 0x80) ? colorTable(2 << (ip & 7)) : null;
+    const table = localTable || globalTable;
+    const minCode = u8();
+    if (w * h > 4_000_000) throw new Error('a frame bigger than the whole projector. refused.');  // no absurd scratch buffers
+    const idxs = lzwDecode(minCode, w * h);
+    if (!table) { delayCs = 0; transparent = -1; disposal = 0; continue; }  // no palette anywhere: nothing to paint with
+
+    // disposal 3 will want the canvas exactly as it was before this frame
+    const before = disposal === 3 ? canvas.slice() : null;
+
+    // rows of the sub-image in the order the file stores them.
+    // interlaced = the 4-pass venetian-blind shuffle; plain = top to bottom.
+    const rows = [];
+    if (ip & 0x40) {
+      for (let y = 0; y < h; y += 8) rows.push(y);    // pass 1: every 8th row, from 0
+      for (let y = 4; y < h; y += 8) rows.push(y);    // pass 2: every 8th row, from 4
+      for (let y = 2; y < h; y += 4) rows.push(y);    // pass 3: every 4th row, from 2
+      for (let y = 1; y < h; y += 2) rows.push(y);    // pass 4: the odd rows
+    } else for (let y = 0; y < h; y++) rows.push(y);
+
+    for (let r = 0; r < rows.length; r++) {
+      const y = top + rows[r];
+      if (y >= height) continue;                      // sub-image hanging off the canvas: clipped
+      for (let x = 0; x < w; x++) {
+        if (left + x >= width) continue;
+        const px = idxs[r * w + x];
+        if (px === transparent) continue;             // see-through: whatever is underneath stays
+        const o = (y * width + left + x) * 4, c = px * 3;
+        canvas[o] = table[c]; canvas[o + 1] = table[c + 1];
+        canvas[o + 2] = table[c + 2]; canvas[o + 3] = 255;
+      }
+    }
+
+    // a delay of 0 or 1 centiseconds means "you decide". browsers decided 100ms. so did we.
+    frames.push({ data: canvas.slice(), delayMs: delayCs <= 1 ? 100 : delayCs * 10 });
+
+    // disposal, for whoever renders next:
+    // 0/1 = leave it. 2 = wipe this frame's rectangle back to transparent. 3 = rewind.
+    if (disposal === 2) {
+      for (let y = top; y < top + h && y < height; y++)
+        for (let x = left; x < left + w && x < width; x++) {
+          const o = (y * width + x) * 4;
+          canvas[o] = canvas[o + 1] = canvas[o + 2] = canvas[o + 3] = 0;
+        }
+    } else if (before) canvas.set(before);
+
+    delayCs = 0; transparent = -1; disposal = 0;      // control state is single-use
+  }
+
+  return { width, height, frames };
+
+  /* GIF-variant LZW, running the encoder's lzw() in reverse:
+     variable code width, CLEAR resets the dictionary, EOI ends it,
+     and the bytes arrive chopped into ≤255-byte sub-blocks. */
+  function lzwDecode(minCode, npix) {
+    if (minCode < 2 || minCode > 8) throw new Error('impossible LZW code size. corrupt file.');  // legal range 2..8; a lie here means a runaway dictionary
+    // stitch the sub-blocks back into one contiguous run of bytes
+    const chunks = []; let total = 0;
+    while (pos < bytes.length) {
+      const n = u8(); if (!n) break;
+      chunks.push(bytes.subarray(pos, Math.min(pos + n, bytes.length)));
+      pos += n; total += n;
+    }
+    const data = new Uint8Array(total); let off = 0;
+    for (const c of chunks) { data.set(c, off); off += c.length; }
+
+    const CLEAR = 1 << minCode, EOI = CLEAR + 1;
+    let dict, next, codeSize;
+    const reset = () => { dict = []; for (let i = 0; i < CLEAR; i++) dict[i] = [i]; next = EOI + 1; codeSize = minCode + 1; };
+    reset();
+
+    const out = new Uint8Array(npix);                 // anything left undecoded stays index 0
+    let filled = 0, prev = null, acc = 0, nbits = 0, dp = 0;
+    while (filled < npix) {                           // every lap eats bits, so this always ends
+      while (nbits < codeSize && dp < data.length) { acc |= data[dp++] << nbits; nbits += 8; }
+      if (nbits < codeSize) break;                    // ran out of file. a partial picture beats no picture.
+      const code = acc & ((1 << codeSize) - 1);
+      acc >>= codeSize; nbits -= codeSize;
+
+      if (code === CLEAR) { reset(); prev = null; continue; }
+      if (code === EOI) break;
+
+      let entry;
+      if (dict[code]) entry = dict[code];
+      else if (code === next && prev) entry = prev.concat(prev[0]);   // the one code the encoder uses before defining it
+      else break;                                     // a code from nowhere. corrupt file. stop politely.
+
+      for (let i = 0; i < entry.length && filled < npix; i++) out[filled++] = entry[i];
+      if (prev && next < 4096) {
+        dict[next++] = prev.concat(entry[0]);
+        if (next === (1 << codeSize) && codeSize < 12) codeSize++;   // one step ahead of the encoder's bump, on purpose
+      }
+      prev = entry;
+    }
+    return out;
+  }
+}
+
+/* ================= GIF89a ENCODER =================
+   borrowed from the gif machine down the hall. same hand-written LZW,
+   same 3-3-2 crunch. the rooms share tools; that's what a fort is. */
+function encodeGIF(frames, delayCs) {
+  const get = i => typeof frames[i] === 'function' ? frames[i]() : frames[i];
+  const first = get(0);
+  const W = first.width, H = first.height;
+  const out = [];
+  const push = (...b) => { for (const x of b) out.push(x & 0xFF); };
+  const push16 = v => { push(v & 0xFF, (v >> 8) & 0xFF); };
+  for (const ch of 'GIF89a') push(ch.charCodeAt(0));
+  push16(W); push16(H);
+  push(0xF7, 0, 0);
+  for (let i = 0; i < 256; i++) {
+    const r = (i >> 5) & 7, g = (i >> 2) & 7, b = i & 3;
+    push(Math.round(r * 255 / 7), Math.round(g * 255 / 7), Math.round(b * 255 / 3));
+  }
+  push(0x21, 0xFF, 0x0B);
+  for (const ch of 'NETSCAPE2.0') push(ch.charCodeAt(0));
+  push(0x03, 0x01); push16(0); push(0x00);
+  for (let fi = 0; fi < frames.length; fi++) {
+    if (out.length > 10.5 * 1024 * 1024) throw new Error('past 10MB mid-stitch. fewer frames. the shelf is only so big.');
+    const f = fi === 0 ? first : get(fi);
+    const N = W * H, idxs = new Uint8Array(N), d = f.data;
+    for (let i = 0; i < N; i++) {
+      const o = i * 4;
+      idxs[i] = (d[o] & 0xE0) | ((d[o + 1] & 0xE0) >> 3) | (d[o + 2] >> 6);
+    }
+    push(0x21, 0xF9, 0x04, 0x04); push16(delayCs); push(0x00, 0x00);
+    push(0x2C); push16(0); push16(0); push16(W); push16(H); push(0x00);
+    push(0x08);
+    lzw(idxs, 8, out);
+    push(0x00);
+  }
+  push(0x3B);
+  return new Uint8Array(out);
+}
+function lzw(pixels, minCode, out) {
+  const CLEAR = 1 << minCode, EOI = CLEAR + 1;
+  let dict = new Map(), next = EOI + 1, codeSize = minCode + 1;
+  let acc = 0, nbits = 0;
+  const block = [];
+  const emitByte = b => {
+    block.push(b);
+    if (block.length === 255) { out.push(255, ...block); block.length = 0; }
+  };
+  const emit = code => {
+    acc |= code << nbits;
+    nbits += codeSize;
+    while (nbits >= 8) { emitByte(acc & 0xFF); acc >>= 8; nbits -= 8; }
+  };
+  const reset = () => { dict = new Map(); next = EOI + 1; codeSize = minCode + 1; };
+  emit(CLEAR);
+  let prefix = pixels[0];
+  for (let i = 1; i < pixels.length; i++) {
+    const k = pixels[i];
+    const key = prefix * 256 + k;
+    if (dict.has(key)) { prefix = dict.get(key); continue; }
+    emit(prefix);
+    if (next < 4096) {
+      dict.set(key, next++);
+      if (next === (1 << codeSize) + 1 && codeSize < 12) codeSize++;
+    } else { emit(CLEAR); reset(); }
+    prefix = k;
+  }
+  emit(prefix);
+  emit(EOI);
+  if (nbits > 0) emitByte(acc & 0xFF);
+  if (block.length) out.push(block.length, ...block);
+}
+
+/* ---------- the re-stitcher: letters on every frame, then a gif again ---------- */
+let movedBlob = null;
+$('movebtn').addEventListener('click', async function () {
+  if (!gifReel) return;
+  this.disabled = true;
+  const label = this.textContent;
+  this.textContent = 'stitching...';
+  // setTimeout, not requestAnimationFrame: rAF never fires in a background tab,
+  // and a kid WILL switch tabs mid-stitch. the stitcher works unwatched.
+  await new Promise(r => setTimeout(r, 0));
+  try {
+    // output stays wall-sized: 480 wide max, same crunch as the gif machine
+    const outW = Math.min(cv.width, 480);
+    const outH = Math.round(cv.height * outW / cv.width);
+    const work = document.createElement('canvas');   // full-size: overlays land exactly as previewed
+    work.width = cv.width; work.height = cv.height;
+    const wctx = work.getContext('2d');
+    const small = document.createElement('canvas');
+    small.width = outW; small.height = outH;
+    const sctx = small.getContext('2d');
+    // which way through time?
+    let picked = gifReel.frames.slice();
+    if (moveDir === 'rev') picked.reverse();
+    if (moveDir === 'boom') picked = picked.concat(picked.slice(1, -1).reverse());
+    // lazy frames: the encoder asks for one at a time, nothing piles up
+    const lazy = picked.map(fr => () => {
+      renderTo(wctx, fr.canvas);
+      sctx.clearRect(0, 0, outW, outH);
+      sctx.drawImage(work, 0, 0, outW, outH);
+      return { data: sctx.getImageData(0, 0, outW, outH).data, width: outW, height: outH };
+    });
+    const delays = gifReel.frames.map(f => f.delayMs).sort((a, b) => a - b);
+    const delayCs = Math.max(2, Math.round(delays[Math.floor(delays.length / 2)] / 10 / moveSpeed));
+    const bytes = encodeGIF(lazy, delayCs);
+    movedBlob = new Blob([bytes], { type: 'image/gif' });
+    $('movepreview').src = URL.createObjectURL(movedBlob);
+    $('moveout').style.display = '';
+    toast('stitched. ' + gifReel.frames.length + ' frames, lettered, moving.');
+  } catch (e) {
+    toast(e.message || 'the stitcher jammed. fewer frames, maybe.');
+  }
+  this.textContent = label;
+  this.disabled = false;
+});
+$('movedl').addEventListener('click', () => {
+  if (!movedBlob) return;
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(movedBlob);
+  a.download = 'kitchen-output.gif';
+  a.click();
+  toast('yours. deploy it anywhere.');
+});
+$('movepost').addEventListener('click', async function () {
+  if (!movedBlob) return;
+  this.disabled = true; this.textContent = 'posting...';
+  const buf = await movedBlob.arrayBuffer();
+  const up = await api('upload', { method: 'POST', body: buf, raw: true });
+  if (up.data && up.data.ok) {
+    const r = await api('post', { method: 'POST', body: { type: 'gif', media_key: up.data.media_key, text: '' } });
+    if (r.data && r.data.ok) toast('on the wall. it moves. people will notice.');
+    else toast(r.data && r.data.error || 'the wall refused.');
+  } else toast(up.data && up.data.error || 'the upload slipped.');
+  this.disabled = false; this.textContent = 'POST TO THE WALL';
+});
+
+/* ---------- export ---------- */
+function anyText() {
+  return !!($('toptext').value.trim() || $('bottomtext').value.trim() || floaters.some(f => f.text.trim()));
+}
+$('dlbtn').addEventListener('click', () => {
+  const a = document.createElement('a');
+  a.download = 'fort-meme.png';
+  a.href = cv.toDataURL('image/png');
+  a.click();
+});
+$('postbtn').addEventListener('click', async function () {
+  if (!baseImg) { toast('a meme needs a base image. them\'s physics.'); return; }
+  this.disabled = true; this.textContent = 'POSTING...';
+  try {
+    const blob = await new Promise(r => cv.toBlob(r, 'image/png'));
+    const buf = await blob.arrayBuffer();
+    const up = await api('upload', { method: 'POST', body: buf, raw: true });
+    if (!(up.data && up.data.ok)) throw new Error(up.data && up.data.error || 'upload failed');
+    const r = await api('post', { method: 'POST', body: { type: 'meme', media_key: up.data.media_key, text: '' } });
+    if (!(r.data && r.data.ok)) throw new Error(r.data && r.data.error || 'post failed');
+    if (!anyText()) foundSecret('silence', 'a meme with no words. the rarest form. the kitchen bows.');
+    toast('posted. the wall accepts your meme.');
+  } catch (err) { toast(err.message); }
+  this.disabled = false; this.textContent = 'POST TO THE WALL';
+});
+$('framebtn').addEventListener('click', async () => {
+  if (!baseImg) { toast('nothing to add yet.'); return; }
+  const h = (await idbGet('handoff_frames')) || { frames: [], w: cv.width, h: cv.height, from: 'kitchen' };
+  if (h.frames.length && (h.w !== cv.width || h.h !== cv.height)) {
+    h.frames = []; h.w = cv.width; h.h = cv.height;   // size changed = new reel
+  }
+  h.frames.push(cv.toDataURL('image/png'));
+  h.w = cv.width; h.h = cv.height;
+  await idbSet('handoff_frames', h);
+  $('framecount').textContent = h.frames.length + ' frame(s) queued for the gif machine. change the text, add another.';
+  toast('frame ' + h.frames.length + ' queued. tweak the text and add the next one.');
+});
+
+render();
+</script>
+</body>
+</html>

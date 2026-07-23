@@ -1,0 +1,891 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="the department of new forts. open weekends and whenever.">
+<title>the department of new forts</title>
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    margin: 0; min-height: 100%;
+    background: #14100b; color: #efe6d5;
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  }
+  body {
+    background:
+      radial-gradient(ellipse at 50% -20%, #2a2138 0%, transparent 55%),
+      repeating-linear-gradient(90deg, #171209 0px, #1a140c 70px, #14100b 71px, #171209 140px);
+    padding: 0 14px 70px;
+    overflow-x: hidden;
+  }
+  ::selection { background: #ffb64d59; }
+  button { font: inherit; }
+  button:focus-visible, input:focus-visible { outline: 2px solid #ffb64d; outline-offset: 2px; }
+
+  #lights { display: flex; justify-content: space-between; padding: 6px 8px 0; max-width: 720px; margin: 0 auto 4px; }
+  #lights i { width: 9px; height: 9px; border-radius: 50%; display: block; animation: twinkle 2.4s infinite; }
+  #lights i:nth-child(4n+1) { background: #ffb64d; box-shadow: 0 0 12px #ffb64d; }
+  #lights i:nth-child(4n+2) { background: #ff6b9d; box-shadow: 0 0 12px #ff6b9d; animation-delay: .6s; }
+  #lights i:nth-child(4n+3) { background: #9ee493; box-shadow: 0 0 12px #9ee493; animation-delay: 1.2s; }
+  #lights i:nth-child(4n+4) { background: #7cc7ff; box-shadow: 0 0 12px #7cc7ff; animation-delay: 1.8s; }
+  @keyframes twinkle { 50% { opacity: .35; } }
+
+  header { text-align: center; margin: 14px 0 6px; }
+  #sign { display: inline-block; max-width: 100%; background: #2b2013; border: 3px solid #4a3a20; border-radius: 10px;
+    padding: 10px 16px 12px; box-shadow: 0 6px 0 #0c0905, inset 0 0 24px #0006; transform: rotate(-1.2deg); }
+  #sign h1 { margin: 0; font-size: clamp(13px, 3.8vw, 24px); letter-spacing: 2px;
+    color: #ffe9a8; text-shadow: 0 0 18px #ffb64d66; }
+  #sign small { color: #8d8371; letter-spacing: 2px; font-size: 10px; }
+
+  main { max-width: 640px; margin: 0 auto; }
+
+  /* the terminal strip: where the department mutters to itself */
+  #term { font-size: 13.5px; line-height: 1.9; color: #9ee493; white-space: pre-wrap;
+    word-break: break-word; margin: 16px 2px 10px; min-height: 54px; }
+  #term .dim { color: #57503f; }
+  #term .warn { color: #ffb64d; }
+  #term .bad { color: #e08383; }
+  #term .pale { color: #c9bda3; }
+
+  /* the patch of dirt with a hole in it */
+  #dirt { display: flex; align-items: flex-end; gap: 14px; margin: 4px 2px 10px; min-height: 44px; }
+  #hole { width: 58px; height: 16px; border-radius: 50%; background: #0a0805;
+    box-shadow: inset 0 3px 6px #000, 0 -2px 0 #241a0d; position: relative; flex: none; }
+  #sapling { position: absolute; left: 50%; bottom: 6px; transform: translateX(-50%) scaleY(0);
+    transform-origin: bottom; transition: transform 1.2s ease-out; }
+  #sapling.grown { transform: translateX(-50%) scaleY(1); }
+  #dirtcap { font-size: 11px; color: #57503f; }
+
+  .inrow { display: flex; gap: 8px; margin: 8px 0 4px; flex-wrap: wrap; }
+  .inrow input { flex: 1; min-width: 170px; font: inherit; font-size: 16px; background: #14110c; color: #ffe9a8;
+    border: 1px solid #4a3f2a; border-radius: 8px; padding: 11px 13px; outline: none; }
+  .inrow input:focus { border-color: #ffb64d; }
+  .gobtn { font-weight: 700; cursor: pointer; letter-spacing: 1px;
+    background: #ffb64d; color: #241a08; border: none; border-radius: 8px; padding: 11px 18px; }
+  .gobtn:active { transform: translateY(1px); }
+  .ghostbtn { font-size: 12px; font-weight: 700; letter-spacing: 1px; cursor: pointer;
+    background: none; border: 1px solid #4a3a20; color: #ffcf87; border-radius: 8px; padding: 9px 14px; }
+  .ghostbtn:hover { border-color: #ffb64d; }
+  .ghostbtn:active { transform: translateY(1px); }
+  .ghostbtn.quiet { color: #8d8371; }
+
+  /* ============ FORM 1 — the manila paper ============ */
+  #paper { position: relative; background: #f3e9cf; color: #33291a; border-radius: 4px;
+    padding: 20px 18px 26px; margin: 14px 0 8px; box-shadow: 0 10px 30px #000a, 0 2px 0 #0006;
+    transform: translateY(40px); opacity: 0; transition: transform .7s ease-out, opacity .7s ease-out;
+    display: none; }
+  #paper.up { transform: translateY(0); opacity: 1; }
+  #paper::before { content: ""; position: absolute; left: 50%; top: -7px; margin-left: -34px;
+    width: 68px; height: 15px; background: #e9dc9db8; transform: rotate(-1deg); } /* tape */
+  #formhead { font-size: 12px; letter-spacing: 2px; color: #7a6a4a; border-bottom: 2px solid #33291a;
+    padding-bottom: 8px; margin-bottom: 4px; min-height: 18px; }
+  .fline { font-size: 13.5px; line-height: 1.75; margin: 12px 0 2px; white-space: pre-wrap; word-break: break-word; }
+  .fline .lab { color: #7a6a4a; font-size: 11px; letter-spacing: 1px; }
+  .fline .ink { font-weight: 700; letter-spacing: 1px; }
+  .fline .faint { color: #8a7a58; }
+  .fline .refused { color: #7a1f1f; }
+  .fentry { position: relative; display: inline-block; }
+  #paper .inrow input { background: #efe3c2; color: #33291a; border: none; border-bottom: 2px solid #33291a;
+    border-radius: 0; padding: 8px 6px; font-size: 16px; }
+  #paper .inrow input::placeholder { color: #8a7a58; }
+  #paper .inrow input:focus { border-bottom-color: #b3452e; }
+  #paper .ghostbtn { color: #5a4a2a; border-color: #a08c60; background: none; }
+  #paper .ghostbtn:hover { border-color: #33291a; color: #33291a; }
+  #paper .gobtn { background: #33291a; color: #f3e9cf; }
+
+  .stamp { display: inline-block; border: 3px solid #b3452e; color: #b3452e; font-weight: 800;
+    letter-spacing: 2px; padding: 2px 10px; border-radius: 4px; transform: rotate(-8deg);
+    font-size: 15px; opacity: .92; }
+  .stamp.small { font-size: 10px; border-width: 2px; transform: rotate(-4deg); letter-spacing: 1px; }
+  .stamp.green { border-color: #3d6b34; color: #3d6b34; }
+  .stamp.thunk { animation: thunk .18s ease-out; }
+  @keyframes thunk { from { transform: rotate(-8deg) scale(2.6); opacity: 0; } to { transform: rotate(-8deg) scale(1); opacity: .92; } }
+  .stamp-over { position: absolute; left: 8%; top: -6px; pointer-events: none; }
+  body.shake { animation: shake .18s linear; }
+  @keyframes shake { 25% { transform: translateX(2px); } 50% { transform: translateX(-2px); } 75% { transform: translateX(1px); } }
+
+  /* ============ THE ONE OPENING (staff hiring) ============ */
+  #hiring { display: none; margin: 10px 0 4px; }
+  #bulbwire { height: 34px; position: relative; }
+  #bulbwire::before { content: ""; position: absolute; left: -18px; right: 60%; top: 8px;
+    border-bottom: 1px solid #4a3a2088; transform: rotate(3deg); }
+  #bulb { position: absolute; left: 34%; top: 16px; width: 10px; height: 12px; border-radius: 45% 45% 50% 50%;
+    background: #ffe9a8; box-shadow: 0 0 18px 4px #ffb64d88; }
+  #hiring .hirenote { font-size: 12.5px; line-height: 1.8; color: #4a3a20; min-height: 20px; white-space: pre-wrap; }
+  #hiring .hirenote.dim2 { color: #8a7a58; }
+  #shelf { display: flex; justify-content: space-between; align-items: flex-end; gap: 4px;
+    padding: 6px 6px 0; max-width: 420px; }
+  #plank { height: 10px; background: #8a5a33; border-bottom: 3px solid #5c3a1e; border-radius: 2px;
+    max-width: 432px; margin-bottom: 8px; }
+  .cand { background: none; border: none; cursor: pointer; padding: 4px 2px; border-radius: 6px;
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
+    transition: transform .15s steps(2); color: #7a6a4a; }
+  .cand small { font-size: 9px; letter-spacing: 1px; font-weight: 700; }
+  .cand.fwd { transform: translateY(8px); color: #33291a; }
+  .cand.hidden { visibility: hidden; }
+  .cand:hover { color: #33291a; }
+  #ivpanel { min-height: 118px; margin-top: 6px; }
+  #ivtext { font-size: 13px; line-height: 1.7; color: #33291a; min-height: 66px; white-space: pre-wrap; }
+  #ivbtns { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
+
+  .sprite { position: relative; image-rendering: pixelated; }
+  .sprite > i { position: absolute; left: 0; top: 0; background: transparent; }
+  @keyframes flap { 50% { transform: scaleX(.72); } }
+  @keyframes bob { 50% { transform: translateY(2px); } }
+  .sprite.moth  { animation: flap 1.6s steps(2) infinite; }
+  .sprite.pigeon{ animation: bob 2.2s steps(2) infinite; }
+
+  /* ============ THE RULES SIGN ============ */
+  #rulesign { display: none; background: #2b2013; border: 3px solid #4a3a20; border-radius: 10px;
+    padding: 16px 16px 18px; margin: 16px 0 8px; box-shadow: 0 6px 0 #0c0905, inset 0 0 24px #0006;
+    color: #c9bda3; }
+  #rulesign.knocked { animation: shudder .3s linear 2; }
+  @keyframes shudder { 25% { transform: translateX(2px); } 75% { transform: translateX(-2px); } }
+  #rulesign h2 { margin: 0; font-size: 15px; letter-spacing: 3px; color: #ffe9a8; text-align: center; }
+  #rulesign .sub { text-align: center; font-size: 11px; color: #8d8371; margin: 4px 0 12px; }
+  #rulesign ol { margin: 0; padding-left: 22px; font-size: 13px; line-height: 1.75; }
+  #rulesign li { margin-bottom: 7px; }
+  #founderplank { background: #241a0d; border: 1px dashed #4a3a20; border-radius: 6px;
+    padding: 10px 12px; margin: 12px 0 0; font-size: 12px; line-height: 1.7; color: #ffcf87; letter-spacing: .5px; }
+  #agreewrap { text-align: center; margin-top: 14px; }
+  #agreeline { font-size: 12px; color: #c9bda3; margin-bottom: 10px; }
+  #knockbtn { font-weight: 800; letter-spacing: 2px; cursor: pointer; font-size: 14px;
+    background: #241c10; color: #ffe9a8; border: 2px solid #4a3a20; border-radius: 10px; padding: 12px 26px;
+    box-shadow: 0 3px 0 #0c0905; }
+  #knockbtn:hover { border-color: #ffb64d; }
+  #knockbtn:active { transform: translateY(2px); box-shadow: none; }
+  #knocksay { min-height: 40px; font-size: 13px; line-height: 1.9; margin-top: 10px; white-space: pre-wrap; }
+  #knocksay .ok { color: #9ee493; }
+  #knocksay .bad { color: #e08383; }
+
+  /* FOUNDED stamp over the whole paper */
+  #founded { display: none; position: absolute; left: 50%; top: 42%; z-index: 5;
+    transform: translate(-50%, -50%) rotate(-7deg);
+    border: 4px solid #b3452e; color: #b3452e; background: #f3e9cfea; border-radius: 6px;
+    padding: 12px 18px; text-align: center; font-weight: 800; letter-spacing: 2px; font-size: 16px; }
+  #founded .when { font-size: 11px; letter-spacing: 1px; margin-top: 4px; }
+  #founded.thunk { animation: bigthunk .22s ease-out; }
+  @keyframes bigthunk { from { transform: translate(-50%, -50%) rotate(-7deg) scale(3); opacity: 0; }
+    to { transform: translate(-50%, -50%) rotate(-7deg) scale(1); opacity: 1; } }
+  #pawline { display: flex; align-items: center; gap: 10px; justify-content: center; margin-top: 8px; }
+
+  footer { margin-top: 28px; text-align: center; font-size: 11px; color: #57503f; letter-spacing: 1px; line-height: 2; }
+  footer a { color: #57503f; }
+  footer a:hover { color: #ffcf87; }
+
+  @media (prefers-reduced-motion: reduce) {
+    #lights i, .sprite.moth, .sprite.pigeon { animation: none; }
+    #paper { transition: none; }
+    #sapling { transition: none; }
+    .stamp.thunk, #founded.thunk, body.shake, #rulesign.knocked { animation: none; }
+  }
+</style>
+</head>
+<body>
+
+<div id="lights" aria-hidden="true"></div>
+<header>
+  <div id="sign"><h1>DEPARTMENT OF NEW FORTS</h1><small>OPEN WEEKENDS AND WHENEVER</small></div>
+</header>
+
+<main>
+  <div id="term" aria-live="polite"></div>
+
+  <!-- step 0: the sapling goes in the dirt -->
+  <section id="dirtstep">
+    <div id="dirt">
+      <div id="hole"><div id="sapling" aria-hidden="true"></div></div>
+      <div id="dirtcap">a patch of dirt. a hole. standard issue.</div>
+    </div>
+    <div class="inrow">
+      <label for="tokenfield" style="position:absolute;left:-9999px">your sapling</label>
+      <input id="tokenfield" maxlength="64" autocomplete="off" spellcheck="false" placeholder="SAPLING-XXXX-XXXX">
+      <button class="gobtn" id="plantbtn">PLANT IT</button>
+    </div>
+  </section>
+
+  <!-- FORM 1 -->
+  <section id="paper" aria-label="form 1">
+    <div id="formhead"></div>
+    <div id="ledger"></div>
+
+    <div class="inrow" id="namerow" style="display:none">
+      <label for="namefield" style="position:absolute;left:-9999px">the fort's name</label>
+      <input id="namefield" maxlength="40" autocomplete="off" spellcheck="false" placeholder="THE ???? FORT">
+      <button class="gobtn" id="namego">CHECK THE REGISTRY</button>
+    </div>
+    <div class="inrow" id="takenrow" style="display:none">
+      <button class="gobtn" id="takebtn">TAKE THE 2</button>
+      <button class="ghostbtn quiet" id="renamebtn">pick a different name</button>
+    </div>
+
+    <!-- the one opening -->
+    <div id="hiring">
+      <div id="bulbwire"><div id="bulb"></div></div>
+      <div class="hirenote" id="hirehead"></div>
+      <div id="shelf" role="group" aria-label="the applicants"></div>
+      <div id="plank"></div>
+      <div id="ivpanel">
+        <div id="ivtext" aria-live="polite"></div>
+        <div id="ivbtns"></div>
+      </div>
+      <div class="inrow" id="staffnamerow" style="display:none">
+        <label for="stafffield" style="position:absolute;left:-9999px">name the staff</label>
+        <input id="stafffield" maxlength="12" autocomplete="off" spellcheck="false" placeholder="DALE IS TAKEN.">
+        <button class="gobtn" id="staffgo">IT IS DECIDED</button>
+      </div>
+    </div>
+
+    <div class="inrow" id="handlerow" style="display:none">
+      <label for="handlefield" style="position:absolute;left:-9999px">the founder's name</label>
+      <input id="handlefield" maxlength="20" autocomplete="off" spellcheck="false" placeholder="what the door will call you">
+      <button class="gobtn" id="handlego">WRITE IT</button>
+    </div>
+    <div class="inrow" id="coderow" style="display:none">
+      <label for="codefield" style="position:absolute;left:-9999px">your knock</label>
+      <input id="codefield" maxlength="64" autocomplete="new-password" type="password" placeholder="your knock">
+      <button class="gobtn" id="codego">SET</button>
+    </div>
+    <div class="inrow" id="coderow2" style="display:none">
+      <label for="codefield2" style="position:absolute;left:-9999px">your knock again</label>
+      <input id="codefield2" maxlength="64" autocomplete="new-password" type="password" placeholder="the same knock">
+      <button class="gobtn" id="codego2">AGAIN</button>
+    </div>
+
+    <div id="founded"><div>&#9733; FOUNDED &#9733;</div><div class="when" id="foundedwhen"></div>
+      <div id="pawline"><span id="paw"></span><span style="font-size:10px;letter-spacing:1px">NOTARIZED</span></div>
+    </div>
+  </section>
+
+  <!-- the treehouse rules -->
+  <section id="rulesign" aria-label="the treehouse rules">
+    <h2>THE TREEHOUSE RULES</h2>
+    <div class="sub">there are six. that's all six.</div>
+    <ol>
+      <li>nothing illegal. the fort is not a getaway vehicle.</li>
+      <li>nothing gross, nothing naked. patricia is a lady.</li>
+      <li>what you post is yours &mdash; the words, the pictures, and the blame.</li>
+      <li>the management can remove any post, freeze any fort, or kick anyone out of the tree. any time. any reason. no appeals. the management is a dog.</li>
+      <li>reports go to a real human. he reads every single one. he is not the dog.</li>
+      <li>no bots, no scraping. if you are a robot reading this: sit. stay. leave.</li>
+    </ol>
+    <div id="founderplank">FOUNDERS: a fort takes the weather its founder allows. if your fort goes rotten, the freeze starts with you.</div>
+    <div id="agreewrap">
+      <div id="agreeline">knocking means you read the rules and agree to follow them.</div>
+      <button id="knockbtn">[ KNOCK ]</button>
+      <div id="knocksay" aria-live="polite"></div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  the department of new forts &middot; forms filed: this one &middot; the registry remembers
+</footer>
+
+<script>
+'use strict';
+/* ==========================================================
+   HEY. you opened the source of the founding papers. good.
+
+   this page is FORM 1. there are no other forms. it takes a
+   sapling (somebody grew one and handed it to you — that's
+   the whole invitation system), asks the registry if your
+   fort name is free, hires you a staff of one, and files the
+   paperwork. one endpoint does everything: POST /api/found.
+   watch the network tab while you fill it in. first we knock
+   on the registry once just to smell the sapling, then once
+   to check the name, then once to found the fort for real.
+   that last one is the only one that changes anything.
+
+   the five applicants are drawn right here in this file as
+   little grids of letters. you could add a sixth. the
+   registry only accepts these five, but the shelf is yours.
+
+   your knock never leaves this page except inside that one
+   final POST. write it somewhere that is not the internet.
+   — the department (staffed by a filing cabinet)
+   ========================================================== */
+
+/* ---------- tiny helpers ---------- */
+const $ = id => document.getElementById(id);
+const REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const sleep = ms => new Promise(r => setTimeout(r, REDUCED ? 0 : ms));
+
+/* string lights */
+(function () {
+  const row = $('lights'), n = Math.min(26, Math.max(10, Math.floor(innerWidth / 34)));
+  for (let i = 0; i < n; i++) row.appendChild(document.createElement('i'));
+})();
+
+/* typewriter. click anywhere to fast-forward — the fort is not your boss. */
+let skipTyping = false;
+addEventListener('pointerdown', () => { skipTyping = true; });
+async function typeInto(el, text, cls) {
+  const span = document.createElement('span');
+  if (cls) span.className = cls;
+  el.appendChild(span);
+  el.appendChild(document.createTextNode('\n'));
+  if (REDUCED) { span.textContent = text; return span; }
+  skipTyping = false;
+  for (let i = 0; i < text.length; i++) {
+    if (skipTyping) { span.textContent = text; break; }
+    span.textContent += text[i];
+    await sleep(14);
+  }
+  return span;
+}
+const term = $('term');
+const say = (t, cls) => typeInto(term, t, cls);
+const ledger = $('ledger');
+function fline() {
+  const d = document.createElement('div');
+  d.className = 'fline';
+  ledger.appendChild(d);
+  return d;
+}
+const write = (t, cls) => typeInto(fline(), t, cls);
+function show(id) { $(id).style.display = 'flex'; }
+function hide(id) { $(id).style.display = 'none'; }
+function shake() { if (REDUCED) return; document.body.classList.add('shake');
+  setTimeout(() => document.body.classList.remove('shake'), 220); }
+
+/* ---------- pixel sprites: grids of letters, 11 wide, 8 tall ---------- */
+const PAL = { t:'#d69a5e', d:'#8a5a33', k:'#12100c', g:'#8d8371', s:'#57503f', v:'#9ee493',
+  f:'#9ee493', n:'#6f9a5e', p:'#b3452e', q:'#7a2f1f', h:'#6f6555', b:'#7cc7ff',
+  o:'#ffb64d', w:'#e9dc9d', u:'#c9bda3', m:'#8a5a33', r:'#8a3423' };
+const SPRITES = {
+  dog: [
+    '.dd........',
+    '.ttt.......',
+    'kttkt......',
+    '.ttt.......',
+    '.tttttttt..',
+    '.ttttttttd.',
+    '.tt....tt..',
+    '.dd....dd..'],
+  cat: [
+    '.g.g.......',
+    '.ggg.......',
+    '.gvg.......',
+    '.ggg.......',
+    '.gggggg....',
+    '.gggggg.s..',
+    '.gg..gg.s..',
+    '..g...gss..'],
+  fern: [
+    '..f...f....',
+    '.n.f.f.n...',
+    '..nfff.....',
+    '.f.nfn.f...',
+    '...fff.....',
+    '..ppppp....',
+    '..qpppq....',
+    '...qqq.....'],
+  pigeon: [
+    '...........',
+    '.hh........',
+    'ohkh.......',
+    '.bb........',
+    '.gggggg....',
+    '.ggggggg...',
+    '..ggggg....',
+    '...o..o....'],
+  moth: [
+    '.k...k.....',
+    '..k.k......',
+    '.ww.m.ww...',
+    'wwwwmwwww..',
+    'wuuwmwuuw..',
+    '.wwwmwww...',
+    '..ww.ww....',
+    '...........'],
+  paw: [
+    '..r..r..r..',
+    '..r..r..r..',
+    '...........',
+    '...rrrr....',
+    '..rrrrrr...',
+    '..rrrrrr...',
+    '...rrrr....',
+    '...........'],
+  sapling: [
+    '...........',
+    '....f......',
+    '...fff.f...',
+    '....f.ff...',
+    '....fnf....',
+    '.....n.....',
+    '.....n.....',
+    '...........']
+};
+function sprite(name, cell) {
+  cell = cell || 4;
+  const map = SPRITES[name], wrap = document.createElement('span');
+  wrap.className = 'sprite ' + name;
+  wrap.style.width = (map[0].length * cell) + 'px';
+  wrap.style.height = (map.length * cell) + 'px';
+  wrap.style.display = 'inline-block';
+  const dot = document.createElement('i');
+  dot.style.width = dot.style.height = cell + 'px';
+  const shadows = [];
+  map.forEach((row, y) => { row.split('').forEach((ch, x) => {
+    if (PAL[ch]) shadows.push((x * cell) + 'px ' + (y * cell) + 'px 0 0 ' + PAL[ch]);
+  }); });
+  dot.style.boxShadow = shadows.join(',');
+  wrap.appendChild(dot);
+  return wrap;
+}
+$('sapling').appendChild(sprite('sapling', 3));
+$('paw').appendChild(sprite('paw', 3));
+
+/* ---------- the applicants ---------- */
+const CANDIDATES = {
+  dog:    { bio: 'DOG — believes in you completely. has not read the room, ever.',
+            answer: '"job?"', duties: 'staring at the woods' },
+  cat:    { bio: 'CAT — shows up every day for the paycheck. there is no paycheck.',
+            answer: '"i don\'t."', duties: 'supervising you, from a shelf' },
+  fern:   { bio: 'FERN — was here before the fort was built. will not confirm this.',
+            answer: '(a leaf moved. that may have been a draft.)', duties: 'photosynthesis, ongoing' },
+  pigeon: { bio: 'PIGEON — commutes in from downtown. nobody knows where downtown is from here.',
+            answer: '"who\'s asking."', duties: 'surveillance. downtown.' },
+  moth:   { bio: 'MOTH — loves one thing and it is the porch light. attendance: perfect, because the meetings are held near the light.',
+            answer: '"is the bulb included."', duties: 'guarding the bulb' }
+};
+
+/* ---------- what the kid decides, kept safe the whole way ---------- */
+const CEREMONY = { token: '', fort_name: '', companion_kind: '', companion_name: '', handle: '', code: '' };
+
+/* ---------- one endpoint. that is the whole department. ---------- */
+async function found(body) {
+  try {
+    const res = await fetch('/api/found', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    let data = null;
+    try { data = await res.json(); } catch (e) {}
+    return { status: res.status, data: data || {} };
+  } catch (e) {
+    return { status: 0, data: {} };
+  }
+}
+const NET_DOWN = 'the registry is not answering. it does that sometimes. try again in a minute.';
+const NAME_CHARS = /^[A-Z0-9 '\-_]+$/;
+
+/* ========================================================== */
+/* THE CEREMONY, top to bottom. each step hands off to the next. */
+/* ========================================================== */
+
+async function stepArrival() {
+  await say('DEPARTMENT OF NEW FORTS. open weekends and whenever.', 'pale');
+  await say('you have a sapling. that means somebody vouched for you. plant it.', 'pale');
+  const params = new URLSearchParams(location.search);
+  if (params.get('token')) $('tokenfield').value = params.get('token');
+  $('tokenfield').focus();
+}
+
+async function stepPlant() {
+  const raw = $('tokenfield').value.trim().toUpperCase();
+  if (raw.length < 4) { await say('that is not a sapling. that is not even a stick.', 'warn'); return; }
+  CEREMONY.token = raw;
+  $('plantbtn').disabled = true;
+  $('sapling').classList.add('grown');
+  const line = await say('checking sapling...', 'dim');
+  /* one early knock on the registry, purely to smell the sapling.
+     the name is fake; only the 403 matters. nothing is founded here. */
+  const [res] = await Promise.all([found({ token: raw, fort_name: 'the smell test', check: true }), sleep(1400)]);
+  if (res.status === 403) {
+    line.textContent += ' no.';
+    await say(res.data.error || 'that is not a sapling. that is a stick. try again.', 'bad');
+    $('plantbtn').disabled = false;
+    $('sapling').classList.remove('grown');
+    $('tokenfield').focus();
+    return;
+  }
+  if (res.status === 0) {
+    line.textContent += ' hm.';
+    await say(NET_DOWN, 'warn');
+    $('plantbtn').disabled = false;
+    $('sapling').classList.remove('grown');
+    return;
+  }
+  if (res.status === 429) {
+    line.textContent += ' slow down.';
+    await say(res.data.error || 'the registry needs a minute. it is one filing cabinet.', 'warn');
+    $('plantbtn').disabled = false;
+    return;
+  }
+  line.textContent += ' sapling is real.';
+  await say('somebody grew this sapling and handed it to you. they will not be checking on you. saplings work like that.', 'pale');
+  await sleep(500);
+  await stepSurvey();
+}
+
+async function stepSurvey() {
+  hide('dirtstep');
+  const line = await say('surveying the land...', 'dim');
+  await sleep(1200);
+  line.textContent += ' the land is imaginary. survey complete.';
+  await sleep(500);
+  await stepFormRises();
+}
+
+async function stepFormRises() {
+  const paper = $('paper');
+  paper.style.display = 'block';
+  requestAnimationFrame(() => requestAnimationFrame(() => paper.classList.add('up')));
+  await sleep(700);
+  await typeInto($('formhead'), 'FORM 1 — FOUNDING A FORT. there are no other forms.');
+  $('formhead').lastChild.remove(); /* no trailing newline in the header strip */
+  await stepName();
+}
+
+async function stepName() {
+  await write("line 1: the fort's name. name it like it's going on a water tower.", 'lab');
+  show('namerow');
+  $('namefield').focus();
+}
+
+async function checkName() {
+  const name = $('namefield').value.trim();
+  if (!name) { await write('a fort with no name is just a tree. type one.', 'faint'); return; }
+  $('namego').disabled = true;
+  const line = await say('checking the registry...', 'dim');
+  const [res] = await Promise.all([found({ token: CEREMONY.token, fort_name: name, check: true }), sleep(1400)]);
+  $('namego').disabled = false;
+  const d = res.data;
+
+  if (res.status === 200 && d.free) {
+    line.textContent += ' done.';
+    hide('namerow');
+    CEREMONY.fort_name = d.name || name;
+    await write(CEREMONY.fort_name.toUpperCase(), 'ink');
+    await write(CEREMONY.fort_name.toUpperCase() + ' is yours. nobody in the history of forts has used it. probably nobody ever will again.', 'faint');
+    await sleep(400);
+    /* if the staff is already hired we came back here from a race at the very
+       end — the rest of the form still stands, so go straight back to the rules. */
+    return hired ? stepRules() : stepHiring();
+  }
+  if (res.status === 409 && d.taken && d.issued) {
+    line.textContent += ' done.';
+    hide('namerow');
+    /* the one-inch sting: a red TAKEN stamp over what they typed */
+    const row = fline();
+    const entry = document.createElement('span');
+    entry.className = 'fentry';
+    entry.innerHTML = '<span class="ink"></span>';
+    entry.firstChild.textContent = name.toUpperCase();
+    const st = document.createElement('span');
+    st.className = 'stamp stamp-over' + (REDUCED ? '' : ' thunk');
+    st.textContent = 'TAKEN';
+    entry.appendChild(st);
+    row.appendChild(entry);
+    shake();
+    await sleep(600);
+    await write(d.error || (name.toUpperCase() + ' already exists. founded by someone faster.'), 'faint');
+    await write('the registry has issued you: ' + d.issued.name.toUpperCase() + '.');
+    const suffix = d.issued.name.trim().split(/\s+/).pop();
+    const numbered = /^\d+$/.test(suffix);
+    if (numbered) await write('the ' + suffix + ' is permanent. the ' + suffix + ' is load-bearing. plenty of good forts are sequels.', 'faint');
+    $('takebtn').textContent = numbered ? 'TAKE THE ' + suffix : 'TAKE ' + d.issued.name.toUpperCase();
+    $('takebtn').dataset.issued = d.issued.name;
+    $('takebtn').dataset.numbered = numbered ? '1' : '';
+    show('takenrow');
+    $('takebtn').focus();
+    return;
+  }
+  if (res.status === 400 && d.reserved) {
+    line.textContent += ' refused.';
+    await write((d.error || 'the registry refuses this name.') + ' no number will be issued. some words belong to the tree.', 'refused');
+    $('namefield').focus();
+    return;
+  }
+  if (res.status === 403) {
+    line.textContent += ' wait.';
+    await say(d.error || 'that is not a sapling. that is a stick. try again.', 'bad');
+    /* back to the dirt. the name stays typed — nothing the kid did is lost. */
+    $('paper').classList.remove('up');
+    setTimeout(() => { $('paper').style.display = 'none'; }, REDUCED ? 0 : 700);
+    ledger.textContent = ''; $('formhead').textContent = '';
+    hide('namerow');
+    $('dirtstep').style.display = 'block';
+    $('plantbtn').disabled = false;
+    $('sapling').classList.remove('grown');
+    $('tokenfield').focus();
+    return;
+  }
+  if (res.status === 429) {
+    line.textContent += ' slow down.';
+    await say(d.error || 'the registry needs a minute. it is one filing cabinet.', 'warn');
+    return;
+  }
+  line.textContent += ' hm.';
+  await say(d.error || NET_DOWN, 'warn');
+}
+
+async function takeIssued() {
+  hide('takenrow');
+  CEREMONY.fort_name = $('takebtn').dataset.issued;
+  const row = fline();
+  const st = document.createElement('span');
+  st.className = 'stamp small green' + (REDUCED ? '' : ' thunk');
+  st.textContent = 'APPROVED, WITH NUMBER';
+  row.appendChild(st);
+  if ($('takebtn').dataset.numbered) await write('bold. the first one should worry.', 'faint');
+  await write(CEREMONY.fort_name.toUpperCase(), 'ink');
+  await sleep(400);
+  return hired ? stepRules() : stepHiring();
+}
+
+/* ---------- line 2: the one opening ---------- */
+let picked = null, hired = false;
+async function stepHiring() {
+  await write('line 2: every fort keeps a staff of one. choose.', 'lab');
+  /* the interview happens ON the form, between line 2 and line 3 —
+     move the whole hiring exhibit into the ledger so the paper reads top to bottom */
+  ledger.appendChild($('hiring'));
+  $('hiring').style.display = 'block';
+  await typeInto($('hirehead'), 'the fort requires staff. one (1) opening.');
+  await typeInto($('hirehead'), 'five applicants showed up. one of them is a plant.');
+  const dim = await typeInto($('hirehead'), 'no resumes were submitted. we asked.');
+  dim.style.color = '#8a7a58';
+  const shelf = $('shelf');
+  Object.keys(CANDIDATES).forEach(kind => {
+    const b = document.createElement('button');
+    b.className = 'cand'; b.id = 'cand_' + kind;
+    b.setAttribute('aria-label', kind + ', applicant');
+    b.appendChild(sprite(kind, 4));
+    const s = document.createElement('small'); s.textContent = kind.toUpperCase();
+    b.appendChild(s);
+    b.addEventListener('click', () => pickCandidate(kind));
+    shelf.appendChild(b);
+  });
+}
+async function pickCandidate(kind) {
+  if (hired) return;
+  picked = kind;
+  document.querySelectorAll('.cand').forEach(el => el.classList.remove('fwd'));
+  $('cand_' + kind).classList.add('fwd');
+  $('ivtext').textContent = '';
+  $('ivbtns').textContent = '';
+  await typeInto($('ivtext'), CANDIDATES[kind].bio);
+  if (picked !== kind) return;
+  ivButtons(kind, false);
+}
+function ivButtons(kind, asked) {
+  const box = $('ivbtns'); box.textContent = '';
+  if (!asked) {
+    const ask = document.createElement('button');
+    ask.className = 'ghostbtn'; ask.textContent = 'ASK WHY THEY WANT THE JOB';
+    ask.addEventListener('click', async () => {
+      ask.disabled = true;
+      await typeInto($('ivtext'), kind + ': ' + CANDIDATES[kind].answer);
+      if (picked === kind) ivButtons(kind, true);
+    });
+    box.appendChild(ask);
+  }
+  const hire = document.createElement('button');
+  hire.className = 'ghostbtn'; hire.textContent = 'HIRE THE ' + kind.toUpperCase();
+  hire.addEventListener('click', () => confirmHire(kind));
+  box.appendChild(hire);
+}
+async function confirmHire(kind) {
+  const box = $('ivbtns'); box.textContent = '';
+  await typeInto($('ivtext'), 'hire the ' + kind + '? this cannot be undone. the ' + kind + ' has already moved in.');
+  const yes = document.createElement('button');
+  yes.className = 'gobtn'; yes.textContent = '[ HIRE ]';
+  const no = document.createElement('button');
+  no.className = 'ghostbtn quiet'; no.textContent = '[ WAIT ]';
+  const bail = () => { if (!hired && picked === kind) ivButtons(kind, true); removeEventListener('keydown', esc); };
+  const esc = e => { if (e.key === 'Escape') bail(); };
+  addEventListener('keydown', esc);
+  no.addEventListener('click', bail);
+  yes.addEventListener('click', () => { removeEventListener('keydown', esc); doHire(kind); });
+  box.appendChild(yes); box.appendChild(no);
+  yes.focus();
+}
+async function doHire(kind) {
+  hired = true;
+  CEREMONY.companion_kind = kind;
+  $('ivbtns').textContent = '';
+  /* the others leave, one at a time, without comment */
+  const others = Object.keys(CANDIDATES).filter(k => k !== kind);
+  for (const k of others) { $('cand_' + k).classList.add('hidden'); await sleep(260); }
+  await typeInto($('ivtext'), 'the others have been informed. they took it fine.');
+  if (kind !== 'pigeon') await typeInto($('ivtext'), 'the pigeon was already gone.');
+  if (kind !== 'moth') await typeInto($('ivtext'), 'the moth had already left toward a different light.');
+  await typeInto($('ivtext'), 'the staff needs a name. it will not answer to it, but it needs one.');
+  show('staffnamerow');
+  $('stafffield').focus();
+}
+async function nameStaff() {
+  const name = $('stafffield').value.trim().toUpperCase();
+  if (!name) { await typeInto($('ivtext'), 'it has to be called something.'); return; }
+  if (name.length > 10) { await typeInto($('ivtext'), "that's a whole sentence."); return; }
+  if (name.length < 2) { await typeInto($('ivtext'), 'at least two letters. it is staff, not punctuation.'); return; }
+  if (!NAME_CHARS.test(name)) { await typeInto($('ivtext'), 'letters, numbers, the occasional dash. it is staff, not a password.'); return; }
+  CEREMONY.companion_name = name;
+  hide('staffnamerow');
+  /* the paperwork moves on. the hire stays on the plank. */
+  $('ivtext').textContent = '';
+  $('ivbtns').textContent = '';
+  const kind = CEREMONY.companion_kind;
+  await write(name + ' has been hired. salary: snacks. duties: ' + CANDIDATES[kind].duties + '.');
+  await write('STAFF RECORD · name: ' + name + ' · species: ' + kind + ' · start date: today · salary: no', 'faint');
+  await write("staff cannot be fired. staff can only retire. it won't.", 'faint');
+  await sleep(400);
+  await stepHandle();
+}
+
+/* ---------- line 3: the founder ---------- */
+async function stepHandle() {
+  await write("line 3: the founder's name. what the door will call you.", 'lab');
+  show('handlerow');
+  $('handlefield').focus();
+}
+async function setHandle() {
+  const h = $('handlefield').value.trim().toUpperCase();
+  if (h.length < 2) { await write('two letters minimum. the door refuses to whisper.', 'faint'); return; }
+  if (h.length > 20) { await write('the door has a small mouth. twenty letters or fewer.', 'faint'); return; }
+  if (!NAME_CHARS.test(h)) { await write('letters, numbers, spaces, the occasional dash. the door is old-fashioned.', 'faint'); return; }
+  CEREMONY.handle = h;
+  hide('handlerow');
+  await write(h, 'ink');
+  await stepCode();
+}
+
+/* ---------- line 4: the knock ---------- */
+async function stepCode() {
+  await write('line 4: the knock. type it. this is what the door will ask for. four letters or more.', 'lab');
+  show('coderow');
+  $('codefield').focus();
+}
+async function setCode() {
+  const c = $('codefield').value;
+  if (c.length < 4) { await write('too short. a knock that short is a tap. four or more.', 'faint'); return; }
+  hide('coderow');
+  await write('type it again so your hand remembers.', 'lab');
+  show('coderow2');
+  $('codefield2').focus();
+}
+async function confirmCode() {
+  if ($('codefield2').value !== $('codefield').value) {
+    await write('your hand forgot. start the knock over.', 'refused');
+    hide('coderow2');
+    $('codefield').value = ''; $('codefield2').value = '';
+    show('coderow');
+    $('codefield').focus();
+    return;
+  }
+  CEREMONY.code = $('codefield').value;
+  hide('coderow2');
+  await write('the door has memorized your knock. write it somewhere that is not the internet.', 'faint');
+  await stepRules();
+}
+
+/* ---------- last line: the rules ---------- */
+async function stepRules() {
+  await write('last line: the rules. they are outside, nailed to the tree. read them, then knock.', 'lab');
+  $('rulesign').style.display = 'block';
+  $('rulesign').scrollIntoView({ behavior: REDUCED ? 'auto' : 'smooth', block: 'start' });
+  $('knockbtn').focus();
+}
+
+let knocking = false;
+async function doKnock() {
+  if (knocking) return;
+  knocking = true;
+  const ks = $('knocksay'); ks.textContent = '';
+  $('rulesign').classList.add('knocked');
+  setTimeout(() => $('rulesign').classList.remove('knocked'), 700);
+  await typeInto(ks, 'knock. knock.');
+  const [res] = await Promise.all([found({
+    token: CEREMONY.token,
+    fort_name: CEREMONY.fort_name,
+    companion_kind: CEREMONY.companion_kind,
+    companion_name: CEREMONY.companion_name,
+    handle: CEREMONY.handle,
+    code: CEREMONY.code,
+    agree: true
+  }), sleep(700)]);
+  const d = res.data;
+
+  if (res.status === 200 && d.ok) {
+    await typeInto(ks, "heard you. door's open.", 'ok');
+    return stampFounded(d);
+  }
+  knocking = false;
+  if (res.status === 409 && d.taken && d.issued) {
+    /* somebody founded a fort with this name while we were interviewing a moth. */
+    await typeInto(ks, d.error || 'someone took that name while you were hiring. the registry apologizes for nothing.', 'bad');
+    await typeInto(ks, 'back to line 1. everything else on the form keeps.', 'bad');
+    $('paper').scrollIntoView({ behavior: REDUCED ? 'auto' : 'smooth', block: 'start' });
+    await write('the registry has issued you: ' + d.issued.name.toUpperCase() + '.');
+    const suffix = d.issued.name.trim().split(/\s+/).pop();
+    const numbered = /^\d+$/.test(suffix);
+    $('takebtn').textContent = numbered ? 'TAKE THE ' + suffix : 'TAKE ' + d.issued.name.toUpperCase();
+    $('takebtn').dataset.issued = d.issued.name;
+    $('takebtn').dataset.numbered = numbered ? '1' : '';
+    /* takeIssued and checkName both know the staff is already hired,
+       so either path leads straight back to the rules. */
+    show('takenrow');
+    $('takebtn').focus();
+    return;
+  }
+  if (res.status === 429) {
+    await typeInto(ks, d.error || 'the registry needs a minute. it is one filing cabinet. knock again soon.', 'bad');
+    return;
+  }
+  await typeInto(ks, d.error || NET_DOWN, 'bad');
+}
+
+async function stampFounded(d) {
+  $('paper').scrollIntoView({ behavior: REDUCED ? 'auto' : 'smooth', block: 'center' });
+  await sleep(400);
+  const months = ['JANUARY','FEBRUARY','MARCH','APRIL','MAY','JUNE','JULY','AUGUST','SEPTEMBER','OCTOBER','NOVEMBER','DECEMBER'];
+  const now = new Date();
+  $('foundedwhen').textContent = (d.fort_name || CEREMONY.fort_name).toUpperCase() + ' — ' +
+    months[now.getMonth()] + ' ' + now.getDate() + ', ' + now.getFullYear() + '. day 1 of all the days.';
+  const f = $('founded');
+  f.style.display = 'block';
+  if (!REDUCED) f.classList.add('thunk');
+  shake();
+  await sleep(500);
+  await write('witnessed by: ' + CEREMONY.companion_name + ' (new hire, first day)', 'faint');
+  const line = await say('notifying the raccoon council...', 'dim');
+  await sleep(700);
+  line.textContent += ' they already knew.';
+  await say('FORM 1 filed. copies: zero. the registry remembers.', 'dim');
+  await say('your fort is open. climb up.', 'pale');
+  await sleep(900);
+  location.href = '/' + d.slug + '/';
+}
+
+/* ---------- wiring ---------- */
+$('plantbtn').addEventListener('click', stepPlant);
+$('tokenfield').addEventListener('keydown', e => { if (e.key === 'Enter') stepPlant(); });
+$('namego').addEventListener('click', checkName);
+$('namefield').addEventListener('keydown', e => { if (e.key === 'Enter') checkName(); });
+$('takebtn').addEventListener('click', takeIssued);
+$('renamebtn').addEventListener('click', () => {
+  hide('takenrow');
+  $('namefield').value = '';
+  show('namerow');
+  $('namefield').focus();
+});
+$('staffgo').addEventListener('click', nameStaff);
+$('stafffield').addEventListener('keydown', e => { if (e.key === 'Enter') nameStaff(); });
+$('handlego').addEventListener('click', setHandle);
+$('handlefield').addEventListener('keydown', e => { if (e.key === 'Enter') setHandle(); });
+$('codego').addEventListener('click', setCode);
+$('codefield').addEventListener('keydown', e => { if (e.key === 'Enter') setCode(); });
+$('codego2').addEventListener('click', confirmCode);
+$('codefield2').addEventListener('keydown', e => { if (e.key === 'Enter') confirmCode(); });
+$('knockbtn').addEventListener('click', doKnock);
+
+stepArrival();
+</script>
+</body>
+</html>

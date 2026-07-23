@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<!-- ==========================================================
+  HEY CONNOR. this is the front yard.
+
+  this page is the grove. it sits at treefort.lol/ and its
+  entire job is to look like nothing. trees. fireflies. one
+  window that turns its light off when company shows up.
+
+  the trick: it treats everybody exactly the same. a stranger
+  who types a made-up fort name and a member who types a real
+  one both get sent up the same way, to a door that looks the
+  same either way. the grove never phones the server. open the
+  network tab — zero requests. it can't leak what it never
+  knew.
+
+  the only memory is in YOUR browser: localStorage key
+  'tf_grove_ladders'. every fort door you actually get through
+  drops a rope ladder here, on this device, so next time you
+  can skip the whispering. delete a ladder and the fort never
+  finds out, because the fort was never told.
+
+  the raccoons are load-bearing. do not remove the raccoons.
+  — the management (a dog)
+========================================================== -->
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="trees. just trees.">
+<title>nothing up here</title>
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; height: 100%; overflow: hidden; }
+  body {
+    background:
+      linear-gradient(to bottom, #050914 0%, #0b1322 46%, #171209 88%, #141009 100%);
+    color: #c9bda3;
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  }
+  ::selection { background: #ffb64d59; }
+  :focus { outline: none; }
+  :focus-visible { outline: 2px solid #ffb64d; outline-offset: 2px; }
+
+  #scene { height: 100dvh; display: flex; flex-direction: column;
+    transition: transform .6s cubic-bezier(.4,0,.6,1); }
+  #scene.climbing { transform: translateY(6vh); }
+
+  /* ============ SKY ============ */
+  #sky { flex: 1 1 auto; min-height: 12vh; position: relative; }
+  .stars { position: absolute; width: 2px; height: 2px; border-radius: 50%;
+    background: #cfd8ea; top: 8%; left: 5%;
+    box-shadow:
+      4vw 2vh 0 #cfd8ea, 11vw 6vh 0 #9aa7c0, 19vw 1vh 0 #cfd8ea, 26vw 5vh 0 #7f8aa5,
+      33vw 3vh 0 #cfd8ea, 41vw 7vh 0 #9aa7c0, 48vw 2vh 0 #cfd8ea, 55vw 6vh 0 #7f8aa5,
+      62vw 1vh 0 #cfd8ea, 69vw 4vh 0 #9aa7c0, 76vw 7vh 0 #cfd8ea, 83vw 2vh 0 #7f8aa5,
+      89vw 6vh 0 #cfd8ea, 15vw 11vh 0 #7f8aa5, 37vw 12vh 0 #9aa7c0, 58vw 11vh 0 #7f8aa5,
+      79vw 12vh 0 #9aa7c0, 7vw 15vh 0 #6b7691, 47vw 16vh 0 #6b7691, 88vw 15vh 0 #6b7691; }
+  .stars.tw { animation: twinkle 3.4s infinite; box-shadow:
+      9vw 4vh 0 #ffe9a8, 30vw 9vh 0 #cfd8ea, 52vw 4vh 0 #ffe9a8,
+      72vw 9vh 0 #cfd8ea, 92vw 3vh 0 #ffe9a8; background: transparent; }
+  @keyframes twinkle { 50% { opacity: .25; } }
+
+  .fly { position: absolute; width: 22px; height: 22px; cursor: pointer;
+    left: var(--x); top: var(--y);
+    animation: drift var(--d) ease-in-out infinite alternate; }
+  .fly::after { content: ""; position: absolute; inset: 8px;
+    border-radius: 50%; background: #ffe9a8;
+    box-shadow: 0 0 8px 2px #ffb64d99;
+    animation: glowpulse 2.6s ease-in-out infinite; }
+  .fly.dodge { transition: transform .25s; transform: translate(26px, -20px); }
+  @keyframes drift { to { transform: translate(9vw, 5vh); } }
+  @keyframes glowpulse { 50% { opacity: .3; } }
+
+  /* ============ MIDDLE BAND ============ */
+  #mid { flex: 0 0 auto; padding: 8px 20px 4px; text-align: center; }
+  h1 { margin: 0 0 14px; font-size: clamp(15px, 4.4vw, 19px); font-weight: 400;
+    color: #efe6d5; letter-spacing: 1px; }
+
+  #whisper { max-width: 340px; margin: 0 auto; }
+  #whisper label { display: block; font-size: 12px; color: #8d8371;
+    letter-spacing: 1px; margin-bottom: 8px; }
+  #whisperrow { display: flex; gap: 8px; }
+  #fortname { flex: 1; min-width: 0; font: inherit; font-size: 16px;
+    background: #0e1420cc; color: #ffe9a8; caret-color: #ffb64d;
+    border: 1px solid #4a3a20; border-radius: 8px; padding: 11px 13px; }
+  #fortname:focus { border-color: #ffb64d; }
+  #whispergo { font: inherit; font-size: 13px; font-weight: 700; cursor: pointer;
+    background: #241c10; color: #ffcf87; border: 1px solid #4a3a20;
+    border-radius: 8px; padding: 11px 16px; }
+  #whispergo:hover { border-color: #ffb64d; }
+  #whispersay { min-height: 20px; margin-top: 9px; font-size: 12px;
+    color: #d9a24e; line-height: 1.5; }
+  #whisper.hidden { display: none; }
+
+  #saylink { display: none; background: none; border: none; cursor: pointer;
+    font: inherit; font-size: 12px; color: #8d8371; letter-spacing: 1px;
+    text-decoration: underline; text-underline-offset: 3px; padding: 6px 8px; }
+  #saylink:hover { color: #ffcf87; }
+  #saylink.shown { display: inline-block; }
+
+  /* ladders */
+  #ladders { display: flex; justify-content: center; align-items: flex-start;
+    flex-wrap: wrap; gap: 4px 14px; margin: 0 auto 6px; max-width: 560px; }
+  .ladder { display: flex; flex-direction: column; align-items: center;
+    position: relative; padding-top: 2px; }
+  .rope { width: 30px; height: var(--h, 58px); transform-origin: top;
+    border-left: 3px solid #7a5c32; border-right: 3px solid #7a5c32;
+    background: repeating-linear-gradient(to bottom,
+      transparent 0 9px, #7a5c32 9px 12px);
+    animation: unroll .5s cubic-bezier(.34,1.56,.64,1) both; }
+  @keyframes unroll { from { transform: scaleY(0); } }
+  .plank { font: inherit; font-size: 12px; font-weight: 700; cursor: pointer;
+    max-width: 128px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    background: linear-gradient(#6b5432, #57431f); color: #1d1408;
+    border: 2px solid #3a2c14; border-radius: 4px; padding: 8px 12px;
+    box-shadow: 0 3px 0 #241a0d; text-shadow: 0 1px 0 #8a6a3a66;
+    -webkit-touch-callout: none; user-select: none; }
+  .plank:active { transform: translateY(1px); box-shadow: 0 2px 0 #241a0d; }
+  .ladder.tug { transform: translateY(-10px); transition: transform .18s; }
+  .unladder { position: absolute; top: -4px; right: -12px; width: 24px; height: 24px;
+    font: inherit; font-size: 13px; line-height: 1; cursor: pointer;
+    background: #241c10; color: #e08383; border: 1px solid #6b2727;
+    border-radius: 50%; padding: 0; opacity: 0; transition: opacity .15s; }
+  .ladder:hover .unladder, .ladder:focus-within .unladder,
+  .unladder:focus-visible { opacity: 1; }
+
+  #caption { font-size: 11px; color: #57503f; margin: 2px 0 6px; }
+  #caption.hidden, #ladders.hidden { display: none; }
+
+  /* ============ TREES + GROUND ============ */
+  #grove { flex: 0 0 auto; position: relative;
+    height: clamp(96px, 17vh, 150px); }
+  #treerow { position: absolute; inset: 0; display: flex;
+    align-items: flex-end; justify-content: space-evenly; }
+  .tree { background: none; border: none; padding: 0; cursor: pointer;
+    height: 100%; display: flex; align-items: flex-end; position: relative; }
+  .tree svg { display: block; height: var(--th, 92%); width: auto; }
+  .tree.lit::after { content: ""; position: absolute; inset: -8px;
+    background: radial-gradient(ellipse at 50% 40%, #ffe9a826, transparent 65%);
+    animation: sweep .7s ease-out both; pointer-events: none; }
+  @keyframes sweep { from { opacity: 0; transform: translateX(-14px); }
+    40% { opacity: 1; } to { opacity: 0; transform: translateX(14px); } }
+  @media (max-width: 480px) { .tree:nth-child(6), .tree:nth-child(7) { display: none; } }
+
+  #litwindow { position: absolute; left: 37%; top: 14%; width: 7px; height: 9px;
+    background: #ffe9a8; box-shadow: 0 0 10px 3px #ffb64d88;
+    transition: opacity .5s; pointer-events: none; }
+  #litwindow.out { opacity: 0; }
+
+  .bush { position: absolute; bottom: 0; width: 46px; height: 20px;
+    border-radius: 50% 50% 0 0; background: #0c1207; pointer-events: none; }
+  #eyes { position: absolute; bottom: 8px; width: 3px; height: 3px;
+    border-radius: 50%; background: #ffb64d; box-shadow: 7px 0 0 #ffb64d;
+    opacity: 0; transition: opacity .2s; pointer-events: none; }
+  #eyes.peek { opacity: 1; }
+
+  #say { position: absolute; left: 50%; bottom: 6px; transform: translateX(-50%);
+    width: max-content; max-width: 92vw; text-align: center;
+    font-size: 12px; font-style: italic; color: #d6c8a8;
+    background: #141009d9; border-radius: 6px; padding: 4px 10px;
+    opacity: 0; transition: opacity .4s; pointer-events: none; }
+  #say.shown { opacity: 1; }
+
+  #ground { flex: 0 0 auto; display: flex; justify-content: space-between;
+    align-items: center; gap: 12px; padding: 8px 14px
+      max(10px, env(safe-area-inset-bottom)); background: #141009;
+    border-top: 2px solid #241a0d; }
+  #ground a { font-size: 11px; letter-spacing: 1px; text-decoration: underline;
+    text-underline-offset: 3px; padding: 6px 2px; }
+  #sapling { color: #9ee493; display: inline-flex; align-items: center; gap: 7px; }
+  #sapling:hover { color: #c9f5b8; }
+  #sprout { width: 12px; height: 14px; animation: sway 4s ease-in-out infinite; }
+  @keyframes sway { 50% { transform: rotate(6deg); } }
+  #mgmt { color: #8d8371; opacity: .75; }
+  #mgmt:hover { color: #ffcf87; opacity: 1; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .fly, .stars.tw, #sprout, .fly::after { animation: none; }
+    .rope { animation: none; }
+    #scene, .ladder.tug, .fly.dodge { transition: none; transform: none; }
+  }
+</style>
+</head>
+<body>
+<div id="scene">
+
+  <div id="sky">
+    <div class="stars" aria-hidden="true"></div>
+    <div class="stars tw" aria-hidden="true"></div>
+    <span class="fly" style="--x:12%; --y:30%; --d:7s"></span>
+    <span class="fly" style="--x:64%; --y:18%; --d:9s"></span>
+    <span class="fly" style="--x:38%; --y:55%; --d:8s"></span>
+    <span class="fly" style="--x:82%; --y:48%; --d:11s"></span>
+  </div>
+
+  <div id="mid">
+    <h1 id="headline">trees. just trees. nothing up here.</h1>
+
+    <div id="ladders" class="hidden"></div>
+    <div id="caption" class="hidden">this device remembers your ladders. it tells no one.</div>
+    <button id="saylink">say the name of a fort</button>
+
+    <form id="whisper">
+      <label for="fortname">say the name of a fort</label>
+      <div id="whisperrow">
+        <input id="fortname" maxlength="40" autocomplete="off" autocapitalize="none"
+          spellcheck="false" placeholder="whisper it">
+        <button id="whispergo" type="submit">climb</button>
+      </div>
+      <div id="whispersay" role="status" aria-live="polite"></div>
+    </form>
+  </div>
+
+  <div id="grove">
+    <div id="treerow"></div>
+    <div id="litwindow"></div>
+    <div class="bush" style="left: 16%"></div>
+    <div class="bush" style="left: 47%"><span></span></div>
+    <div class="bush" style="left: 74%"></div>
+    <div id="eyes" style="left: 49%"></div>
+    <div id="say" role="status" aria-live="polite"></div>
+  </div>
+
+  <div id="ground">
+    <a id="sapling" href="/plant"><svg id="sprout" viewBox="0 0 6 7" aria-hidden="true">
+      <rect x="2.5" y="3" width="1" height="4" fill="#5a8a4a"/>
+      <rect x="0" y="1" width="2.5" height="2" fill="#9ee493"/>
+      <rect x="3.5" y="0" width="2.5" height="2" fill="#9ee493"/>
+    </svg>i have a sapling</a>
+    <a id="mgmt" href="/rules#management" title="the management is a dog.">speak to the management</a>
+  </div>
+
+</div>
+
+<script>
+'use strict';
+/* the grove makes no network calls. everything below is scenery and memory. */
+const $ = id => document.getElementById(id);
+const REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* ---------- localStorage, politely ---------- */
+const LADDER_KEY = 'tf_grove_ladders';   /* fort doors write this on a good knock */
+const LOCK_KEY = 'tf_grove_treelock';    /* when the trees stopped listening */
+function loadLadders() {
+  try {
+    const arr = JSON.parse(localStorage.getItem(LADDER_KEY) || '[]');
+    if (!Array.isArray(arr)) return [];
+    return arr.filter(e => e && typeof e.slug === 'string' && typeof e.name === 'string');
+  } catch (e) { return []; }
+}
+function saveLadders(arr) {
+  try { localStorage.setItem(LADDER_KEY, JSON.stringify(arr)); } catch (e) {}
+}
+
+/* ---------- trees (two pixel silhouettes, seven copies) ---------- */
+const TREE_ROUND = '<svg viewBox="0 0 24 32" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><g fill="#101a0c">' +
+  '<rect x="8" y="2" width="8" height="4"/><rect x="5" y="6" width="14" height="5"/>' +
+  '<rect x="3" y="11" width="18" height="6"/><rect x="6" y="17" width="12" height="4"/>' +
+  '<rect x="10" y="21" width="4" height="11"/></g></svg>';
+const TREE_PINE = '<svg viewBox="0 0 24 32" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><g fill="#0c1509">' +
+  '<rect x="11" y="1" width="2" height="3"/><rect x="9" y="4" width="6" height="4"/>' +
+  '<rect x="7" y="8" width="10" height="5"/><rect x="5" y="13" width="14" height="5"/>' +
+  '<rect x="3" y="18" width="18" height="4"/><rect x="10" y="22" width="4" height="10"/></g></svg>';
+const TREE_HEIGHTS = ['78%', '95%', '88%', '99%', '84%', '92%', '80%'];
+const treerow = $('treerow');
+TREE_HEIGHTS.forEach((h, i) => {
+  const b = document.createElement('button');
+  b.className = 'tree'; b.type = 'button';
+  b.setAttribute('aria-label', 'a tree');
+  b.style.setProperty('--th', h);
+  b.innerHTML = (i % 2 ? TREE_PINE : TREE_ROUND);
+  b.addEventListener('click', () => tapTree(b));
+  treerow.appendChild(b);
+});
+
+/* ---------- tree heckling, with the 600-second grudge ---------- */
+const TREE_LINES = {
+  normal: 'that tree is occupied by a raccoon. he pays rent.',
+  fifth: 'quit shaking the trees. the raccoons have filed a complaint.',
+  tenth: 'the trees need 600 seconds to forget your face.'
+};
+let treeTaps = 0;
+function treesLocked() {
+  const until = parseInt(localStorage.getItem(LOCK_KEY) || '0', 10);
+  return Date.now() < until;
+}
+function tapTree(el) {
+  if (treesLocked()) return;               /* inert. they remember your face. */
+  treeTaps++;
+  el.classList.remove('lit'); void el.offsetWidth; el.classList.add('lit');
+  if (treeTaps >= 10) {
+    try { localStorage.setItem(LOCK_KEY, String(Date.now() + 600000)); } catch (e) {}
+    groundSay(TREE_LINES.tenth, 4200);
+  } else if (treeTaps === 5) {
+    groundSay(TREE_LINES.fifth, 3600);
+  } else {
+    groundSay(TREE_LINES.normal, 3000);
+  }
+}
+
+/* ---------- the ground line speaks ---------- */
+let sayTimer = null;
+function groundSay(msg, ms) {
+  const el = $('say');
+  el.textContent = msg; el.classList.add('shown');
+  clearTimeout(sayTimer);
+  sayTimer = setTimeout(() => el.classList.remove('shown'), ms || 3000);
+}
+
+/* ---------- fireflies dodge. it's in their contract. ---------- */
+document.querySelectorAll('.fly').forEach(f => {
+  f.addEventListener('pointerdown', () => {
+    f.classList.add('dodge');
+    setTimeout(() => f.classList.remove('dodge'), 900);
+    groundSay("you tapped a firefly. it's fine. it's used to it.", 3000);
+  });
+});
+
+/* ---------- the window. no comment is made. ---------- */
+setTimeout(() => $('litwindow').classList.add('out'), 1000);
+
+/* ---------- raccoon eyes, every ~20s, half a second ---------- */
+setInterval(() => {
+  $('eyes').classList.add('peek');
+  setTimeout(() => $('eyes').classList.remove('peek'), 500);
+}, 20000);
+
+/* ---------- 90 seconds of nothing earns one line ---------- */
+let idleTimer = null, idleSaid = false;
+function armIdle() {
+  clearTimeout(idleTimer);
+  if (idleSaid) return;
+  idleTimer = setTimeout(() => {
+    idleSaid = true;
+    groundSay('the grove stays open all night.', 6000);
+  }, 90000);
+}
+addEventListener('pointerdown', armIdle);
+addEventListener('keydown', armIdle);
+armIdle();
+
+/* ---------- the whisper ----------
+   same normalize as the server. keep them identical or the
+   door and the grove start disagreeing about names. */
+function normalize(raw) {
+  return raw.toLowerCase().trim().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
+}
+const NICE_TRY = ['admin', 'password', 'treefort'];
+let climbing = false;
+$('whisper').addEventListener('submit', e => {
+  e.preventDefault();
+  if (climbing) return;
+  const raw = $('fortname').value;
+  const saybox = $('whispersay');
+  if (raw.trim() === '') {
+    saybox.textContent = "you have to say a name. the trees can't read minds. mostly.";
+    return;
+  }
+  const slug = normalize(raw);
+  if (!slug || !/[a-z]/.test(slug)) {
+    saybox.textContent = 'fort names are one word, lowercase. like whispering.';
+    return;
+  }
+  if (NICE_TRY.includes(slug)) {
+    saybox.textContent = 'nice try.';
+    return;
+  }
+  climbing = true;
+  $('fortname').disabled = true; $('whispergo').disabled = true;
+  saybox.textContent = 'up you go.';
+  if (!REDUCED) $('scene').classList.add('climbing');
+  setTimeout(() => { location.href = '/' + slug + '/'; }, REDUCED ? 350 : 650);
+});
+
+/* ---------- ladders for the remembered ---------- */
+function renderLadders() {
+  const all = loadLadders();
+  /* most recent first, one ladder per fort, max 6 */
+  const seen = [];
+  const shown = all.slice().reverse().filter(e => {
+    if (seen.includes(e.slug)) return false;
+    seen.push(e.slug); return true;
+  }).slice(0, 6);
+  const box = $('ladders');
+  box.innerHTML = '';
+  if (shown.length === 0) {
+    /* first visit (or last ladder just removed): the interrogation. */
+    $('headline').textContent = 'trees. just trees. nothing up here.';
+    box.classList.add('hidden');
+    $('caption').classList.add('hidden');
+    $('saylink').classList.remove('shown');
+    $('whisper').classList.remove('hidden');
+    $('fortname').focus();
+    return;
+  }
+  $('headline').textContent = "oh. it's you.";
+  box.classList.remove('hidden');
+  $('caption').classList.remove('hidden');
+  $('saylink').classList.add('shown');
+  $('whisper').classList.add('hidden');
+  const heights = [58, 74, 50, 68, 44, 62];
+  shown.forEach((entry, i) => {
+    const lad = document.createElement('div');
+    lad.className = 'ladder';
+    const rope = document.createElement('div');
+    rope.className = 'rope';
+    rope.style.setProperty('--h', heights[i] + 'px');
+    const plank = document.createElement('button');
+    plank.className = 'plank'; plank.type = 'button';
+    plank.textContent = entry.name;
+    plank.title = entry.name;
+    const x = document.createElement('button');
+    x.className = 'unladder'; x.type = 'button';
+    x.textContent = '×';
+    x.setAttribute('aria-label', 'remove the ladder to ' + entry.name);
+    lad.appendChild(rope); lad.appendChild(plank); lad.appendChild(x);
+    box.appendChild(lad);
+
+    /* one tap: the ladder tugs, then up you go. */
+    let held = false, holdTimer = null;
+    plank.addEventListener('click', () => {
+      if (held) { held = false; return; }        /* the long-press ate this one */
+      lad.classList.add('tug');
+      setTimeout(() => { location.href = '/' + entry.slug + '/'; }, REDUCED ? 0 : 180);
+    });
+    /* long-press on touch = the remove control, same as the x */
+    plank.addEventListener('pointerdown', () => {
+      holdTimer = setTimeout(() => { held = true; removeLadder(entry); }, 650);
+    });
+    ['pointerup', 'pointerleave', 'pointercancel'].forEach(ev =>
+      plank.addEventListener(ev, () => clearTimeout(holdTimer)));
+    plank.addEventListener('contextmenu', e => e.preventDefault());
+    x.addEventListener('click', () => removeLadder(entry));
+  });
+}
+function removeLadder(entry) {
+  const kept = loadLadders().filter(e => e.slug !== entry.slug);
+  saveLadders(kept);
+  groundSay("ladder removed. the fort doesn't know and doesn't care.", 3600);
+  renderLadders();
+}
+
+/* the small link that brings the whisper back for returning folks */
+$('saylink').addEventListener('click', () => {
+  $('whisper').classList.remove('hidden');
+  $('saylink').classList.remove('shown');
+  $('fortname').focus();
+});
+/* escape folds the whisper away again (when the ladders are down) */
+addEventListener('keydown', e => {
+  if (e.key !== 'Escape') return;
+  if (loadLadders().length > 0 && !$('whisper').classList.contains('hidden') && !climbing) {
+    $('whisper').classList.add('hidden');
+    $('saylink').classList.add('shown');
+    $('saylink').focus();
+  }
+});
+
+renderLadders();
+</script>
+</body>
+</html>

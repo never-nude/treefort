@@ -1,0 +1,46 @@
+name = "treefort"
+main = "src/worker.js"
+compatibility_date = "2026-06-01"
+
+# custom domain — live as of the great nameserver migration of july 2026
+# (must sit above the [[...]] tables or TOML adopts it into one of them)
+routes = [
+  { pattern = "treefort.lol", custom_domain = true },
+  { pattern = "www.treefort.lol", custom_domain = true }
+]
+
+# The Worker owns EVERY request. Nothing may reach the asset platform directly:
+# its html_handling redirects (/*.html -> /*, trailing-slash games) were 307-ing
+# fort paths like /the_lookout/paint.html to root paths that don't exist, and a
+# glob list can't be trusted to cover them all. run_worker_first = true means
+# routing has exactly one author (src/worker.js); html_handling = "none" means
+# env.ASSETS.fetch() returns files, never redirects.
+[assets]
+directory = "./public"
+binding = "ASSETS"
+run_worker_first = true
+html_handling = "none"
+not_found_handling = "none"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "fort"
+database_id = "adfda621-91d1-413f-bb21-a3623cfb71fe"   # from: wrangler d1 create fort
+
+[[r2_buckets]]
+binding = "MEDIA"
+bucket_name = "fort-media"
+
+
+# secrets (set via `wrangler secret put`, never committed):
+#   SESSION_SECRET — long random string, signs session cookies
+
+# the management's smoke signals: reports and foundings email the operator, never
+# kids. Requires treefort.lol onboarded to Email Sending once:
+#   npx wrangler email sending enable treefort.lol
+# If the binding or var is removed, the fort just logs to D1 and stays quiet.
+[vars]
+MANAGEMENT_EMAIL = "michael.kushman@gmail.com"
+
+[[send_email]]
+name = "MAIL"

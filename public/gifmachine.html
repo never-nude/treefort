@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GIF MACHINE</title>
+<style>
+  * { box-sizing: border-box; }
+  :root { --acc: #ffb64d; --glow: #ffe9a8; }
+  html, body { margin: 0; min-height: 100%; background: #14100b; color: #efe6d5;
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
+  body { background: repeating-linear-gradient(90deg, #171209 0px, #1a140c 70px, #14100b 71px, #171209 140px); }
+  #app { max-width: 900px; margin: 0 auto; padding: 14px 14px 50px; }
+  .topbar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+  .topbar a { color: #8d8371; text-decoration: none; font-size: 12px; letter-spacing: 1px; }
+  .topbar a:hover { color: var(--glow); }
+  h1 { font-size: 18px; letter-spacing: 3px; color: var(--glow); margin: 0; }
+  h1 small { font-size: 10px; color: #8d8371; letter-spacing: 2px; }
+  .box { background: #1d1710; border: 2px solid #4a3a20; border-radius: 12px; padding: 14px; margin-bottom: 14px; }
+  .lbl { font-size: 10px; letter-spacing: 2px; color: #8d8371; margin-bottom: 8px; }
+  #strip { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 6px; }
+  .fr { flex: none; position: relative; }
+  .fr img { width: 110px; height: 82px; object-fit: cover; border: 2px solid #4a3a20; border-radius: 6px; display: block; }
+  .fr .frbtns { display: flex; gap: 3px; justify-content: center; margin-top: 3px; }
+  .frbtns button { font: inherit; font-size: 10px; background: #241c10; color: #ffcf87;
+    border: 1px solid #4a3a20; border-radius: 5px; cursor: pointer; padding: 2px 7px; }
+  .frbtns button:hover { border-color: var(--acc); }
+  .fortbtn { font: inherit; font-size: 11px; font-weight: 700; letter-spacing: 1px;
+    background: #241c10; color: #ffcf87; cursor: pointer; border: 1px solid #4a3a20;
+    border-radius: 8px; padding: 10px 14px; }
+  .fortbtn:hover { border-color: var(--acc); }
+  .fortbtn.primary { background: var(--acc); color: #241a08; border-color: var(--acc); }
+  .ctrl { font-size: 11px; color: #8d8371; letter-spacing: 1px; display: flex; align-items: center; gap: 10px; margin: 10px 0; }
+  .ctrl input[type=range] { flex: 1; max-width: 280px; accent-color: var(--acc); }
+  #preview { border: 3px solid #4a3a20; border-radius: 4px; max-width: 100%; background: #0c0a07; display: block; }
+  #vid { border: 3px solid #4a3a20; border-radius: 4px; max-width: 100%; max-height: 300px; background: #0c0a07; display: block; }
+  .szchip.on { background: var(--acc); color: #241a08; border-color: var(--acc); }
+  #result img { max-width: 100%; border: 3px solid #9ee493; border-radius: 4px; }
+  #result { display: none; }
+  #result.show { display: block; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  #toast { position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%) translateY(90px);
+    background: #241c10; border: 1px solid var(--acc); color: var(--glow); border-radius: 10px;
+    padding: 11px 18px; font-size: 13px; font-weight: 700;
+    transition: transform .35s cubic-bezier(.2,1.4,.4,1); z-index: 95; }
+  #toast.show { transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="topbar">
+    <a href="index.html">&larr; back to the fort</a>
+    <h1>GIF MACHINE <small>frames in. gif out. built on-site, no outside contractors.</small></h1>
+  </div>
+
+  <div class="box">
+    <div class="lbl">THE REEL</div>
+    <div id="strip"></div>
+    <div class="row" style="margin-top:10px">
+      <button class="fortbtn" id="upbtn">+ ADD IMAGES</button>
+      <input type="file" id="upfile" accept="image/png,image/jpeg,image/webp" multiple hidden>
+      <button class="fortbtn" id="vidbtn">+ FEED IT A VIDEO</button>
+      <input type="file" id="vidfile" accept="video/*,.mov,.mp4" hidden>
+      <button class="fortbtn" id="clearreel">CLEAR REEL</button>
+      <span class="lbl" id="reelinfo" style="margin:0"></span>
+    </div>
+  </div>
+
+  <div class="box" id="booth" style="display:none">
+    <div class="lbl">THE PROJECTION BOOTH</div>
+    <video id="vid" muted playsinline preload="auto"></video>
+    <div class="ctrl">START <input type="range" id="vstart" min="0" max="0" step="0.1" value="0">
+      <span id="vstartval">0.0s</span></div>
+    <div class="ctrl">LENGTH <input type="range" id="vlen" min="0.5" max="20" step="0.5" value="3">
+      <span id="vlenval">3.0s</span></div>
+    <div class="ctrl">FRAMES/SEC <input type="range" id="vfps" min="4" max="12" step="1" value="8">
+      <span id="vfpsval">8</span></div>
+    <div class="ctrl">SIZE
+      <button class="fortbtn szchip on" data-px="320">320 CRUNCHY</button>
+      <button class="fortbtn szchip" data-px="480">480 MEDIUM</button>
+    </div>
+    <div class="row">
+      <button class="fortbtn primary" id="chewbtn">CHEW INTO FRAMES</button>
+      <button class="fortbtn" id="ejectbtn">EJECT</button>
+      <span class="lbl" id="chewinfo" style="margin:0">480 is as medium as it gets. there is no high. this is policy.</span>
+    </div>
+  </div>
+
+  <div class="box">
+    <div class="ctrl">FRAME DELAY <input type="range" id="delay" min="60" max="1000" step="10" value="200">
+      <span id="delayval">200ms</span></div>
+    <div class="lbl">PREVIEW (live loop)</div>
+    <canvas id="preview" width="480" height="360"></canvas>
+    <div class="row" style="margin-top:12px">
+      <button class="fortbtn primary" id="makebtn">MAKE THE GIF</button>
+    </div>
+  </div>
+
+  <div class="box" id="result">
+    <div class="lbl">THE GIF. IT LIVES.</div>
+    <img id="resultimg" alt="your gif">
+    <div class="row" style="margin-top:12px">
+      <button class="fortbtn" id="postbtn">POST TO THE WALL</button>
+      <button class="fortbtn" id="dlbtn">DOWNLOAD GIF</button>
+      <span class="lbl" id="sizeinfo" style="margin:0"></span>
+    </div>
+  </div>
+</div>
+<div id="toast"></div>
+
+<script>
+'use strict';
+/* the gif machine. GIF89a, hand-built, LZW and all.
+   yes, we wrote our own encoder. the fort does not outsource.
+
+   new: the projection booth. feed it a video and it chews the
+   part you pick into frames. the video stays on your machine —
+   the booth does not have internet privileges. the only thing
+   that ever leaves is the finished gif, and only if you post it.
+   — the management */
+
+const $ = id => document.getElementById(id);
+let toastTimer;
+const FORT_BASE = '/' + (location.pathname.split('/').filter(Boolean)[0] || 'the_lookout');
+const apiUrl = path => FORT_BASE + '/api/' + path;
+function toast(m, ms = 3000) { const t = $('toast'); t.textContent = m; t.classList.add('show');
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), ms); }
+async function api(path, opts = {}) {
+  const init = { method: opts.method || 'GET' };
+  if (opts.raw) init.body = opts.body;
+  else if (opts.body !== undefined) { init.body = JSON.stringify(opts.body); init.headers = { 'Content-Type': 'application/json' }; }
+  const res = await fetch(apiUrl(path), init);
+  let data = null; try { data = await res.json(); } catch (e) {}
+  if (res.status === 401) location.href = 'index.html';
+  return { status: res.status, data };
+}
+api('state');
+
+function idb() { return new Promise((res, rej) => {
+  const q = indexedDB.open('fortkit', 1);
+  q.onupgradeneeded = () => q.result.createObjectStore('kv');
+  q.onsuccess = () => res(q.result); q.onerror = () => rej(q.error); }); }
+async function idbGet(k) { const d = await idb(); return new Promise((res, rej) => {
+  const r = d.transaction('kv', 'readonly').objectStore('kv').get(k);
+  r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); }); }
+async function idbDel(k) { const d = await idb(); return new Promise((res, rej) => {
+  const t = d.transaction('kv', 'readwrite'); t.objectStore('kv').delete(k);
+  t.oncomplete = res; t.onerror = () => rej(t.error); }); }
+
+/* ================= GIF89a ENCODER ================= */
+/* frames: array of {data:Uint8ClampedArray(RGBA), width, height}
+   delayCs: centiseconds between frames. returns Uint8Array.
+   palette: fixed 3-3-2 RGB (256 colors). crunchy on purpose. */
+function encodeGIF(frames, delayCs) {
+  // frames can be plain {data,width,height} objects, or functions that produce
+  // one when asked — lazy mode means a 70-frame chew never holds 70 frames at once.
+  const get = i => typeof frames[i] === 'function' ? frames[i]() : frames[i];
+  const first = get(0);
+  const W = first.width, H = first.height;
+  const out = [];
+  const push = (...b) => { for (const x of b) out.push(x & 0xFF); };
+  const push16 = v => { push(v & 0xFF, (v >> 8) & 0xFF); };
+
+  // header + logical screen descriptor
+  for (const ch of 'GIF89a') push(ch.charCodeAt(0));
+  push16(W); push16(H);
+  push(0xF7, 0, 0);                       // global table, 8-bit, 256 colors
+
+  // global color table: 3-3-2
+  for (let i = 0; i < 256; i++) {
+    const r = (i >> 5) & 7, g = (i >> 2) & 7, b = i & 3;
+    push(Math.round(r * 255 / 7), Math.round(g * 255 / 7), Math.round(b * 255 / 3));
+  }
+
+  // netscape loop-forever extension
+  push(0x21, 0xFF, 0x0B);
+  for (const ch of 'NETSCAPE2.0') push(ch.charCodeAt(0));
+  push(0x03, 0x01); push16(0); push(0x00);
+
+  for (let fi = 0; fi < frames.length; fi++) {
+    if (out.length > 10.5 * 1024 * 1024) throw new Error('past 10MB mid-encode. fewer frames. the shelf is only so big.');
+    const f = fi === 0 ? first : get(fi);
+    // quantize RGBA -> 3-3-2 indexes
+    const N = W * H, idxs = new Uint8Array(N), d = f.data;
+    for (let i = 0; i < N; i++) {
+      const o = i * 4;
+      idxs[i] = (d[o] & 0xE0) | ((d[o + 1] & 0xE0) >> 3) | (d[o + 2] >> 6);
+    }
+    // graphic control extension: disposal=1 (leave), delay, no transparency
+    push(0x21, 0xF9, 0x04, 0x04); push16(delayCs); push(0x00, 0x00);
+    // image descriptor
+    push(0x2C); push16(0); push16(0); push16(W); push16(H); push(0x00);
+    // LZW-compressed indexes
+    push(0x08);                            // min code size
+    lzw(idxs, 8, out);
+    push(0x00);                            // block terminator
+  }
+  push(0x3B);                              // trailer
+  return new Uint8Array(out);
+}
+/* GIF-variant LZW with variable code width + sub-block packaging */
+function lzw(pixels, minCode, out) {
+  const CLEAR = 1 << minCode, EOI = CLEAR + 1;
+  let dict = new Map(), next = EOI + 1, codeSize = minCode + 1;
+  let acc = 0, nbits = 0;
+  const block = [];
+  const emitByte = b => {
+    block.push(b);
+    if (block.length === 255) { out.push(255, ...block); block.length = 0; }
+  };
+  const emit = code => {
+    acc |= code << nbits;
+    nbits += codeSize;
+    while (nbits >= 8) { emitByte(acc & 0xFF); acc >>= 8; nbits -= 8; }
+  };
+  const reset = () => { dict = new Map(); next = EOI + 1; codeSize = minCode + 1; };
+  emit(CLEAR);
+  let prefix = pixels[0];
+  for (let i = 1; i < pixels.length; i++) {
+    const k = pixels[i];
+    const key = prefix * 256 + k;
+    if (dict.has(key)) { prefix = dict.get(key); continue; }
+    emit(prefix);
+    if (next < 4096) {
+      dict.set(key, next++);
+      if (next === (1 << codeSize) + 1 && codeSize < 12) codeSize++;
+    } else { emit(CLEAR); reset(); }
+    prefix = k;
+  }
+  emit(prefix);
+  emit(EOI);
+  if (nbits > 0) emitByte(acc & 0xFF);
+  if (block.length) out.push(block.length, ...block);
+}
+
+/* ================= reel ================= */
+let reel = [];   // {img: Image, url: dataURL}
+let W = 480, H = 360;
+const prev = $('preview'), pctx = prev.getContext('2d');
+let delayMs = 200, previewTimer = null, pi = 0;
+
+function reelInfo() {
+  $('reelinfo').textContent = reel.length
+    ? reel.length + ' frame(s), ' + W + '×' + H + (reel.length === 1 ? ' — one frame is a very short movie' : '')
+    : 'the reel is empty. feed it.';
+}
+function renderStrip() {
+  const s = $('strip');
+  s.innerHTML = '';
+  reel.forEach((f, i) => {
+    const el = document.createElement('div');
+    el.className = 'fr';
+    el.innerHTML = '<img src="' + f.url + '"><div class="frbtns">'
+      + '<button data-a="l" title="move left">&larr;</button>'
+      + '<button data-a="r" title="move right">&rarr;</button>'
+      + '<button data-a="x" title="delete">&times;</button></div>';
+    el.querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
+      if (b.dataset.a === 'x') reel.splice(i, 1);
+      if (b.dataset.a === 'l' && i > 0) [reel[i-1], reel[i]] = [reel[i], reel[i-1]];
+      if (b.dataset.a === 'r' && i < reel.length - 1) [reel[i+1], reel[i]] = [reel[i], reel[i+1]];
+      renderStrip();
+    }));
+    s.appendChild(el);
+  });
+  reelInfo();
+  restartPreview();
+}
+const REEL_MAX = 100;   // the reel holds 100. hollywood was built on less.
+function addFrameFromURL(url) {
+  return new Promise(resolve => {
+    if (reel.length >= REEL_MAX) { resolve('full'); return; }
+    const img = new Image();
+    img.onload = () => {
+      if (!reel.length) {
+        const MAX = 640;
+        const k = Math.min(1, MAX / Math.max(img.width, img.height));
+        W = Math.round(img.width * k); H = Math.round(img.height * k);
+        prev.width = W; prev.height = H;
+      }
+      reel.push({ img, url });
+      resolve();
+    };
+    img.onerror = () => resolve();
+    img.src = url;
+  });
+}
+function restartPreview() {
+  clearInterval(previewTimer);
+  pi = 0;
+  if (!reel.length) { pctx.clearRect(0, 0, prev.width, prev.height); return; }
+  const draw = () => {
+    const f = reel[pi % reel.length];
+    pctx.fillStyle = '#fff'; pctx.fillRect(0, 0, W, H);
+    pctx.drawImage(f.img, 0, 0, W, H);
+    pi++;
+  };
+  draw();
+  previewTimer = setInterval(draw, delayMs);
+}
+$('delay').addEventListener('input', e => {
+  delayMs = +e.target.value;
+  $('delayval').textContent = delayMs + 'ms';
+  restartPreview();
+});
+$('upbtn').addEventListener('click', () => $('upfile').click());
+$('upfile').addEventListener('change', async e => {
+  for (const f of e.target.files) {
+    const url = await new Promise(res => { const r = new FileReader(); r.onload = () => res(r.result); r.readAsDataURL(f); });
+    await addFrameFromURL(url);
+  }
+  e.target.value = '';
+  renderStrip();
+});
+$('clearreel').addEventListener('click', () => { reel = []; renderStrip(); });
+
+/* ================= the projection booth ================= */
+/* video -> frames, all in-browser. the video never leaves the device. */
+const vid = $('vid');
+let VMAX = 320;            // longest side of a chewed frame. 320 = crunchy, 480 = medium. there is no high.
+let vidURL = null, vidDur = 0;
+document.querySelectorAll('.szchip').forEach(chip => chip.addEventListener('click', () => {
+  if (chewing) return;   // no changing sizes mid-chew either
+  VMAX = +chip.dataset.px;
+  document.querySelectorAll('.szchip').forEach(c => c.classList.toggle('on', c === chip));
+}));
+
+function fmtS(s) { return s.toFixed(1) + 's'; }
+function boothLimits() {
+  $('vlen').max = Math.min(20, Math.max(0.5, vidDur)).toFixed(1);   // can't chew film that isn't there
+  const len = +$('vlen').value;
+  $('vstart').max = Math.max(0, vidDur - len).toFixed(1);
+  if (+$('vstart').value > +$('vstart').max) $('vstart').value = $('vstart').max;
+  $('vstartval').textContent = fmtS(+$('vstart').value);
+  $('vlenval').textContent = fmtS(len);
+  $('vfpsval').textContent = $('vfps').value;
+}
+function seekTo(t) {
+  return new Promise(resolve => {
+    let done = false;
+    const finish = () => { if (done) return; done = true;
+      vid.removeEventListener('seeked', onSeeked); clearTimeout(guard); resolve(); };
+    const guard = setTimeout(finish, 2000);   // some frames refuse to be found. move on.
+    const onSeeked = () => {
+      // 'seeked' means the seek finished, not that the frame is on screen yet.
+      // safari in particular will hand you the OLD frame if you grab it now.
+      // so: wait until the new frame is actually presented, or 250ms, whichever comes first.
+      const soft = setTimeout(finish, 250);
+      if (vid.requestVideoFrameCallback) vid.requestVideoFrameCallback(() => { clearTimeout(soft); finish(); });
+    };
+    vid.addEventListener('seeked', onSeeked);
+    vid.currentTime = t;
+  });
+}
+function ejectVideo() {
+  $('booth').style.display = 'none';
+  vid.removeAttribute('src'); vid.load();
+  if (vidURL) { URL.revokeObjectURL(vidURL); vidURL = null; }
+}
+$('vidbtn').addEventListener('click', () => $('vidfile').click());
+$('vidfile').addEventListener('change', async e => {
+  const f = e.target.files[0];
+  e.target.value = '';
+  if (!f) return;
+  ejectVideo();
+  vidURL = URL.createObjectURL(f);
+  vid.src = vidURL;
+  try {
+    await new Promise((res, rej) => {
+      vid.onloadedmetadata = res;
+      vid.onerror = () => rej(new Error('the booth spat this one out. try an mp4.'));
+    });
+    // some videos claim to be infinite. they are bluffing.
+    if (!isFinite(vid.duration)) {
+      vid.currentTime = 1e9;
+      await new Promise(r => { vid.ondurationchange = r; setTimeout(r, 2000); });
+      vid.currentTime = 0;
+    }
+    vidDur = isFinite(vid.duration) ? vid.duration : 0;
+    if (!vidDur) throw new Error('this video has no length. the booth is unsettled. try another.');
+    try { await vid.play(); vid.pause(); } catch (err) {}   // wake the decoder. iphones will not decode until asked politely.
+    if (!vid.videoWidth || !vid.videoHeight) throw new Error('sound but no picture. the booth projects pictures.');
+    $('booth').style.display = 'block';
+    boothLimits();
+    await seekTo(+$('vstart').value);
+    $('chewinfo').textContent = fmtS(vidDur) + ' of film. pick your moment.';
+    $('booth').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  } catch (err) { ejectVideo(); toast(err.message); }
+});
+$('vstart').addEventListener('input', () => { if (chewing) return; boothLimits(); seekTo(+$('vstart').value); });
+$('vlen').addEventListener('input', boothLimits);
+$('vfps').addEventListener('input', boothLimits);
+$('ejectbtn').addEventListener('click', () => { ejectVideo(); toast('film ejected. no questions asked.'); });
+let chewing = false;
+$('chewbtn').addEventListener('click', async function () {
+  if (!vidURL || chewing) return;
+  chewing = true;   // no ejecting mid-chew. the booth has rules.
+  this.disabled = true; this.textContent = 'CHEWING...';
+  $('ejectbtn').disabled = true; $('vidbtn').disabled = true;
+  try {
+    const start = +$('vstart').value, fps = +$('vfps').value;
+    const len = Math.min(+$('vlen').value, Math.max(0.5, vidDur - start));   // only chew film that exists
+    const n = Math.min(Math.max(2, Math.round(len * fps)), REEL_MAX - reel.length);   // the reel holds 100, total
+    if (n < 1) throw new Error('the reel is full. 100 frames. make the movie.');
+    const k = Math.min(1, VMAX / Math.max(vid.videoWidth, vid.videoHeight));
+    const vw = Math.max(2, Math.round(vid.videoWidth * k));
+    const vh = Math.max(2, Math.round(vid.videoHeight * k));
+    const cap = document.createElement('canvas');
+    cap.width = vw; cap.height = vh;
+    const cctx = cap.getContext('2d', { willReadFrequently: true });
+    for (let i = 0; i < n; i++) {
+      if (!vidURL) throw new Error('the film vanished mid-chew.');
+      await seekTo(Math.min(start + i / fps, vidDur - 0.05));   // never seek all the way to the end. the last frame is shy.
+      cctx.drawImage(vid, 0, 0, vw, vh);
+      await addFrameFromURL(cap.toDataURL('image/jpeg', 0.85));
+      $('chewinfo').textContent = 'chewing... ' + (i + 1) + '/' + n;
+    }
+    delayMs = Math.max(60, Math.round(100 / fps) * 10);   // snapped to the slider's 10ms steps (gifs think in centiseconds anyway)
+    $('delay').value = delayMs;
+    $('delayval').textContent = delayMs + 'ms';
+    renderStrip();
+    $('chewinfo').textContent = n + ' frames chewed. the reel has them now.';
+    toast('the booth chewed ' + n + ' frames. it is not sorry.');
+  } catch (err) { toast('the booth jammed: ' + err.message); }
+  chewing = false;
+  this.disabled = false; this.textContent = 'CHEW INTO FRAMES';
+  $('ejectbtn').disabled = false; $('vidbtn').disabled = false;
+});
+
+/* ================= make + ship ================= */
+let gifBlob = null, gifURL = null;
+$('makebtn').addEventListener('click', async function () {
+  if (!reel.length) { toast('the reel is empty. the machine refuses.'); return; }
+  this.disabled = true; this.textContent = 'ENCODING...';
+  await new Promise(r => setTimeout(r, 30));   // let the button repaint
+  try {
+    const work = document.createElement('canvas');
+    work.width = W; work.height = H;
+    const wctx = work.getContext('2d', { willReadFrequently: true });
+    // lazy: each frame is drawn + read only when the encoder asks for it
+    const frames = reel.map(f => () => {
+      wctx.fillStyle = '#ffffff'; wctx.fillRect(0, 0, W, H);
+      wctx.drawImage(f.img, 0, 0, W, H);
+      return wctx.getImageData(0, 0, W, H);
+    });
+    const bytes = encodeGIF(frames, Math.max(2, Math.round(delayMs / 10)));
+    gifBlob = new Blob([bytes], { type: 'image/gif' });
+    if (gifBlob.size > 10 * 1024 * 1024) {
+      toast('over 10MB. fewer frames or smaller images. the shelf is only so big.');
+      gifBlob = null;
+      $('result').classList.remove('show');   // don't leave yesterday's gif looking shippable
+      $('resultimg').removeAttribute('src');
+    }
+    else {
+      if (gifURL) URL.revokeObjectURL(gifURL);   // the old gif can let go now
+      gifURL = URL.createObjectURL(gifBlob);
+      $('resultimg').src = gifURL;
+      $('sizeinfo').textContent = (gifBlob.size / 1024).toFixed(0) + ' KB · ' + reel.length + ' frames · loops forever, as is tradition';
+      $('result').classList.add('show');
+      $('result').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      toast('the machine has produced. inspect it.');
+    }
+  } catch (err) { toast('the machine jammed: ' + err.message); }
+  this.disabled = false; this.textContent = 'MAKE THE GIF';
+});
+$('dlbtn').addEventListener('click', () => {
+  if (!gifBlob) return;
+  const a = document.createElement('a');
+  a.download = 'fort.gif';
+  a.href = gifURL;   // same blob the preview is showing. no new leaks.
+  a.click();
+});
+$('postbtn').addEventListener('click', async function () {
+  if (!gifBlob) return;
+  this.disabled = true; this.textContent = 'POSTING...';
+  try {
+    const buf = await gifBlob.arrayBuffer();
+    const up = await api('upload', { method: 'POST', body: buf, raw: true });
+    if (!(up.data && up.data.ok)) throw new Error(up.data && up.data.error || 'upload failed');
+    const r = await api('post', { method: 'POST', body: { type: 'gif', media_key: up.data.media_key, text: '' } });
+    if (!(r.data && r.data.ok)) throw new Error(r.data && r.data.error || 'post failed');
+    toast('posted. it loops on the wall now. forever.');
+  } catch (err) { toast(err.message); }
+  this.disabled = false; this.textContent = 'POST TO THE WALL';
+});
+
+/* ---------- receive handoff from paint / kitchen ---------- */
+(async () => {
+  const h = await idbGet('handoff_frames');
+  if (h && h.frames && h.frames.length) {
+    let took = 0;
+    for (const url of h.frames) {
+      if (await addFrameFromURL(url) === 'full') break;
+      took++;
+    }
+    await idbDel('handoff_frames');
+    renderStrip();
+    toast(took + ' frame(s) delivered from ' + (h.from === 'paint' ? 'the art room' : 'the kitchen') + '.'
+      + (took < h.frames.length ? ' the reel held the first 100 and politely declined the rest.' : ''));
+  } else {
+    renderStrip();
+  }
+})();
+</script>
+</body>
+</html>
